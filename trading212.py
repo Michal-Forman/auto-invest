@@ -1,0 +1,148 @@
+import logging
+from datetime import datetime
+import requests
+from requests.exceptions import HTTPError
+import base64
+
+class Trading212:
+    """API client for trading212"""
+
+    def __init__(self, api_id_key: str, api_private_key: str, demo: bool = True):
+        credentials = f"{api_id_key}:{api_private_key}"
+        encoded = base64.b64encode(credentials.encode()).decode()
+
+        self._auth_header = f"Basic {encoded}"
+        self.host = "https://live.trading212.com"
+
+    def _get(self, endpoint: str, params=None, api_version: str = "v0"):
+        return self._process_response(
+            requests.get(
+                f"{self.host}/api/{api_version}/{endpoint}",
+                headers={"Authorization": self._auth_header},
+                params=params,
+            )
+        )
+
+    def _post(self, endpoint: str, data: dict, api_version: str = "v0"):
+        return self._process_response(
+            requests.post(
+                f"{self.host}/api/{api_version}/{endpoint}",
+                headers={"Authorization": self._auth_header,
+                         "Content-Type": "application/json",},
+                json=data,
+            )
+        )
+
+    def _get_url(
+        self,
+        url,
+    ):
+        return self._process_response(
+            requests.get(
+                f"{self.host}/{url}",
+                headers={"Authorization": self._auth_header},
+            )
+        )
+
+    def _delete_url(
+        self,
+        url,
+    ):
+        return self._process_response(
+            requests.delete(
+                f"{self.host}/{url}",
+                headers={"Authorization": self._auth_header},
+            )
+        )
+
+    @staticmethod
+    def _process_response(resp):
+        try:
+            resp.raise_for_status()
+        except HTTPError as http_err:
+            logging.error(resp.text)
+            raise http_err
+
+        return resp.json()
+
+    def _process_items(self, response):
+        res = []
+        res += response["items"]
+        while next_page := response.get("nextPagePath"):
+            response = self._get_url(next_page)
+            res += response["items"]
+
+        return res
+
+    @staticmethod
+    def _validate_time_validity(time_validity: str):
+        if time_validity not in ["GTC", "DAY"]:
+            raise ValueError("time_validity must be one of GTC or DAY")
+
+    @staticmethod
+    def _validate_date(date_text: str):
+        try:
+            # Attempt to parse the date string
+            datetime.strptime(date_text, "%Y-%m-%dT%H:%M:%SZ")
+        except ValueError:
+            raise ValueError("Incorrect date format, should be YYYY-MM-DDTHH:MM:SSZ")
+    
+    @staticmethod
+    def _validate_dividend_cash_action(dividend_cash_action:str):
+        valid_actions = ["REINVEST", "TO_ACCOUNT_CASH"]
+        if dividend_cash_action not in valid_actions:
+            raise ValueError(f"dividendCashAction must be one of {valid_actions}")
+
+    @staticmethod
+    def _validate_icon(icon:str):
+        valid_icons = [
+            "Home", "PiggyBank", "Iceberg", "Airplane", "RV", "Unicorn", "Whale", "Convertable", "Family",
+            "Coins", "Education", "BillsAndCoins", "Bills", "Water","Wind", "Car", "Briefcase", "Medical",
+            "Landscape", "Child", "Vault", "Travel", "Cabin", "Apartments", "Burger", "Bus", "Energy", 
+            "Factory", "Global", "Leaf", "Materials", "Pill", "Ring", "Shipping", "Storefront", "Tech", "Umbrella"]
+
+        if icon not in valid_icons:
+            raise ValueError(f"icon must be one of {valid_icons}")
+    
+    @staticmethod
+    def _validate_instrument_shares(instrument_shares):
+        if not isinstance(instrument_shares, dict):
+            raise TypeError("instrument_shares must be a dictionary")
+        if not instrument_shares:
+            raise ValueError("instrument_shares cannot be empty")
+        for key, value in instrument_shares.items():
+            if not isinstance(key, str):
+                raise TypeError("Instrument identifiers must be strings")
+            if not isinstance(value, (int, float)):
+                raise TypeError("Number of shares must be a number")
+            if value <= 0:
+                raise ValueError("Number of shares must be greater than zero")
+
+    # --------------
+    # Public methods
+    # --------------
+
+    def portfolio(self):
+        """All open positions"""
+        return self._get("equity/portfolio")
+
+    def equity_order_place_market(
+        self,
+        ticker: str, 
+        quantity: int
+    ):
+        """Place market order"""
+
+        return self._post(
+            f"equity/orders/market", data={"quantity": quantity, "ticker": ticker}
+        )
+
+    def pie(self, id:int):
+        """Fetch Pie by ID"""
+        return self._get(f"/equity/pies/{id}")
+
+    def pies(self):
+        """Fetch all Pies"""
+        return self._get("equity/pies")
+
+
