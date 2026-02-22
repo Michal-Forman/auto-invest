@@ -6,6 +6,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    enviroment: Main
     steps:
 
       - name: checkout repo content
@@ -22,4 +23,15 @@ jobs:
           pip install -r requirements.txt
           
       - name: execute py script # run main.py
+        env:
+          T212_ID_KEY: ${{ secrets.T212_ID_KEY }}
+          T212_PRIVATE_KEY: ${{ secrets.T212_PRIVATE_KEY }}
+          COINMATE_CLIENT_ID: ${{ secrets.COINMATE_CLIENT_ID }}
+          COINMATE_PUBLIC_KEY: ${{ secrets.COINMATE_PUBLIC_KEY }}
+          COINMATE_PRIVATE_KEY: ${{ secrets.COINMATE_PRIVATE_KEY }}
+          PIE_ID: ${{ secrets.PIE_ID }}
+          T212_WEIGHT: ${{ secrets.T212_WEIGHT }}
+          BTC_WEIGHT: ${{ secrets.BTC_WEIGHT }}
+          INVEST_AMOUNT: ${{ secrets.INVEST_AMOUNT }}
+          INVEST_INTERVAL: ${{ secrets.INVEST_INTERVAL }}
         run: python main.py
