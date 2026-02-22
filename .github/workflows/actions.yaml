@@ -2,11 +2,10 @@ name: run main.py
 
 on:
   schedule:
-    - cron: '0 * * * *' 
+    - cron: '* * * * *' 
 jobs:
   build:
     runs-on: ubuntu-latest
-    enviroment: Main
     steps:
 
       - name: checkout repo content
