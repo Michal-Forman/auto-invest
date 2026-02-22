@@ -15,11 +15,11 @@ instruments = Instruments(t212=t212, portfolio_settings=settings.portfolio)
 executor = Executor(t212, coinmate, settings.portfolio)
 
 #----- Main program logic -----
+log.info("Starting auto-investment process")
 
 cash_distribution = instruments.distribute_cash()
-# executor.place_orders(cash_distribution)
+executor.place_orders(cash_distribution)
 
-log.info("Starting auto-investment process")
-print(cash_distribution)
+log.info("Auto-investment process completed successfully")
 
 

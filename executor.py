@@ -3,6 +3,7 @@ from coinmate import Coinmate
 from settings import PortfolioSettings
 from instruments import Instruments
 from instrument_data import INSTRUMENT_CURRENCIES
+from log import log
 
 from typing import Dict
 
@@ -14,13 +15,13 @@ class Executor:
         self.coinmate = coinmate
         self.portfolio_settings = portfolio_settings
 
-    def _place_btc_order(self, amount: float):
+    def _place_btc_order(self, amount: float) -> None:
         """Place a market order to buy BTC on Coinmate for the specified amount in CZK."""
         amount = round(amount, 2)  # Coinmate requires amounts to have at most 2 decimal places
         # Place the order on Coinmate
         self.coinmate.buy_instant(amount, "BTC_CZK")
 
-    def _place_t212_order(self, ticker: str, amount: float):
+    def _place_t212_order(self, ticker: str, amount: float) -> None:
         """Place a market order to buy the specified ticker on Trading212 for the specified amount in CZK."""
         instrument_currency: str = INSTRUMENT_CURRENCIES[ticker]
         if not instrument_currency:
@@ -42,6 +43,7 @@ class Executor:
                 self._place_btc_order(amount)
             else:
                 self._place_t212_order(ticker, amount)
+        log.info("All orders placed successfully")
 
 
 

@@ -7,6 +7,7 @@ from trading212 import Trading212
 from settings import PortfolioSettings
 from instrument_data import T212_TO_YF, INSTRUMENT_CAPS
 from typing import Dict
+from log import log
 
 class Instruments:
     def __init__(self, t212: Trading212, portfolio_settings: PortfolioSettings) -> None:
@@ -105,10 +106,10 @@ class Instruments:
 
         # Fallback if fast_info missing
         if btc_usd is None:
-            print("Warning: BTC-USD lastPrice not found in fast_info, falling back to history")
+            log.warn("Warning: BTC-USD lastPrice not found in fast_info, falling back to history")
             btc_usd = float(btc.history(period="1d", interval="1m")["Close"].iloc[-1])
         if usdczk is None:
-            print("Warning: USDCZK=X lastPrice not found in fast_info, falling back to history")
+            log.warn("Warning: USDCZK=X lastPrice not found in fast_info, falling back to history")
             usdczk = float(fx.history(period="1d", interval="1m")["Close"].iloc[-1])
 
         return float(btc_usd) * float(usdczk)
@@ -154,7 +155,6 @@ class Instruments:
 
 
         adjusted_value = value * (100 / (100 - drop))
-        print(f"{ticker} previous value: {value} adjusted_value: {adjusted_value} drop: {drop}%")
         return adjusted_value
 
 
@@ -239,34 +239,8 @@ class Instruments:
 
 
 if __name__ == "__main__":
+    pass
 
-    """    print("ATHs")
-    for ticker in T212_TO_YF.keys():
-        try:
-            ath = Instruments.get_ath(ticker)
-            print(f"{ticker}: {ath}")
-        except Exception as e:
-            print(f"{ticker}: ERROR -> {e}")
-
-    print("Current Prices")
-    for ticker in T212_TO_YF.keys():
-        try:
-            ath = Instruments.get_current_price(ticker)
-            print(f"{ticker}: {ath}")
-        except Exception as e:
-            print(f"{ticker}: ERROR -> {e}")
-
-    print("BTC Price in CZK")
-    print(Instruments._get_btc_price())
-    print("BTC ATH in CZK")
-    print(Instruments._get_btc_ath())
-"""
-
-    print("USD", Instruments.get_fx_rate_to_czk("USD"))
-    print("eur", Instruments.get_fx_rate_to_czk("EUR"))
-    print("czk", Instruments.get_fx_rate_to_czk("CZK"))
-    print("gbp", Instruments.get_fx_rate_to_czk("GBP"))
-    print("gbx", Instruments.get_fx_rate_to_czk("GBX"))
 
 
 
