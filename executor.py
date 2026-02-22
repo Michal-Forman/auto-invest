@@ -14,15 +14,14 @@ class Executor:
         self.coinmate = coinmate
         self.portfolio_settings = portfolio_settings
 
-    def test(self):
-        print("Testing Executor with default ratios...")
-
     def _place_btc_order(self, amount: float):
+        """Place a market order to buy BTC on Coinmate for the specified amount in CZK."""
         amount = round(amount, 2)  # Coinmate requires amounts to have at most 2 decimal places
         # Place the order on Coinmate
         self.coinmate.buy_instant(amount, "BTC_CZK")
 
     def _place_t212_order(self, ticker: str, amount: float):
+        """Place a market order to buy the specified ticker on Trading212 for the specified amount in CZK."""
         instrument_currency: str = INSTRUMENT_CURRENCIES[ticker]
         if not instrument_currency:
             raise ValueError(f"Unknown currency for ticker {ticker}")
@@ -32,7 +31,6 @@ class Executor:
         amount_in_shares = amount_in_correct_currency / current_price
 
         # Place the order
-
         self.t212.equity_order_place_market(ticker, round(amount_in_shares, 3))
 
 

@@ -21,6 +21,7 @@ class Coinmate:
         self._last_nonce = 0
 
     def _nonce(self) -> str:
+        """Generate a nonce that is always increasing. Coinmate requires a nonce for private endpoints, and it must be greater than the previous one."""
         # docs recommend unix timestamps; ms is standard
         n = int(time.time() * 1000)
         if n <= self._last_nonce:
@@ -29,12 +30,14 @@ class Coinmate:
         return str(n)
 
     def _signature(self, nonce: str) -> str:
+        """Generate the HMAC signature for private API requests. Coinmate requires a signature that is an HMAC-SHA256 of the concatenation of nonce, clientId, and publicApiKey, using the private key as the HMAC key."""
         # signatureInput = nonce + clientId + publicApiKey
         msg = f"{nonce}{self.client_id}{self.public_key}".encode("utf-8")
         key = self.private_key.encode("utf-8")
         return hmac.new(key, msg, digestmod=hashlib.sha256).hexdigest().upper()
 
     def _private_payload(self, extra: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Generate the payload for private API requests, including the required authentication parameters."""
         nonce = self._nonce()
         payload: Dict[str, Any] = {
             "clientId": self.client_id,
@@ -47,12 +50,14 @@ class Coinmate:
         return payload
 
     def _get(self, path: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Helper method for GET requests to the Coinmate API."""
         url = f"{self.BASE_URL}{path}"
         resp = self.session.get(url, params=params, timeout=self.timeout_s)
         resp.raise_for_status()
         return resp.json()
 
     def _post(self, path: str, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Helper method for POST requests to the Coinmate API. Coinmate expects form-encoded data for POST requests."""
         url = f"{self.BASE_URL}{path}"
         resp = self.session.post(url, data=data, timeout=self.timeout_s)  # Coinmate uses form params
         resp.raise_for_status()
@@ -74,6 +79,7 @@ class Coinmate:
     # ---------- Private endpoints ----------
 
     def balances(self) -> Dict[str, Any]:
+        """Get account balances. POST /balances with authentication parameters."""
         return self._post("/balances", data=self._private_payload())
 
     def buy_instant(self, total: float, currency_pair: str = "BTC_CZK", client_order_id: Optional[int] = None) -> Dict[str, Any]:
