@@ -10,3 +10,16 @@ T212_TO_YF = {
     "RBOTl_EQ": "RBOT.L",
     "BTC": "BTC-USD",
 }
+
+INSTRUMENT_CAPS = {
+    "VWCEd_EQ": "none",
+    "CSPX_EQ": "none",
+    "EMIMl_EQ": "none",
+    "SC0Ud_EQ": "soft",
+    "XNAQl_EQ": "none",
+    "VERGl_EQ": "none",
+    "BX_US_EQ": "soft",
+    "KKR_US_EQ": "soft",
+    "RBOTl_EQ": "none",
+    "BTC": "hard",
+}

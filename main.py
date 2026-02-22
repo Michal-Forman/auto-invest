@@ -13,7 +13,8 @@ instruments = Instruments(t212=t212, portfolio_settings=portfolio_settings)
 # portfolio = t212_client.portfolio()
 # print(t212.pie(3857693))
 
-print(instruments.get_adjusted_ratios())
+# print(instruments.get_adjusted_ratios())
+print(instruments.distribute_cash())
 
 
 

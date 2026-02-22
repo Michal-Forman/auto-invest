@@ -5,7 +5,7 @@ import numpy as np
 
 from trading212 import Trading212
 from settings import PortfolioSettings
-from ticker_map import T212_TO_YF
+from instrument_data import T212_TO_YF, INSTRUMENT_CAPS
 from typing import Dict
 
 class Instruments:
@@ -63,7 +63,7 @@ class Instruments:
     @classmethod
     def get_ath(cls, t212_ticker: str) -> float:
         if t212_ticker == "BTC":
-            return cls.get_btc_ath()
+            return cls._get_btc_ath()
         symbol = cls.get_yahoo_symbol(t212_ticker)
         ticker = yf.Ticker(symbol)
 
@@ -80,7 +80,7 @@ class Instruments:
         Returns latest close price for a given T212 ticker.
         """
         if t212_ticker == "BTC":
-            return cls.get_btc_price()
+            return cls._get_btc_price()
 
         symbol = cls.get_yahoo_symbol(t212_ticker)
 
@@ -93,7 +93,7 @@ class Instruments:
         return float(hist["Close"].iloc[-1])
 
     @staticmethod
-    def get_btc_price() -> float:
+    def _get_btc_price() -> float:
         btc = yf.Ticker("BTC-USD")
         fx = yf.Ticker("USDCZK=X")
 
@@ -110,8 +110,9 @@ class Instruments:
 
         return float(btc_usd) * float(usdczk)
 
+
     @staticmethod
-    def get_btc_ath() -> float:
+    def _get_btc_ath() -> float:
         btc = yf.Ticker("BTC-USD").history(period="max")[["Close"]]
         btc.columns = ["btc_usd"]
         fx  = yf.Ticker("USDCZK=X").history(period="max")[["Close"]]
@@ -135,6 +136,18 @@ class Instruments:
         ath: float = cls.get_ath(ticker)
         current: float = cls.get_current_price(ticker)
         drop = (ath - current) / ath * 100
+
+        cap_type = INSTRUMENT_CAPS.get(ticker)
+        if cap_type == "soft":
+            drop = cls._soft_cap(drop)
+        elif cap_type == "hard":
+            drop = cls._hard_cap(drop)
+        elif cap_type == "none":
+            pass
+        else:
+            raise ValueError(f"Invalid cap type for {ticker}: {cap_type}")
+
+
         adjusted_value = value * (100 / (100 - drop))
         print(f"{ticker} previous value: {value} adjusted_value: {adjusted_value} drop: {drop}%")
         return adjusted_value
@@ -145,6 +158,51 @@ class Instruments:
         ratios = self.get_default_ratios()
         adjusted_ratios = {ticker: self._adjust_ratio(ticker, value) for ticker, value in ratios.items()}
         return adjusted_ratios
+    
+    @staticmethod
+    def _soft_cap(drop: float) -> float:
+        if drop >= 75:
+            return 75
+        else:
+            return drop
+
+    @classmethod
+    def _hard_cap(cls, drop: float) -> float:
+        if drop >= 90:
+            return 0
+        else:
+            return cls._soft_cap(drop)
+
+    def distribute_cash(self) -> Dict[str, float]:
+        adjusted_ratios = self.get_adjusted_ratios()
+        total = sum(adjusted_ratios.values())
+        if total == 0:
+            raise ValueError("Total adjusted ratio is zero, cannot distribute cash")
+        normalized_ratios = {ticker: value / total for ticker, value in adjusted_ratios.items()}
+        distribution = {ticker: self.portfolio_settings.invest_amount * ratio for ticker, ratio in normalized_ratios.items()}
+        validated_distribution = self._validate_cash_distribution(distribution)
+        return validated_distribution
+
+    def _validate_cash_distribution(self, distribution) -> Dict[str, float]:
+        if abs(sum(distribution.values()) - self.portfolio_settings.invest_amount) > 1e-6:
+            raise ValueError(f"Cash distribution does not sum to invest amount: {distribution} (total: {sum(distribution.values())})")
+        instruments_to_delete = []
+        for ticker, amount in distribution.items():
+            minimum_investment = 25
+            if amount < minimum_investment:
+                if amount <= minimum_investment / 2:
+                    amount = 0.0
+                else:
+                    amount = minimum_investment
+
+                if amount == 0.0:
+                    instruments_to_delete.append(ticker)
+        for ticker in instruments_to_delete:
+            del distribution[ticker]
+
+        return distribution
+
+
 
 if __name__ == "__main__":
 
@@ -165,9 +223,9 @@ if __name__ == "__main__":
             print(f"{ticker}: ERROR -> {e}")
 
     print("BTC Price in CZK")
-    print(Instruments.get_btc_price())
+    print(Instruments._get_btc_price())
     print("BTC ATH in CZK")
-    print(Instruments.get_btc_ath())
+    print(Instruments._get_btc_ath())
 
 
         

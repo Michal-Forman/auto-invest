@@ -8,14 +8,18 @@ load_dotenv()
 class PortfolioSettings:
     pie_id: int
     t212_weight: int
-    btc_weight: int
+    btc_weight: float
+    invest_amount: float
+    invest_interval: str
 
     @classmethod
     def from_env(cls) -> "PortfolioSettings":
         return cls(
             pie_id=int(os.environ["PIE_ID"]),
             t212_weight=int(os.environ["T212_WEIGHT"]),
-            btc_weight=int(os.environ["BTC_WEIGHT"]),
+            btc_weight=float(os.environ["BTC_WEIGHT"]),
+            invest_amount=float(os.environ["INVEST_AMOUNT"]),
+            invest_interval=os.getenv("INVEST_INTERVAL", "monthly"),
         )
 
 @dataclass(frozen=True)
