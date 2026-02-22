@@ -31,10 +31,4 @@ jobs:
           COINMATE_CLIENT_ID: ${{ secrets.COINMATE_CLIENT_ID }}
           COINMATE_PUBLIC_KEY: ${{ secrets.COINMATE_PUBLIC_KEY }}
           COINMATE_PRIVATE_KEY: ${{ secrets.COINMATE_PRIVATE_KEY }}
-          PIE_ID: ${{ vars.PIE_ID }}
-          T212_WEIGHT: ${{ vars.T212_WEIGHT }}
-          BTC_WEIGHT: ${{ vars.BTC_WEIGHT }}
-          INVEST_AMOUNT: ${{ vars.INVEST_AMOUNT }}
-          INVEST_INTERVAL: ${{ vars.INVEST_INTERVAL }}
-          LOG_LEVEL: ${{ vars.LOG_LEVEL }}
         run: python main.py
