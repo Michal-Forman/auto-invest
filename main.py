@@ -4,6 +4,8 @@ from settings import settings
 from instruments import Instruments
 from executor import Executor
 from coinmate import Coinmate
+from log import log
+
 
 #----- Initialization -----
 
@@ -17,7 +19,7 @@ executor = Executor(t212, coinmate, settings.portfolio)
 cash_distribution = instruments.distribute_cash()
 # executor.place_orders(cash_distribution)
 
+log.info("Starting auto-investment process")
 print(cash_distribution)
-
 
 
