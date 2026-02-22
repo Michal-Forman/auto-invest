@@ -26,6 +26,9 @@ class PortfolioSettings:
 class Settings:
     t212_id_key: str
     t212_private_key: str
+    coinmate_client_id: int
+    coinmate_public_key: str
+    coinmate_private_key: str
     portfolio: PortfolioSettings
 
     @classmethod
@@ -34,6 +37,9 @@ class Settings:
             t212_id_key=os.environ["T212_ID_KEY"],
             t212_private_key=os.environ["T212_PRIVATE_KEY"],
             portfolio=PortfolioSettings.from_env(),
+            coinmate_client_id=int(os.environ["COINMATE_CLIENT_ID"]),
+            coinmate_public_key=os.environ["COINMATE_PUBLIC_KEY"],
+            coinmate_private_key=os.environ["COINMATE_PRIVATE_KEY"],
         )
 
 settings = Settings.from_env()

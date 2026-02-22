@@ -23,3 +23,17 @@ INSTRUMENT_CAPS = {
     "RBOTl_EQ": "none",
     "BTC": "hard",
 }
+
+INSTRUMENT_CURRENCIES = {
+    "VWCEd_EQ": "EUR",
+    "CSPX_EQ": "USD",
+    "EMIMl_EQ": "GBX",
+    "SC0Ud_EQ": "EUR",
+    "XNAQl_EQ": "GBP",
+    "VERGl_EQ": "GBP",
+    "BX_US_EQ": "USD",
+    "KKR_US_EQ": "USD",
+    "RBOTl_EQ": "USD",
+    "BTC": "CZK",
+}
+

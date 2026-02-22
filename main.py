@@ -1,21 +1,23 @@
 
 from trading212 import Trading212
-from settings import settings, portfolio_settings
+from settings import settings
 from instruments import Instruments
+from executor import Executor
+from coinmate import Coinmate
 
+#----- Initialization -----
 
 t212 = Trading212(api_id_key=settings.t212_id_key, api_private_key=settings.t212_private_key, demo=False)
-instruments = Instruments(t212=t212, portfolio_settings=portfolio_settings)
+coinmate = Coinmate(settings.coinmate_client_id, settings.coinmate_public_key, settings.coinmate_private_key)
+instruments = Instruments(t212=t212, portfolio_settings=settings.portfolio)
+executor = Executor(t212, coinmate, settings.portfolio)
 
-# print(instruments.get_default_ratios())
-# print(instruments.get_t212_ratios())
+#----- Main program logic -----
 
-# portfolio = t212_client.portfolio()
-# print(t212.pie(3857693))
+cash_distribution = instruments.distribute_cash()
+# executor.place_orders(cash_distribution)
 
-# print(instruments.get_adjusted_ratios())
-print(instruments.distribute_cash())
-
+print(cash_distribution)
 
 
 

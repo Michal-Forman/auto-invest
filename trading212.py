@@ -3,6 +3,7 @@ from datetime import datetime
 import requests
 from requests.exceptions import HTTPError
 import base64
+from typing import Optional
 
 class Trading212:
     """API client for trading212"""
@@ -129,7 +130,7 @@ class Trading212:
     def equity_order_place_market(
         self,
         ticker: str, 
-        quantity: int
+        quantity: float
     ):
         """Place market order"""
 
@@ -145,4 +146,31 @@ class Trading212:
         """Fetch all Pies"""
         return self._get("equity/pies")
 
+    def positions(self, ticker: Optional[str] = None):
+            """
+            Fetch open positions. If ticker is provided, filters by ticker.
+            """
+            params = {"ticker": ticker.strip()} if ticker else None
+            return self._get("equity/positions", params=params)
 
+    def get_current_price(self, ticker: str) -> float:
+        """
+        Returns currentPrice for an instrument you currently hold (open position).
+        """
+        ticker = ticker.strip()
+        positions = self.positions(ticker=ticker)
+
+        if not positions:
+            raise ValueError(
+                f"No open position for {ticker}. "
+                "T212 API provides currentPrice via /equity/positions only for open positions."
+            )
+
+        return float(positions[0]["currentPrice"])
+
+
+if __name__ == "__main__":
+    from settings import settings
+
+    t212 = Trading212(api_id_key=settings.t212_id_key, api_private_key=settings.t212_private_key, demo=False)
+    print(t212.get_current_price("CSPX_EQ"))

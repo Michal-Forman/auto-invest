@@ -202,11 +202,34 @@ class Instruments:
 
         return distribution
 
+    @staticmethod
+    def get_fx_rate_to_czk(currency: str) -> float:
+        if currency == "CZK":
+            return 1.0
+        if currency == "GBX":
+            pair = f"GBPCZK=X"
+            t = yf.Ticker(pair)
+            hist = t.history(period="5d")
+
+            if hist.empty:
+                raise ValueError(f"No price data for {pair}")
+
+            return float(hist["Close"].iloc[-1]) / 100.0
+        
+        pair = f"{currency}CZK=X"
+        t = yf.Ticker(pair)
+        hist = t.history(period="5d")
+
+        if hist.empty:
+            raise ValueError(f"No price data for {pair}")
+
+        return float(hist["Close"].iloc[-1])
+            
 
 
 if __name__ == "__main__":
 
-    print("ATHs")
+    """    print("ATHs")
     for ticker in T212_TO_YF.keys():
         try:
             ath = Instruments.get_ath(ticker)
@@ -226,6 +249,14 @@ if __name__ == "__main__":
     print(Instruments._get_btc_price())
     print("BTC ATH in CZK")
     print(Instruments._get_btc_ath())
+"""
+
+    print("USD", Instruments.get_fx_rate_to_czk("USD"))
+    print("eur", Instruments.get_fx_rate_to_czk("EUR"))
+    print("czk", Instruments.get_fx_rate_to_czk("CZK"))
+    print("gbp", Instruments.get_fx_rate_to_czk("GBP"))
+    print("gbx", Instruments.get_fx_rate_to_czk("GBX"))
+
 
 
         
