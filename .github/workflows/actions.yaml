@@ -7,7 +7,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    enviroment: Main
+    environment: Main
 
     steps:
 
