@@ -3,7 +3,7 @@ name: run main.py
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 0 1 * *' # first day of every month 
+    - cron: '0 9 * * 1' #  every monday at 9:00 UTC
 jobs:
   build:
     runs-on: ubuntu-latest
