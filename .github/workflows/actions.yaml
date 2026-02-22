@@ -26,9 +26,18 @@ jobs:
           
       - name: execute py script # run main.py
         env:
+          # secrets
           T212_ID_KEY: ${{ secrets.T212_ID_KEY }}
           T212_PRIVATE_KEY: ${{ secrets.T212_PRIVATE_KEY }}
           COINMATE_CLIENT_ID: ${{ secrets.COINMATE_CLIENT_ID }}
           COINMATE_PUBLIC_KEY: ${{ secrets.COINMATE_PUBLIC_KEY }}
           COINMATE_PRIVATE_KEY: ${{ secrets.COINMATE_PRIVATE_KEY }}
+
+          # environment variables
+          PIE_ID: ${{ vars.PIE_ID }}
+          T212_WEIGHT: ${{ vars.T212_WEIGHT }}
+          BTC_WEIGHT: ${{ vars.BTC_WEIGHT }}
+          INVEST_AMOUNT: ${{ vars.INVEST_AMOUNT }}
+          INVEST_INTERVAL: ${{ vars.INVEST_INTERVAL }}
+          LOG_LEVEL: ${{ vars.LOG_LEVEL }}
         run: python main.py
