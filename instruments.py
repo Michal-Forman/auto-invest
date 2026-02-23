@@ -83,7 +83,7 @@ class Instruments:
         Returns latest close price for a given T212 ticker.
         """
         if t212_ticker == "BTC":
-            return cls._get_btc_price()
+            return cls.get_btc_price()
 
         symbol = cls.get_yahoo_symbol(t212_ticker)
 
@@ -96,7 +96,7 @@ class Instruments:
         return float(hist["Close"].iloc[-1])
 
     @staticmethod
-    def _get_btc_price() -> float:
+    def get_btc_price() -> float:
         """Get the current price of BTC in CZK by multiplying the BTC-USD price with the USDCZK exchange rate."""
         btc = yf.Ticker("BTC-USD")
         fx = yf.Ticker("USDCZK=X")
