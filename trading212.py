@@ -4,6 +4,7 @@ import requests
 from requests.exceptions import HTTPError
 import base64
 from typing import Optional, Dict, Any
+from log import log
 
 class Trading212:
     """API client for trading212"""
@@ -77,7 +78,8 @@ class Trading212:
         try:
             resp.raise_for_status()
         except HTTPError as http_err:
-            logging.error(resp.text)
+            log.error(f"T212 response error: {http_err}")
+
             return {
                 "req": req_data,
                 "res": resp.json() if resp else None,
@@ -158,7 +160,7 @@ class Trading212:
         return {
                 "req": req,
                 "res": res,
-                "err": err
+                "err": err,
         }
 
     def pie(self, id:int):

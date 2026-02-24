@@ -21,10 +21,19 @@ class Executor:
         """Place a market order to buy BTC on Coinmate for the specified amount in CZK."""
         amount = round(amount, 2)  # Coinmate requires amounts to have at most 2 decimal places
         # Place the order on Coinmate
-        self.coinmate.buy_instant(amount, "BTC_CZK")
+        response_data = self.coinmate.buy_instant(amount, "BTC_CZK")
+        req = response_data.get("req")
+        res = response_data.get("res")
+        err = response_data.get("err")
+
+        print(f"Response data: req: {req} res {res} err {err} End of response data")
+
+        if res and res["error"] == False:
+            status = "SUBMITTED"
+        else:
+            status = "FAILED"
 
         # Write the order in database
-
         order = Order(
             run_id=settings.run_id,
             exchange="COINMATE",
@@ -39,10 +48,20 @@ class Executor:
             total=round(amount, 2),
             total_czk=round(amount, 2),
             extended_hours=False,
-            submitted_at=datetime.utcnow()
+            submitted_at=datetime.utcnow(),
+            status=status,
+            external_order_id=str(res["data"]) if res else None,
+            request=req,
+            response=res,
+            error=err
         )
 
-        inserted = order.post_to_db()
+        try:
+            inserted = order.post_to_db()
+        except Exception as e:
+            log.error(f"Failed to insert order into database: {e}")
+            inserted = False
+
 
         if inserted:
             log.info(f"Order successfully placed and recorded in database: BTC")
@@ -103,8 +122,7 @@ class Executor:
             response=res,
             error=str(error),
             external_order_id=str(res.get("id")) if res else None,
-            filled_quantity=res.get("quantity") if res else None,
-            filled_at=datetime.fromisoformat(res.get("createdAt")) if res else None,
+            filled_quantity=res.get("filledQuantity") if res else None,
         )
 
         try:
@@ -139,8 +157,8 @@ if __name__ == "__main__":
     instruments = Instruments(t212=t212, portfolio_settings=settings.portfolio)
     executor = Executor(t212, coinmate, settings.portfolio)
 
-    executor._place_t212_order("VWCEd_EQ", 25.0)
-    # executor._place_btc_order(50.0)
+    # executor._place_t212_order("VWCEd_EQ", 25.0)
+    # executor._place_btc_order(21) # Fails if its less than 50
 
     # cash_distribution = instruments.distribute_cash()
     # executor.place_orders(cash_distribution)
