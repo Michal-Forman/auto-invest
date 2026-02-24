@@ -3,7 +3,7 @@ from datetime import datetime
 import requests
 from requests.exceptions import HTTPError
 import base64
-from typing import Optional
+from typing import Optional, Dict, Any
 
 class Trading212:
     """API client for trading212"""
@@ -24,15 +24,23 @@ class Trading212:
             )
         )
 
-    def _post(self, endpoint: str, data: dict, api_version: str = "v0"):
-        return self._process_response(
-            requests.post(
-                f"{self.host}/api/{api_version}/{endpoint}",
-                headers={"Authorization": self._auth_header,
-                         "Content-Type": "application/json",},
-                json=data,
-            )
-        )
+    def _post(self, endpoint: str, data: dict, api_version: str = "v0") -> Dict[str, Any]:
+        endpoint = f"{self.host}/api/{api_version}/{endpoint}"
+        headers= {
+                "Authorization": self._auth_header,
+                "Content-Type": "application/json",
+        }
+
+        response_data = self._process_response(requests.post(endpoint, headers=headers, json=data))
+        req = response_data.get("req")
+        res = response_data.get("res")
+        err = response_data.get("err")
+
+        return {
+                "req": req,
+                "res": res,
+                "err": err,
+                }
 
     def _get_url(
         self,
@@ -57,23 +65,30 @@ class Trading212:
         )
 
     @staticmethod
-    def _process_response(resp):
+    def _process_response(resp) -> Dict[str, Any]:
+
+        req_data = {
+        "method": resp.request.method,
+        "url": resp.request.url,
+        "headers": list(resp.request.headers.keys()),
+        "body": resp.request.body.decode() if resp.request.body else None,
+        }
+
         try:
             resp.raise_for_status()
         except HTTPError as http_err:
             logging.error(resp.text)
-            raise http_err
+            return {
+                "req": req_data,
+                "res": resp.json() if resp else None,
+                "err": http_err
+            }
 
-        return resp.json()
-
-    def _process_items(self, response):
-        res = []
-        res += response["items"]
-        while next_page := response.get("nextPagePath"):
-            response = self._get_url(next_page)
-            res += response["items"]
-
-        return res
+        return {
+                "req": req_data,
+                "res": resp.json(),
+                "err": None
+                } 
 
     @staticmethod
     def _validate_time_validity(time_validity: str):
@@ -131,12 +146,20 @@ class Trading212:
         self,
         ticker: str, 
         quantity: float
-    ):
+        ) -> Dict[str, Any]:
+
         """Place market order"""
 
-        return self._post(
-            f"equity/orders/market", data={"quantity": quantity, "ticker": ticker}
-        )
+        response_data = self._post(f"equity/orders/market", data={"quantity": quantity, "ticker": ticker})
+        req = response_data.get("req")
+        res = response_data.get("res")
+        err = response_data.get("err")
+
+        return {
+                "req": req,
+                "res": res,
+                "err": err
+        }
 
     def pie(self, id:int):
         """Fetch Pie by ID"""

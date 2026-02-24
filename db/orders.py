@@ -17,14 +17,12 @@ Exchange = Literal["T212", "COINMATE"]
 OrderType = Literal["MARKET", "LIMIT", "INSTANT", "QUICK"]
 InstrumentType = Literal["STOCK", "ETF", "CRYPTO"]
 Status = Literal[
-    "CREATED",
     "SUBMITTED",
-    "PENDING",
     "FILLED",
     "PARTIALLY_FILLED",
     "CANCELLED",
-    "REJECTED",
     "FAILED",
+    "UNKNOWN",
 ]
 
 
@@ -53,7 +51,7 @@ class Order(BaseModel):
     extended_hours: bool
 
     # --- State ---
-    status: Status = "CREATED"
+    status: Status = "UNKNOWN"
     external_order_id: Optional[str] = None
 
     submitted_at: datetime

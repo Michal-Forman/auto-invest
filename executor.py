@@ -61,7 +61,26 @@ class Executor:
         amount_in_shares = amount_in_correct_currency / current_price
 
         # Place the order
-        self.t212.equity_order_place_market(ticker, round(amount_in_shares, 3))
+        response_data = self.t212.equity_order_place_market(ticker, round(amount_in_shares, 3))
+        req = response_data.get("req")
+        res = response_data.get("res")
+        error = response_data.get("err")
+
+        print(res)
+
+        if res is not None:
+            if res["filledQuantity"] == res["quantity"]:
+                status = "FILLED"
+            elif res["filledQuantity"] > 0:
+                status = "PARTIALLY_FILLED"
+            elif res["filledQuantity"] == 0:
+                status = "SUBMITTED"
+            else:
+                status = "UNKNOWN"
+                log.warning(f"Can't get order status for some reason. Not a big runtime risk, but it's not good")
+        else:
+            status = "FAILED"
+
 
         # Write the order in database
         order = Order(
@@ -77,11 +96,23 @@ class Executor:
             quantity=round(amount_in_shares, 8),
             total=round(amount_in_correct_currency, 2),
             total_czk=round(amount, 2),
-            extended_hours=False,
-            submitted_at=datetime.utcnow()
+            extended_hours=res.get("extendedHours") if res else False,
+            status=status,
+            submitted_at=datetime.utcnow(),
+            request=req,
+            response=res,
+            error=str(error),
+            external_order_id=str(res.get("id")) if res else None,
+            filled_quantity=res.get("quantity") if res else None,
+            filled_at=datetime.fromisoformat(res.get("createdAt")) if res else None,
         )
 
-        inserted = order.post_to_db()
+        try:
+            inserted = order.post_to_db()
+        except Exception as e:
+            log.error(f"Failed to insert order into database: {e}")
+            inserted = False
+
 
         if inserted:
             log.info(f"Order successfully placed and recorded in database: {ticker}")
@@ -108,12 +139,11 @@ if __name__ == "__main__":
     instruments = Instruments(t212=t212, portfolio_settings=settings.portfolio)
     executor = Executor(t212, coinmate, settings.portfolio)
 
-    # executor._place_t212_order("VWCEd_EQ", 100.0)
-    executor._place_btc_order(50.0)
+    executor._place_t212_order("VWCEd_EQ", 25.0)
+    # executor._place_btc_order(50.0)
 
     # cash_distribution = instruments.distribute_cash()
     # executor.place_orders(cash_distribution)
 
-    # executor._place_btc_order(100.0, "test_run_id")
 
 
