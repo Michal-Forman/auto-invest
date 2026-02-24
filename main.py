@@ -19,10 +19,8 @@ executor = Executor(t212, coinmate, settings.portfolio)
 
 log.info("Starting auto-investment process")
 
-run_id: str = generate_uuid()
-
 cash_distribution = instruments.distribute_cash()
-executor.place_orders(cash_distribution, run_id)
+executor.place_orders(cash_distribution)
 
 log.info("Auto-investment process completed successfully")
 

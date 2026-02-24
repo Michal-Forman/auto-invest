@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from dotenv import load_dotenv
 import os
+from utils import generate_uuid
 
 load_dotenv()
 
@@ -31,10 +32,12 @@ class Settings:
     coinmate_private_key: str
     supabase_url: str
     supabase_key: str
+    run_id: str
     portfolio: PortfolioSettings
 
     @classmethod
     def from_env(cls) -> "Settings":
+        run_id = os.getenv("RUN_ID") or generate_uuid()
         return cls(
             t212_id_key=os.environ["T212_ID_KEY"],
             t212_private_key=os.environ["T212_PRIVATE_KEY"],
@@ -44,6 +47,7 @@ class Settings:
             coinmate_private_key=os.environ["COINMATE_PRIVATE_KEY"],
             supabase_url=os.environ["SUPABASE_URL"],
             supabase_key=os.environ["SUPABASE_SERVICE_ROLE_KEY"],
+            run_id=run_id,
         )
 
 settings = Settings.from_env()

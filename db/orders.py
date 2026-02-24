@@ -156,7 +156,7 @@ if __name__ == "__main__":
 
     try:
         order = Order(
-            run_id="test_run",
+            run_id="test",
             exchange="T212",
             instrument_type="ETF",
             t212_ticker="CSPX_EQ",

@@ -17,7 +17,7 @@ class Executor:
         self.coinmate = coinmate
         self.portfolio_settings = portfolio_settings
 
-    def _place_btc_order(self, amount: float, run_id: str) -> None:
+    def _place_btc_order(self, amount: float) -> None:
         """Place a market order to buy BTC on Coinmate for the specified amount in CZK."""
         amount = round(amount, 2)  # Coinmate requires amounts to have at most 2 decimal places
         # Place the order on Coinmate
@@ -26,7 +26,7 @@ class Executor:
         # Write the order in database
 
         order = Order(
-            run_id=run_id,
+            run_id=settings.run_id,
             exchange="COINMATE",
             instrument_type="CRYPTO",
             t212_ticker="BTC",
@@ -50,7 +50,7 @@ class Executor:
             log.error("Order already exists (idempotency triggered) or failed to insert")
 
 
-    def _place_t212_order(self, ticker: str, amount: float, run_id: str) -> None:
+    def _place_t212_order(self, ticker: str, amount: float)  -> None:
         """Place a market order to buy the specified ticker on Trading212 for the specified amount in CZK."""
         instrument_currency: Currency = INSTRUMENT_CURRENCIES[ticker]
         if not instrument_currency:
@@ -65,7 +65,7 @@ class Executor:
 
         # Write the order in database
         order = Order(
-            run_id=run_id,
+            run_id=settings.run_id,
             exchange="T212",
             instrument_type=INSTRUMENT_TYPES[ticker],
             t212_ticker=ticker,
@@ -88,13 +88,13 @@ class Executor:
         else:
             log.error("Order already exists (idempotency triggered) or failed to insert")
 
-    def place_orders(self, cash_distribution: Dict[str, float], run_id: str) -> None:
+    def place_orders(self, cash_distribution: Dict[str, float]) -> None:
         """Place orders for each instrument according to the provided cash distribution"""
         for ticker, amount in cash_distribution.items():
             if ticker == "BTC":
-                self._place_btc_order(amount, run_id)
+                self._place_btc_order(amount)
             else:
-                self._place_t212_order(ticker, amount, run_id)
+                self._place_t212_order(ticker, amount)
         log.info("All orders placed successfully")
 
 
@@ -108,8 +108,8 @@ if __name__ == "__main__":
     instruments = Instruments(t212=t212, portfolio_settings=settings.portfolio)
     executor = Executor(t212, coinmate, settings.portfolio)
 
-    # executor._place_t212_order("VWCEd_EQ", 100.0, "test_run")
-    executor._place_btc_order(50.0, "test_run")
+    # executor._place_t212_order("VWCEd_EQ", 100.0)
+    executor._place_btc_order(50.0)
 
     # cash_distribution = instruments.distribute_cash()
     # executor.place_orders(cash_distribution)
