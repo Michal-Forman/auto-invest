@@ -6,7 +6,7 @@ import numpy as np
 from trading212 import Trading212
 from settings import PortfolioSettings
 from instrument_data import T212_TO_YF, INSTRUMENT_CAPS
-from typing import Dict
+from typing import Dict, Any
 from log import log
 
 class Instruments:
@@ -26,8 +26,14 @@ class Instruments:
         except Exception as e:
             raise RuntimeError(f"failed to fetch t212 pie: {e}") from e
 
-        if "instruments" not in resp:
-            raise ValueError("invalid t212 response: missing 'instruments' key")
+        if isinstance(resp, dict) and "res" in resp:
+            err = resp.get("err")
+            if err:
+                raise ValueError(f"T212 pie request failed: {err}")
+            resp = resp["res"]
+
+            if "instruments" not in resp:
+                raise ValueError("invalid t212 response: missing 'instruments' key")
 
         result: dict[str, float] = {}
 
@@ -75,7 +81,7 @@ class Instruments:
         if hist.empty:
             raise ValueError(f"No historical data for {symbol}")
 
-        return hist["High"].max()
+        return hist["Close"].max()
 
     @classmethod
     def get_current_price(cls, t212_ticker: str) -> float:
@@ -137,7 +143,7 @@ class Instruments:
         return float(np.asarray(value))
     
     @classmethod
-    def _adjust_ratio(cls, ticker, value) -> float:
+    def _adjust_ratio(cls, ticker, value) -> Dict[str, float]:
         """Adjust the given ratio for the specified ticker based on its drop from ATH and the defined cap."""
         ath: float = cls.get_ath(ticker)
         current: float = cls.get_current_price(ticker)
@@ -154,16 +160,20 @@ class Instruments:
             raise ValueError(f"Invalid cap type for {ticker}: {cap_type}")
 
 
-        adjusted_value = value * (100 / (100 - drop))
-        return adjusted_value
-
-
+        multiplier = (100 / (100 - drop))
+        adjusted_value = value * multiplier
+        return {
+                "multiplier": multiplier,
+                "adjusted_value": adjusted_value,
+        }
     
-    def get_adjusted_ratios(self) -> Dict[str, float]:
+    def get_adjusted_ratios(self) -> Dict[str, Dict[str, float]]:
         """Calculate the adjusted ratios for each instrument by applying the drop-based adjustment to the default ratios."""
         ratios = self.get_default_ratios()
         adjusted_ratios = {ticker: self._adjust_ratio(ticker, value) for ticker, value in ratios.items()}
+
         return adjusted_ratios
+
     
     @staticmethod
     def _soft_cap(drop: float) -> float:
@@ -181,16 +191,37 @@ class Instruments:
         else:
             return cls._soft_cap(drop)
 
-    def distribute_cash(self) -> Dict[str, float]:
+    def distribute_cash(self) -> Dict[str, Dict[str, float]]:
         """Distribute the total invest amount across the instruments based on the adjusted ratios, ensuring the distribution sums to the invest amount and respects minimum investment thresholds."""
         adjusted_ratios = self.get_adjusted_ratios()
-        total = sum(adjusted_ratios.values())
+
+        total = sum(
+            v["adjusted_value"]
+            for v in adjusted_ratios.values()
+        )
+
         if total == 0:
             raise ValueError("Total adjusted ratio is zero, cannot distribute cash")
-        normalized_ratios = {ticker: value / total for ticker, value in adjusted_ratios.items()}
-        distribution = {ticker: self.portfolio_settings.invest_amount * ratio for ticker, ratio in normalized_ratios.items()}
-        validated_distribution = self._validate_cash_distribution(distribution)
-        return validated_distribution
+
+        normalized_ratios = {
+            ticker: result["adjusted_value"] / total
+            for ticker, result in adjusted_ratios.items()
+        }
+
+        distribution: Dict[str, float] = {ticker: self.portfolio_settings.invest_amount * ratio for ticker, ratio in normalized_ratios.items()}
+        validated_distribution: Dict[str, float] = self._validate_cash_distribution(distribution)
+
+        multipliers: Dict[str, float] = {
+            ticker: result["multiplier"]
+            for ticker, result in adjusted_ratios.items()
+        }
+
+        validated_multipliers = {t: multipliers[t] for t in validated_distribution.keys()}
+
+        return {
+                "cash_distribution": validated_distribution,
+                "multipliers": validated_multipliers,
+                }
 
     def _validate_cash_distribution(self, distribution) -> Dict[str, float]:
         """Validate the cash distribution by ensuring it sums to the invest amount and applying minimum investment thresholds."""
@@ -201,12 +232,14 @@ class Instruments:
             minimum_investment = 25
             if amount < minimum_investment:
                 if amount <= minimum_investment / 2:
-                    amount = 0.0
+                    log.warning(f"Ticker: {ticker} was not bought since the order would not reach the minimum investment")
+                    instruments_to_delete.append(ticker)
                 else:
+                    bonus = minimum_investment - amount
+                    log.warning(f"Ticker: {ticker} was bought for the minimum investment: {minimum_investment} czk, which is for {bonus} czk more than it was supposed to.")
+                    distribution[ticker] = minimum_investment
                     amount = minimum_investment
 
-                if amount == 0.0:
-                    instruments_to_delete.append(ticker)
         for ticker in instruments_to_delete:
             del distribution[ticker]
 
@@ -239,7 +272,9 @@ class Instruments:
 
 
 if __name__ == "__main__":
-    pass
+    print(Instruments.get_current_price("CSPX_EQ"))
+    print(Instruments.get_ath("CSPX_EQ"))
+    
 
 
 

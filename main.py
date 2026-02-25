@@ -6,6 +6,7 @@ from instruments import Instruments
 from executor import Executor
 from coinmate import Coinmate
 from log import log
+from typing import Dict
 
 
 #----- Initialization -----
@@ -19,8 +20,11 @@ executor = Executor(t212, coinmate, settings.portfolio)
 
 log.info("Starting auto-investment process")
 
-cash_distribution = instruments.distribute_cash()
-executor.place_orders(cash_distribution)
+calculated_investment: Dict[str, Dict[str, float]] = instruments.distribute_cash()
+cash_distribution = calculated_investment["cash_distribution"]
+multipliers = calculated_investment["multipliers"]
+print(f"CAHS_DISTRIBUTION: {cash_distribution}, MULTIPLIERS: {multipliers}")
+executor.place_orders(cash_distribution, multipliers)
 
 log.info("Auto-investment process completed successfully")
 

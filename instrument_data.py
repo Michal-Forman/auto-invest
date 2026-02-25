@@ -53,4 +53,17 @@ INSTRUMENT_TYPES: Dict[str, InstrumentType] = {
     "BTC": "CRYPTO",
 }
 
+INSTRUMENT_NAMES: Dict[str, str] = {
+    "VWCEd_EQ": "Vanguard FTSE All-World UCITS ETF (Acc)",
+    "CSPX_EQ": "Ishares core S&P 500 (Acc)",
+    "EMIMl_EQ": "Ishares core MSCI EM IMI (Acc)",
+    "SC0Ud_EQ": "Invesco STOXX Europe 600 optimised banks (Acc)",
+    "XNAQl_EQ": "Xtrackers NASDAQ 100 (Acc)",
+    "VERGl_EQ": "Vanguard FTSE developed Europe ex UK (Acc)" ,
+    "BX_US_EQ": "Blackstone",
+    "KKR_US_EQ": "KKR & Co",
+    "RBOTl_EQ": "Ishares automation & robotics (Acc)",
+    "BTC": "Bitcoin",
+}
+
 

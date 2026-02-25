@@ -1,8 +1,8 @@
 from trading212 import Trading212
 from coinmate import Coinmate
-from settings import PortfolioSettings
+from settings import PortfolioSettings, settings
 from instruments import Instruments
-from instrument_data import INSTRUMENT_CURRENCIES, INSTRUMENT_TYPES, T212_TO_YF
+from instrument_data import INSTRUMENT_CURRENCIES, INSTRUMENT_TYPES, T212_TO_YF, INSTRUMENT_NAMES
 from log import log
 from db.orders import Order, Currency
 from datetime import datetime
@@ -17,7 +17,7 @@ class Executor:
         self.coinmate = coinmate
         self.portfolio_settings = portfolio_settings
 
-    def _place_btc_order(self, amount: float) -> None:
+    def _place_btc_order(self, amount: float, multiplier: float) -> None:
         """Place a market order to buy BTC on Coinmate for the specified amount in CZK."""
         amount = round(amount, 2)  # Coinmate requires amounts to have at most 2 decimal places
         # Place the order on Coinmate
@@ -40,6 +40,7 @@ class Executor:
             instrument_type="CRYPTO",
             t212_ticker="BTC",
             yahoo_symbol=T212_TO_YF["BTC"],
+            name=INSTRUMENT_NAMES["BTC"],
             currency="CZK",
             side="BUY",
             order_type="INSTANT",
@@ -53,7 +54,8 @@ class Executor:
             external_order_id=str(res["data"]) if res else None,
             request=req,
             response=res,
-            error=err
+            error=err,
+            multiplier=multiplier
         )
 
         try:
@@ -69,7 +71,7 @@ class Executor:
             log.error("Order already exists (idempotency triggered) or failed to insert")
 
 
-    def _place_t212_order(self, ticker: str, amount: float)  -> None:
+    def _place_t212_order(self, ticker: str, amount: float, multiplier: float)  -> None:
         """Place a market order to buy the specified ticker on Trading212 for the specified amount in CZK."""
         instrument_currency: Currency = INSTRUMENT_CURRENCIES[ticker]
         if not instrument_currency:
@@ -108,6 +110,7 @@ class Executor:
             instrument_type=INSTRUMENT_TYPES[ticker],
             t212_ticker=ticker,
             yahoo_symbol=T212_TO_YF[ticker],
+            name=INSTRUMENT_NAMES[ticker],
             currency=instrument_currency,
             side="BUY",
             order_type="MARKET",
@@ -123,6 +126,7 @@ class Executor:
             error=str(error),
             external_order_id=str(res.get("id")) if res else None,
             filled_quantity=res.get("filledQuantity") if res else None,
+            multiplier=multiplier
         )
 
         try:
@@ -137,13 +141,14 @@ class Executor:
         else:
             log.error("Order already exists (idempotency triggered) or failed to insert")
 
-    def place_orders(self, cash_distribution: Dict[str, float]) -> None:
+    def place_orders(self, cash_distribution: Dict[str, float], multipliers: Dict[str, float]) -> None:
         """Place orders for each instrument according to the provided cash distribution"""
         for ticker, amount in cash_distribution.items():
+            multiplier = multipliers[ticker]
             if ticker == "BTC":
-                self._place_btc_order(amount)
+                self._place_btc_order(amount, multiplier)
             else:
-                self._place_t212_order(ticker, amount)
+                self._place_t212_order(ticker, amount, multiplier)
         log.info("All orders placed successfully")
 
 
@@ -158,7 +163,7 @@ if __name__ == "__main__":
     executor = Executor(t212, coinmate, settings.portfolio)
 
     # executor._place_t212_order("VWCEd_EQ", 25.0)
-    # executor._place_btc_order(21) # Fails if its less than 50
+    executor._place_btc_order(11, 1.5) # Fails if its less than 50
 
     # cash_distribution = instruments.distribute_cash()
     # executor.place_orders(cash_distribution)

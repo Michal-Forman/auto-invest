@@ -37,6 +37,7 @@ class Order(BaseModel):
     instrument_type: InstrumentType
     t212_ticker: str
     yahoo_symbol: str
+    name: str
 
     currency: Currency
     side: Side
@@ -49,6 +50,7 @@ class Order(BaseModel):
     total_czk: float
     limit_price: Optional[float] = None
     extended_hours: bool
+    multiplier: float
 
     # --- State ---
     status: Status = "UNKNOWN"
@@ -168,6 +170,7 @@ if __name__ == "__main__":
             total_czk=9500.0,
             extended_hours=False,
             submitted_at=datetime.utcnow(),
+            multiplier=1.0
         )
 
         print("Creating order in DB...")
