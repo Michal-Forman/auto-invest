@@ -128,7 +128,7 @@ class Coinmate:
                 "err": err,
         }
 
-    def user_trades(self, currency_pair: str = "BTC_CZK", limit: int = 100):
+    def user_trades(self, currency_pair: str = "BTC_CZK", limit: int = 10):
         """
         Fetch historical trades (filled executions) for the authenticated user.
         """
@@ -148,7 +148,8 @@ if __name__ == "__main__":
     # print(coinmate.ticker())
     # print("test private function")
     # print(coinmate.balances())
-    print(coinmate.user_trades())
+    # print(coinmate.user_trades())
+    coinmate.buy_instant(50)
 
 
 

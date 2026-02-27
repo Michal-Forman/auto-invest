@@ -12,7 +12,6 @@ from uuid import uuid4
 from db.orders import Order
 from log import log
 from settings import settings
-from decimal import Decimal
 
 TABLE = "runs"
 
