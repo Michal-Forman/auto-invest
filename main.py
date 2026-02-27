@@ -25,8 +25,8 @@ executor = Executor(t212, coinmate, settings.portfolio)
 #----- Main program logic -----
 
 Order.update_orders(t212, coinmate)
-
-"""log.info("Starting auto-investment process")
+"""
+log.info("Starting auto-investment process")
 
 calculated_investment: Dict[str, Dict[str, float]] = instruments.distribute_cash()
 cash_distribution = calculated_investment["cash_distribution"]
@@ -42,4 +42,5 @@ except Exception as e:
 
 log.info("Auto-investment process completed successfully")
 """
+
 

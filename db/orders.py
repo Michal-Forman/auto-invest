@@ -207,7 +207,7 @@ class Order(BaseModel):
 
     @staticmethod
     def _process_new_coinmate_data(order) -> OrderUpdate:
-        status = "FILLED" if order["amount"] == 0 else "FAILED"
+        status = "FILLED" if order["amount"] != 0 else "FAILED"
 
         ts = order["createdTimestamp"]
         filled_at = datetime.fromtimestamp(ts / 1000, tz=timezone.utc)
