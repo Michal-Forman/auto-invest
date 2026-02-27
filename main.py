@@ -1,13 +1,19 @@
 
 from trading212 import Trading212
 from settings import settings
-from utils import generate_uuid
 from instruments import Instruments
 from executor import Executor
 from coinmate import Coinmate
 from log import log
-from typing import Dict
+from typing import Dict, List
+from db.runs import Run, RunUpdate
+from db.orders import Order
 
+
+#----- Initialize the run and start counting time -----
+
+run = Run.create_run()
+assert run.id is not None
 
 #----- Initialization -----
 
@@ -23,8 +29,13 @@ log.info("Starting auto-investment process")
 calculated_investment: Dict[str, Dict[str, float]] = instruments.distribute_cash()
 cash_distribution = calculated_investment["cash_distribution"]
 multipliers = calculated_investment["multipliers"]
-print(f"CAHS_DISTRIBUTION: {cash_distribution}, MULTIPLIERS: {multipliers}")
-executor.place_orders(cash_distribution, multipliers)
+orders: List[Order] = executor.place_orders(cash_distribution, multipliers, run_id=run.id)
+
+run_data_for_update: RunUpdate = run.process_new_run_data(orders)
+
+try:
+    run.update_in_db(run_data_for_update)
+except Exception as e:
+    log.error(f"Failed to update the db, error: {e}")
 
 log.info("Auto-investment process completed successfully")
-

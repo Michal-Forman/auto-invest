@@ -272,8 +272,8 @@ class Instruments:
 
 
 if __name__ == "__main__":
-    print(Instruments.get_current_price("CSPX_EQ"))
-    print(Instruments.get_ath("CSPX_EQ"))
+    print(Instruments.get_current_price("XNAQl_EQ"))
+    print(Instruments.get_ath("XNAQl_EQ"))
     
 
 

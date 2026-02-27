@@ -29,7 +29,7 @@ Status = Literal[
 class Order(BaseModel):
     # --- Identity ---
     id: Optional[UUID] = None
-    run_id: str
+    run_id: UUID
     idempotency_key: Optional[str] = None
 
     # --- Context ---
