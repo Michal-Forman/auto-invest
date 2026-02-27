@@ -56,7 +56,8 @@ class Executor:
             request=req,
             response=res,
             error=err,
-            multiplier=multiplier
+            multiplier=multiplier,
+            fx_rate=1
         )
 
         try:
@@ -79,7 +80,8 @@ class Executor:
         instrument_currency: Currency = INSTRUMENT_CURRENCIES[ticker]
         if not instrument_currency:
             raise ValueError(f"Unknown currency for ticker {ticker}")
-        amount_in_correct_currency: float = amount / Instruments.get_fx_rate_to_czk(instrument_currency)
+        fx_rate = 1 / Instruments.get_fx_rate_to_czk(instrument_currency)
+        amount_in_correct_currency: float = amount * fx_rate 
 
         current_price = Instruments.get_current_price(ticker)
         amount_in_shares = amount_in_correct_currency / current_price
@@ -129,7 +131,8 @@ class Executor:
             error=str(error),
             external_order_id=str(res.get("id")) if res else None,
             filled_quantity=res.get("filledQuantity") if res else None,
-            multiplier=multiplier
+            multiplier=multiplier,
+            fx_rate=fx_rate
         )
 
         try:
@@ -177,7 +180,7 @@ if __name__ == "__main__":
     instruments = Instruments(t212=t212, portfolio_settings=settings.portfolio)
     executor = Executor(t212, coinmate, settings.portfolio)
 
-    # executor._place_t212_order("VWCEd_EQ", 25.0, run_id)
+    executor._place_t212_order("VWCEd_EQ", 25.0, 2.5, run_id=run_id)
     # executor._place_btc_order(11, 1.5, run_id) # Fails if its less than 50
 
     # cash_distribution = instruments.distribute_cash()

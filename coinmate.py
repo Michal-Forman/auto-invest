@@ -128,14 +128,28 @@ class Coinmate:
                 "err": err,
         }
 
+    def user_trades(self, currency_pair: str = "BTC_CZK", limit: int = 100):
+        """
+        Fetch historical trades (filled executions) for the authenticated user.
+        """
+        payload = self._private_payload({
+            "currencyPair": currency_pair,
+            "limit": str(limit),
+        })
+        return self._post("/tradeHistory", data=payload)
+
+
 if __name__ == "__main__":
     import os
     from dotenv import load_dotenv
     from settings import settings
 
     coinmate = Coinmate(settings.coinmate_client_id, settings.coinmate_public_key, settings.coinmate_private_key)
-    print(coinmate.ticker())
-    print("test private function")
-    print(coinmate.balances())
+    # print(coinmate.ticker())
+    # print("test private function")
+    # print(coinmate.balances())
+    print(coinmate.user_trades())
+
+
 
 

@@ -1,9 +1,11 @@
 import logging
 from datetime import datetime
 import requests
-from requests.exceptions import HTTPError
+from requests.exceptions import HTTPError, RequestException
 import base64
 from typing import Optional, Dict, Any
+import time
+import random
 from log import log
 
 class Trading212:
@@ -43,27 +45,43 @@ class Trading212:
                 "err": err,
                 }
 
-    def _get_url(
-        self,
-        url,
-    ):
-        return self._process_response(
-            requests.get(
-                f"{self.host}/{url}",
-                headers={"Authorization": self._auth_header},
-            )
-        )
+    @staticmethod
+    def _sleep_for_retry(resp: requests.Response, attempt: int) -> None:
+        # Prefer server-provided hint
+        retry_after = resp.headers.get("Retry-After")
+        if retry_after:
+            try:
+                time.sleep(float(retry_after))
+                return
+            except ValueError:
+                pass
 
-    def _delete_url(
-        self,
-        url,
-    ):
-        return self._process_response(
-            requests.delete(
-                f"{self.host}/{url}",
-                headers={"Authorization": self._auth_header},
-            )
-        )
+        # Exponential backoff with jitter
+        base_delay = min(2 ** attempt, 60)  # cap at 60s
+        time.sleep(base_delay + random.random())
+
+    def _get_url(self, next_page_path: str, max_retries: int = 6) -> dict:
+        url = f"{self.host}{next_page_path}"
+        headers = {"Authorization": self._auth_header}
+
+        for attempt in range(max_retries + 1):
+            try:
+                resp = requests.get(url, headers=headers)
+            except RequestException as e:
+                return {"req": None, "res": None, "err": e}
+
+            if resp.status_code == 429:
+                if attempt == max_retries:
+                    wrapped = self._process_response(resp)
+                    wrapped["err"] = f"429 Too Many Requests after {max_retries} retries"
+                    return wrapped
+
+                # sleep before retry
+                self._sleep_for_retry(resp, attempt)
+                continue
+
+            # success case
+            return self._process_response(resp)
 
     @staticmethod
     def _process_response(resp) -> Dict[str, Any]:
@@ -193,9 +211,54 @@ class Trading212:
 
         return float(positions[0]["currentPrice"])
 
+    def _process_items(self, response: dict) -> list:
+        res = []
+        res += response["items"]
+
+        while (next_page := response.get("nextPagePath")):
+            wrapped = self._get_url(next_page)          # {"req","res","err"}
+            if wrapped.get("err"):
+                raise RuntimeError(wrapped["err"])
+
+            response = wrapped["res"]                   # <-- unwrap here
+            res += response["items"]
+
+        return res
+
+    def orders(self, cursor: int = 0, ticker: str | None = None, limit: int = 1):
+        params = {"cursor": cursor, "limit": limit}
+        if ticker:
+            params["ticker"] = ticker
+
+        wrapped = self._get("equity/history/orders", params=params)  # {"req","res","err"}
+
+        if wrapped.get("err"):
+            raise RuntimeError(wrapped["err"])
+
+        return self._process_items(wrapped["res"])
+
+    def orders_page(self, cursor: int = 0, ticker: str | None = None, limit: int = 50):
+        params = {"cursor": cursor, "limit": limit}
+        if ticker:
+            params["ticker"] = ticker
+
+        wrapped = self._get("equity/history/orders", params=params)
+        if wrapped.get("err"):
+            raise RuntimeError(wrapped["err"])
+
+        return wrapped["res"]  # just the raw response with items + nextPagePath
+
+    def equity_order(self, id: int):
+        """Equity order by ID"""
+        return self._get(f"equity/orders/{id}")
+
 
 if __name__ == "__main__":
     from settings import settings
 
     t212 = Trading212(api_id_key=settings.t212_id_key, api_private_key=settings.t212_private_key, demo=False)
-    print(t212.get_current_price("CSPX_EQ"))
+
+    page = t212.orders_page()
+    print(len(page["items"]))
+    print(page["items"][0])
+    # print(t212.equity_order(47212278194))

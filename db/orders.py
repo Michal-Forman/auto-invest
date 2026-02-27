@@ -42,6 +42,7 @@ class Order(BaseModel):
     currency: Currency
     side: Side
     order_type: OrderType
+    fx_rate: float
 
     # --- Order values ---
     price: float
@@ -60,6 +61,10 @@ class Order(BaseModel):
     filled_at: Optional[datetime] = None
 
     filled_quantity: Optional[float] = None
+    fill_price: Optional[float] = None
+    filled_total: Optional[float] = None
+    filled_total_czk: Optional[float] = None
+    fill_fx_rate: Optional[float] = None
 
     fee: Optional[float] = None
     fee_currency: Optional[str] = None
