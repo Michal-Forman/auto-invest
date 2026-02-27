@@ -27,7 +27,7 @@ Status = Literal[
 class RunUpdate(BaseModel):
     planned_total_czk: Optional[float] = None
     filled_total_czk: Optional[float] = None
-    finished_at: Optional[str] = None
+    finished_at: Optional[datetime] = None
     status: Optional[Status] = None
     total_orders: Optional[int] = None
     successful_orders: Optional[int] = None
@@ -128,18 +128,18 @@ class Run(BaseModel):
         try:
             inserted = run._post_to_db()
         except Exception as e:
-            log.error(f"Failed to insert order into database: {e}")
-            inserted = False
+            log.error(f"Failed to insert run into database: {e}")
+            raise RuntimeError("Run creation failed during DB insert") from e
+
+        if not inserted:
+            raise RuntimeError("Run creation failed: no row returned from DB")
+
+        log.info("Run successfully placed and recorded in database")
+
+        return Run.model_validate(inserted)
 
 
-        if inserted:
-            log.info(f"Run successfully placed and recorded in database")
-        else:
-            log.error("Failed to create run")
 
-        # Rebuild model from DB row (includes generated id)
-        validated_model = Run.model_validate(inserted)
-        return validated_model
     
 
     @staticmethod
@@ -158,7 +158,7 @@ class Run(BaseModel):
 
         return RunUpdate(
             planned_total_czk=planned_total_czk,
-            finished_at=datetime.now(timezone.utc).isoformat(),
+            finished_at=datetime.now(timezone.utc),
             status="FINISHED",
             total_orders=total_orders,
             successful_orders=successful_orders,
