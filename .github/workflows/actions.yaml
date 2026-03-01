@@ -32,7 +32,7 @@ jobs:
           COINMATE_CLIENT_ID: ${{ secrets.COINMATE_CLIENT_ID }}
           COINMATE_PUBLIC_KEY: ${{ secrets.COINMATE_PUBLIC_KEY }}
           COINMATE_PRIVATE_KEY: ${{ secrets.COINMATE_PRIVATE_KEY }}
-          SUPABASE_ULR: ${{ secrets.SUPABASE_ULR }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
           # environment variables
