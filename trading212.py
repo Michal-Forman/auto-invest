@@ -171,7 +171,7 @@ class Trading212:
         res = []
         res += response["items"]
         count = 0
-        amount_of_pages = 10 # this number * 50 is the total amount of orders we can access, but thanks to Trading 212 429 error increasing this number will increase the run time exponentially! So don't do it if u can
+        amount_of_pages = 5 # this number * 50 is the total amount of orders we can access, but thanks to Trading 212 429 error increasing this number will increase the run time exponentially! So don't do it if u can. 5 Seems to work prety quick.
 
         while count < amount_of_pages:
             next_page: str = response.get("nextPagePath")
