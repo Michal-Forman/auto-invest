@@ -117,7 +117,7 @@ class Run(BaseModel):
                 total_orders=0,
                 successful_orders=0,
                 failed_orders=0,
-                test=True
+                test=False
         )       
 
         try:
