@@ -27,10 +27,10 @@ executor = Executor(t212, coinmate, settings.portfolio)
 #----- Main program logic -----
 
 # Update values in db based on current state - Do as often as possible = on every script run
-log.info("Updating old Orders and Runs")
+log.info("Start updating old Orders and Runs")
 Order.update_orders(t212, coinmate)
 Run.update_runs()
-log.info("Updated old Orders and Runs successfully")
+log.info("Finished updating old Orders and Runs")
 
 # Create new orders if they should be made today AND they have not yet been
 if is_now_cron_time(settings.portfolio.invest_interval) and not Run.run_exists_today():
@@ -45,7 +45,7 @@ if is_now_cron_time(settings.portfolio.invest_interval) and not Run.run_exists_t
     cash_distribution = calculated_investment["cash_distribution"]
     multipliers = calculated_investment["multipliers"]
     orders: List[Order] = executor.place_orders(cash_distribution, multipliers, run_id=run.id)
-    log.info("Investment process finished successfully")
+    log.info("Investment process finished")
 
     # Update the run data with info about the orders
     run_data_for_update: RunUpdate = run.process_new_run_data(orders)

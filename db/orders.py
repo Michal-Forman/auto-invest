@@ -232,12 +232,13 @@ class Order(BaseModel):
     def update_orders(cls, t212: Trading212, coinmate: Coinmate):
         orders_to_update: List[Order] = Order.get_submitted_orders()
         coinmate_history_data: Dict[str, Any] = coinmate.user_trades()
-        t212_history_data: Dict[str, Any] = t212.orders_page()
+        t212_history_data: List[Dict[str, Any]] = t212.orders()
+        updated_orders: List[Order] = []
 
         if coinmate_history_data["res"]["error"] is not False:
             raise RequestError("Failed to get coinmate history data")
 
-        if t212_history_data.get("items") == None:
+        if t212_history_data == None:
             raise RequestError("Failed to get t212 history data")
 
         for order in orders_to_update:
@@ -251,13 +252,14 @@ class Order(BaseModel):
                     orderUpdate = cls._process_new_coinmate_data(matched_order)
                     try:
                         order.update_in_db(orderUpdate)                       
+                        updated_orders.append(order)
                     except Exception as e:
                         log.error(e)
                 else:
                     log.warning("No matching order found")
                 
             else:
-                items = t212_history_data["items"]
+                items = t212_history_data
                 matched_item = next(
                     (item for item in items if str(item["order"]["id"]) == str(order.external_order_id)),
                     None
@@ -266,11 +268,17 @@ class Order(BaseModel):
                     orderUpdate = cls._process_new_t212_data(matched_item)
                     try:
                         order.update_in_db(orderUpdate)                       
+                        updated_orders.append(order)
                     except Exception as e:
                         log.error(e)
                 else:
                     log.warning("No matching order found")
 
+        amount_of_not_updated_orders = len(orders_to_update) - len(updated_orders)
+        if amount_of_not_updated_orders == 0:
+            log.info("All orders successfully updated")
+        else:
+            log.warning(f"{amount_of_not_updated_orders} orders were supposded to update too but did not")
 
     @staticmethod
     def _process_new_t212_data(item) -> OrderUpdate:
