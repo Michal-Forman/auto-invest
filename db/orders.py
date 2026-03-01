@@ -248,14 +248,13 @@ class Order(BaseModel):
                     None
                 )
                 if matched_order:
-                    print("order found")
                     orderUpdate = cls._process_new_coinmate_data(matched_order)
                     try:
                         order.update_in_db(orderUpdate)                       
                     except Exception as e:
-                        print(e)
+                        log.error(e)
                 else:
-                    print("No matching order found")
+                    log.warning("No matching order found")
                 
             else:
                 items = t212_history_data["items"]
@@ -264,14 +263,13 @@ class Order(BaseModel):
                     None
                 )
                 if matched_item:
-                    print("order found")
                     orderUpdate = cls._process_new_t212_data(matched_item)
                     try:
                         order.update_in_db(orderUpdate)                       
                     except Exception as e:
-                        print(e)
+                        log.error(e)
                 else:
-                    print("No matching order found")
+                    log.warning("No matching order found")
 
 
     @staticmethod

@@ -27,8 +27,6 @@ class Executor:
         res = response_data.get("res")
         err = response_data.get("err")
 
-        print(f"Response data: req: {req} res {res} err {err} End of response data")
-
         if res and res["error"] == False:
             status = "SUBMITTED"
         else:
@@ -91,8 +89,6 @@ class Executor:
         req = response_data.get("req")
         res = response_data.get("res")
         error = response_data.get("err")
-
-        print(res)
 
         if res is not None:
             if res["filledQuantity"] == res["quantity"]:

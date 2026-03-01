@@ -1,13 +1,9 @@
 from __future__ import annotations
-
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any, Literal, List
 from uuid import UUID
 from pydantic import BaseModel
-
 from db.client import supabase
-
-
 from uuid import uuid4
 from db.orders import Order
 from log import log
@@ -148,7 +144,6 @@ class Run(BaseModel):
             .neq("status", "FILLED")
             .execute()
         )
-        print(f"res_count: {res.count}")
         return (res.count or 0) == 0
 
     def _mark_run_filled(self) -> None:
@@ -202,12 +197,11 @@ class Run(BaseModel):
     def update_runs(cls):
         finished_runs: List[Run] = cls._get_finished_runs()
         for run in finished_runs:
-            print("updating_run")
             try:
                 run._try_mark_run_failed_if_expired()
                 run._try_mark_run_filled()
             except Exception as e:
-                print(f"the errro in my except statement!!!, in update runs, look: {e}")
+                log.error(f"error in Run.update_runs(): {e}")
 
 
     @staticmethod
