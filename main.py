@@ -55,7 +55,7 @@ if is_now_cron_time(settings.portfolio.invest_interval) and not Run.run_exists_t
     except Exception as e:
         log.error(f"Failed to update the db, error: {e}")
 else:
-    log.info("No were supposed to be made in this run")
+    log.info("No investments / orders were supposed to be made in this run")
 
 
 
