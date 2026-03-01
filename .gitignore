@@ -1,4 +1,8 @@
 .env
+.env.prod
+.env.dev
+.env*
+
 __pycache__/
 supabase
 

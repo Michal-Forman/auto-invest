@@ -9,6 +9,7 @@ from log import log
 import hashlib
 from trading212 import Trading212
 from coinmate import Coinmate
+from settings import settings
 
 TABLE = "orders"
 
@@ -232,7 +233,7 @@ class Order(BaseModel):
     def update_orders(cls, t212: Trading212, coinmate: Coinmate):
         orders_to_update: List[Order] = Order.get_submitted_orders()
         coinmate_history_data: Dict[str, Any] = coinmate.user_trades()
-        t212_history_data: List[Dict[str, Any]] = t212.orders()
+        t212_history_data: List[Dict[str, Any]] = t212.orders() if settings.env == "prod" else t212.orders_page()
         updated_orders: List[Order] = []
 
         if coinmate_history_data["res"]["error"] is not False:

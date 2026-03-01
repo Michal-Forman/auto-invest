@@ -272,10 +272,14 @@ class Instruments:
 
 
 if __name__ == "__main__":
-    print(Instruments.get_current_price("XNAQl_EQ"))
-    print(Instruments.get_ath("XNAQl_EQ"))
-    print(Instruments.get_fx_rate_to_czk("EUR"))
+    from settings import settings
+    t212 = Trading212(api_id_key=settings.t212_id_key, api_private_key=settings.t212_private_key, env=settings.env)
     
+    instruments = Instruments(t212, portfolio_settings=settings.portfolio)
+    # print(Instruments.get_current_price("XNAQl_EQ"))
+    # print(Instruments.get_ath("XNAQl_EQ"))
+    # print(Instruments.get_fx_rate_to_czk("EUR"))
+    print(instruments.get_t212_ratios())
 
 
 

@@ -11,12 +11,12 @@ from log import log
 class Trading212:
     """API client for trading212"""
 
-    def __init__(self, api_id_key: str, api_private_key: str, demo: bool = True):
+    def __init__(self, api_id_key: str, api_private_key: str, env: str = "dev"):
         credentials = f"{api_id_key}:{api_private_key}"
         encoded = base64.b64encode(credentials.encode()).decode()
 
         self._auth_header = f"Basic {encoded}"
-        self.host = "https://live.trading212.com"
+        self.host = "https://live.trading212.com" if env == "prod" else "https://demo.trading212.com"
 
     def _get(self, endpoint: str, params=None, api_version: str = "v0"):
         return self._process_response(
@@ -199,7 +199,7 @@ class Trading212:
         # return(wrapped["res"])
         return self._process_items(wrapped["res"])
 
-    def orders_page(self, cursor: int = 0, ticker: Optional[str] = None, limit: int = 50):
+    def orders_page(self, cursor: int = 0, ticker: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
         params = {"cursor": cursor, "limit": limit}
         if ticker:
             params["ticker"] = ticker
@@ -208,7 +208,7 @@ class Trading212:
         if wrapped.get("err"):
             raise RuntimeError(wrapped["err"])
 
-        return wrapped["res"]  # just the raw response with items + nextPagePath
+        return wrapped["res"]["items"]  # just the raw response with items + nextPagePath
 
     def equity_order(self, id: int):
         """Equity order by ID"""
@@ -218,10 +218,14 @@ class Trading212:
 if __name__ == "__main__":
     from settings import settings
 
-    t212 = Trading212(api_id_key=settings.t212_id_key, api_private_key=settings.t212_private_key, demo=False)
+    t212 = Trading212(api_id_key=settings.t212_id_key, api_private_key=settings.t212_private_key, env=settings.env)
 
     page = t212.orders_page()
     # print(len(page["items"]))
     # print(page["items"][0])
     # print(t212.equity_order(47212278194))
-    print(t212.orders())
+    # urint(t212.orders())
+    # print(t212.pies())
+    # print(t212.equity_order_place_market(ticker="VWCEd_EQ", quantity=1))
+    print(t212.pies())
+

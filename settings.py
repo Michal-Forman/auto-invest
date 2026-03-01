@@ -2,7 +2,12 @@ from dataclasses import dataclass
 from dotenv import load_dotenv
 import os
 
-load_dotenv()
+ENV = os.getenv("ENV", "dev")
+
+if ENV == "prod":
+    load_dotenv(".env.prod")
+else:
+    load_dotenv(".env.dev")
 
 @dataclass(frozen=True)
 class PortfolioSettings:
@@ -32,6 +37,7 @@ class Settings:
     supabase_url: str
     supabase_key: str
     portfolio: PortfolioSettings
+    env: str
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -44,6 +50,7 @@ class Settings:
             coinmate_private_key=os.environ["COINMATE_PRIVATE_KEY"],
             supabase_url=os.environ["SUPABASE_URL"],
             supabase_key=os.environ["SUPABASE_SERVICE_ROLE_KEY"],
+            env=os.getenv("ENV", "dev")
         )
 
 settings = Settings.from_env()
