@@ -110,9 +110,9 @@ class Run(BaseModel):
         return None
 
     @staticmethod
-    def create_run() -> Run:
+    def create_run(run_start: datetime) -> Run:
         run = Run(
-                started_at=datetime.utcnow(),
+                started_at=run_start,
                 status="CREATED",
                 invest_amount=settings.portfolio.invest_amount,
                 invest_interval=settings.portfolio.invest_interval,
