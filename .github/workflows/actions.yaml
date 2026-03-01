@@ -42,4 +42,5 @@ jobs:
           INVEST_AMOUNT: ${{ vars.INVEST_AMOUNT }}
           INVEST_INTERVAL: ${{ vars.INVEST_INTERVAL }}
           LOG_LEVEL: ${{ vars.LOG_LEVEL }}
+          ENV: ${{ vars.ENV }}
         run: python main.py
