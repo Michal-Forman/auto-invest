@@ -3,7 +3,7 @@ name: run main.py
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 9 * * 1' #  every monday at 9:00 UTC
+    - cron: '0 9 * * *' # as often as possible, now only once a day
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -17,7 +17,7 @@ jobs:
       - name: setup python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.9' # install the python version needed
+          python-version: '3.11' # install the python version needed
           
       - name: install python packages
         run: |
@@ -32,6 +32,8 @@ jobs:
           COINMATE_CLIENT_ID: ${{ secrets.COINMATE_CLIENT_ID }}
           COINMATE_PUBLIC_KEY: ${{ secrets.COINMATE_PUBLIC_KEY }}
           COINMATE_PRIVATE_KEY: ${{ secrets.COINMATE_PRIVATE_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
           # environment variables
           PIE_ID: ${{ vars.PIE_ID }}

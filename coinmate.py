@@ -5,6 +5,7 @@ import hmac
 import time
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
+from log import log
 
 import requests
 
@@ -58,14 +59,35 @@ class Coinmate:
 
     def _post(self, path: str, data: Dict[str, Any]) -> Dict[str, Any]:
         """Helper method for POST requests to the Coinmate API. Coinmate expects form-encoded data for POST requests."""
+
         url = f"{self.BASE_URL}{path}"
         resp = self.session.post(url, data=data, timeout=self.timeout_s)  # Coinmate uses form params
         resp.raise_for_status()
 
+        req_data = {
+        "method": resp.request.method,
+        "url": resp.request.url,
+        "headers": list(resp.request.headers.keys()),
+        "body": "FORM_DATA_REDACTED",
+        }
+
         out = resp.json()
-        if out.get("error"):
-            raise RuntimeError(out.get("errorMessage") or f"Coinmate error: {out}")
-        return out
+        error = out.get("error")
+        if error:
+            log.error(f"Coinmate response error: {error}")
+            # raise RuntimeError(out.get("errorMessage") or f"Coinmate error: {out}")
+            return {
+                    "req": req_data,
+                    "res": out if out else None,
+                    "err": out.get("errorMessage", "Some error, no further info"),
+                    }
+
+        return {
+                "req": req_data,
+                "res": out,
+                "err": None,
+        }
+
 
     # ---------- Public endpoints ----------
 
@@ -95,7 +117,27 @@ class Coinmate:
         if client_order_id is not None:
             extra["clientOrderId"] = str(client_order_id)
 
-        return self._post("/buyInstant", data=self._private_payload(extra))
+        response_data = self._post("/buyInstant", data=self._private_payload(extra))
+        req = response_data.get("req")
+        res = response_data.get("res")
+        err = response_data.get("err")
+
+        return {
+                "req": req,
+                "res": res,
+                "err": err,
+        }
+
+    def user_trades(self, currency_pair: str = "BTC_CZK", limit: int = 10):
+        """
+        Fetch historical trades (filled executions) for the authenticated user.
+        """
+        payload = self._private_payload({
+            "currencyPair": currency_pair,
+            "limit": str(limit),
+        })
+        return self._post("/tradeHistory", data=payload)
+
 
 if __name__ == "__main__":
     import os
@@ -103,8 +145,12 @@ if __name__ == "__main__":
     from settings import settings
 
     coinmate = Coinmate(settings.coinmate_client_id, settings.coinmate_public_key, settings.coinmate_private_key)
-    print(coinmate.ticker())
-    print("test private function")
-    print(coinmate.balances())
+    # print(coinmate.ticker())
+    # print("test private function")
+    # print(coinmate.balances())
+    # print(coinmate.user_trades())
+    coinmate.buy_instant(50)
+
+
 
 

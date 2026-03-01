@@ -29,6 +29,8 @@ class Settings:
     coinmate_client_id: int
     coinmate_public_key: str
     coinmate_private_key: str
+    supabase_url: str
+    supabase_key: str
     portfolio: PortfolioSettings
 
     @classmethod
@@ -40,6 +42,8 @@ class Settings:
             coinmate_client_id=int(os.environ["COINMATE_CLIENT_ID"]),
             coinmate_public_key=os.environ["COINMATE_PUBLIC_KEY"],
             coinmate_private_key=os.environ["COINMATE_PRIVATE_KEY"],
+            supabase_url=os.environ["SUPABASE_URL"],
+            supabase_key=os.environ["SUPABASE_SERVICE_ROLE_KEY"],
         )
 
 settings = Settings.from_env()
