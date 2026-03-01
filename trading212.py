@@ -225,7 +225,7 @@ class Trading212:
 
         return res
 
-    def orders(self, cursor: int = 0, ticker: str | None = None, limit: int = 1):
+    def orders(self, cursor: int = 0, ticker: Optional[str] | None = None, limit: int = 1):
         params = {"cursor": cursor, "limit": limit}
         if ticker:
             params["ticker"] = ticker
@@ -237,7 +237,7 @@ class Trading212:
 
         return self._process_items(wrapped["res"])
 
-    def orders_page(self, cursor: int = 0, ticker: str | None = None, limit: int = 50):
+    def orders_page(self, cursor: int = 0, ticker: Optional[str] = None, limit: int = 50):
         params = {"cursor": cursor, "limit": limit}
         if ticker:
             params["ticker"] = ticker
