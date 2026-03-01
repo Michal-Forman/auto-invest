@@ -229,9 +229,28 @@ class Run(BaseModel):
             multipliers=multipliers,
             error=error,
         )
+
+    @staticmethod
+    def run_exists_today() -> bool:
+        now = datetime.now(timezone.utc)
+
+        start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_of_day = start_of_day + timedelta(days=1)
+
+        response = (
+            supabase
+            .table(TABLE)
+            .select("id")
+            .gte("started_at", start_of_day.isoformat())
+            .lt("started_at", end_of_day.isoformat())
+            .limit(1)
+            .execute()
+        )
+
+        return bool(response.data)
         
 
 if __name__ == "__main__":
-    Run.update_runs()
+    print(Run.run_exists_today())
 
 

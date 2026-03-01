@@ -28,8 +28,8 @@ executor = Executor(t212, coinmate, settings.portfolio)
 Order.update_orders(t212, coinmate)
 Run.update_runs()
 
-# Create new orders
-if is_now_cron_time(settings.portfolio.invest_interval):
+# Create new orders if they should be made today AND they have not yet been
+if is_now_cron_time(settings.portfolio.invest_interval) and not Run.run_exists_today():
 
     # Init new run
     run = Run.create_run(run_start)
