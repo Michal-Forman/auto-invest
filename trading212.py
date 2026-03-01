@@ -3,7 +3,7 @@ from datetime import datetime
 import requests
 from requests.exceptions import HTTPError, RequestException
 import base64
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 import time
 import random
 from log import log
@@ -110,50 +110,6 @@ class Trading212:
                 "err": None
                 } 
 
-    @staticmethod
-    def _validate_time_validity(time_validity: str):
-        if time_validity not in ["GTC", "DAY"]:
-            raise ValueError("time_validity must be one of GTC or DAY")
-
-    @staticmethod
-    def _validate_date(date_text: str):
-        try:
-            # Attempt to parse the date string
-            datetime.strptime(date_text, "%Y-%m-%dT%H:%M:%SZ")
-        except ValueError:
-            raise ValueError("Incorrect date format, should be YYYY-MM-DDTHH:MM:SSZ")
-    
-    @staticmethod
-    def _validate_dividend_cash_action(dividend_cash_action:str):
-        valid_actions = ["REINVEST", "TO_ACCOUNT_CASH"]
-        if dividend_cash_action not in valid_actions:
-            raise ValueError(f"dividendCashAction must be one of {valid_actions}")
-
-    @staticmethod
-    def _validate_icon(icon:str):
-        valid_icons = [
-            "Home", "PiggyBank", "Iceberg", "Airplane", "RV", "Unicorn", "Whale", "Convertable", "Family",
-            "Coins", "Education", "BillsAndCoins", "Bills", "Water","Wind", "Car", "Briefcase", "Medical",
-            "Landscape", "Child", "Vault", "Travel", "Cabin", "Apartments", "Burger", "Bus", "Energy", 
-            "Factory", "Global", "Leaf", "Materials", "Pill", "Ring", "Shipping", "Storefront", "Tech", "Umbrella"]
-
-        if icon not in valid_icons:
-            raise ValueError(f"icon must be one of {valid_icons}")
-    
-    @staticmethod
-    def _validate_instrument_shares(instrument_shares):
-        if not isinstance(instrument_shares, dict):
-            raise TypeError("instrument_shares must be a dictionary")
-        if not instrument_shares:
-            raise ValueError("instrument_shares cannot be empty")
-        for key, value in instrument_shares.items():
-            if not isinstance(key, str):
-                raise TypeError("Instrument identifiers must be strings")
-            if not isinstance(value, (int, float)):
-                raise TypeError("Number of shares must be a number")
-            if value <= 0:
-                raise ValueError("Number of shares must be greater than zero")
-
     # --------------
     # Public methods
     # --------------
@@ -211,21 +167,25 @@ class Trading212:
 
         return float(positions[0]["currentPrice"])
 
-    def _process_items(self, response: dict) -> list:
+    def _process_items(self, response: dict) -> List[Dict[str, Any]]:
         res = []
         res += response["items"]
+        count = 0
+        amount_of_pages = 5 # this number * 50 is the total amount of orders we can access, but thanks to Trading 212 429 error increasing this number will increase the run time exponentially! So don't do it if u can. 5 Seems to work prety quick.
 
-        while (next_page := response.get("nextPagePath")):
-            wrapped = self._get_url(next_page)          # {"req","res","err"}
+        while count < amount_of_pages:
+            next_page: str = response.get("nextPagePath")
+            wrapped = self._get_url(next_page)
             if wrapped.get("err"):
                 raise RuntimeError(wrapped["err"])
-
-            response = wrapped["res"]                   # <-- unwrap here
+            response = wrapped["res"]
             res += response["items"]
+
+            count += 1
 
         return res
 
-    def orders(self, cursor: int = 0, ticker: Optional[str] | None = None, limit: int = 1):
+    def orders(self, cursor: int = 0, ticker: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
         params = {"cursor": cursor, "limit": limit}
         if ticker:
             params["ticker"] = ticker
@@ -235,6 +195,8 @@ class Trading212:
         if wrapped.get("err"):
             raise RuntimeError(wrapped["err"])
 
+
+        # return(wrapped["res"])
         return self._process_items(wrapped["res"])
 
     def orders_page(self, cursor: int = 0, ticker: Optional[str] = None, limit: int = 50):
@@ -259,6 +221,7 @@ if __name__ == "__main__":
     t212 = Trading212(api_id_key=settings.t212_id_key, api_private_key=settings.t212_private_key, demo=False)
 
     page = t212.orders_page()
-    print(len(page["items"]))
-    print(page["items"][0])
+    # print(len(page["items"]))
+    # print(page["items"][0])
     # print(t212.equity_order(47212278194))
+    print(t212.orders())
