@@ -1,4 +1,3 @@
-
 from trading212 import Trading212
 from settings import settings
 from instruments import Instruments
@@ -19,7 +18,7 @@ run_start = datetime.utcnow()
 #----- Initialization -----
 
 log.info("Initializing all classes")
-t212 = Trading212(api_id_key=settings.t212_id_key, api_private_key=settings.t212_private_key, demo=False)
+t212 = Trading212(api_id_key=settings.t212_id_key, api_private_key=settings.t212_private_key, env=settings.env)
 coinmate = Coinmate(settings.coinmate_client_id, settings.coinmate_public_key, settings.coinmate_private_key)
 instruments = Instruments(t212=t212, portfolio_settings=settings.portfolio)
 executor = Executor(t212, coinmate, settings.portfolio)
