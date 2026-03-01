@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any, Literal, List
 from uuid import UUID
 from pydantic import BaseModel
@@ -137,9 +137,78 @@ class Run(BaseModel):
 
         return Run.model_validate(inserted)
 
+    def _are_all_orders_filled(self) -> bool:
+        if not self.id:
+            raise ValueError("Cannot update run without id")
+        res = (
+            supabase
+            .table("orders")
+            .select("id", count="exact")
+            .eq("run_id", self.id)
+            .neq("status", "FILLED")
+            .execute()
+        )
+        print(f"res_count: {res.count}")
+        return (res.count or 0) == 0
 
+    def _mark_run_filled(self) -> None:
+        if not self.id:
+            raise ValueError("Cannot update run without id")
+        (
+            supabase
+            .table("runs")
+            .update({"status": "FILLED"})
+            .eq("id", self.id)
+            .execute()
+        )
 
-    
+    def _try_mark_run_filled(self) -> bool:
+        if self._are_all_orders_filled():
+            self._mark_run_filled()
+            return True
+        return False
+
+    def _try_mark_run_failed_if_expired(self) -> None:
+        if self.status != "FINISHED":
+            return
+
+        if not self.finished_at:
+            return
+
+        now = datetime.now(timezone.utc)
+        expiry_threshold = now - timedelta(days=14)
+
+        if self.finished_at < expiry_threshold:
+            update = RunUpdate(status="FAILED")
+            self.update_in_db(update)
+
+    @staticmethod
+    def _get_finished_runs() -> List[Run]:
+        response = (
+            supabase
+            .table("runs")
+            .select("*")
+            .eq("status", "FINISHED")
+            .order("started_at", desc=True)
+            .execute()
+        )
+
+        if not response.data:
+            return []
+
+        return [Run.model_validate(row) for row in response.data]
+
+    @classmethod
+    def update_runs(cls):
+        finished_runs: List[Run] = cls._get_finished_runs()
+        for run in finished_runs:
+            print("updating_run")
+            try:
+                run._try_mark_run_failed_if_expired()
+                run._try_mark_run_filled()
+            except Exception as e:
+                print(f"the errro in my except statement!!!, in update runs, look: {e}")
+
 
     @staticmethod
     def process_new_run_data(orders: List[Order]) -> RunUpdate:
@@ -169,5 +238,6 @@ class Run(BaseModel):
         
 
 if __name__ == "__main__":
-    Run.create_run()
+    Run.update_runs()
+
 

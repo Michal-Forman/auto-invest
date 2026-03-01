@@ -11,9 +11,10 @@ from db.orders import Order
 
 
 #----- Initialize the run and start counting time -----
-
-run = Run.create_run()
+"""run = Run.create_run()
 assert run.id is not None
+"""
+
 
 #----- Initialization -----
 
