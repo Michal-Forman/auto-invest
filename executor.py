@@ -1,15 +1,18 @@
-from trading212 import Trading212
-from coinmate import Coinmate
-from settings import PortfolioSettings, settings
-from instruments import Instruments
-from instrument_data import INSTRUMENT_CURRENCIES, INSTRUMENT_TYPES, T212_TO_YF, INSTRUMENT_NAMES
-from log import log
-from db.orders import Order, Currency
+# Standard library
 from datetime import datetime
+from typing import Dict, List
 from uuid import UUID
 
-from typing import Dict, List
-
+# Local
+from coinmate import Coinmate
+from db.orders import Currency, Order
+from instrument_data import (INSTRUMENT_CURRENCIES, INSTRUMENT_NAMES,
+                             INSTRUMENT_TYPES, T212_TO_YF)
+# Local
+from instruments import Instruments
+from log import log
+from settings import PortfolioSettings, settings
+from trading212 import Trading212
 
 
 class Executor: 
@@ -165,9 +168,12 @@ class Executor:
 
 
 if __name__ == "__main__":
-    from settings import settings
-    from instruments import Instruments
+# Standard library
     from uuid import uuid4
+
+# Local
+    from instruments import Instruments
+    from settings import settings
 
     run_id = uuid4()
 

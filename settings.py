@@ -1,6 +1,9 @@
-from dataclasses import dataclass
-from dotenv import load_dotenv
+# Standard library
 import os
+from dataclasses import dataclass
+
+# Third-party
+from dotenv import load_dotenv
 
 ENV = os.getenv("ENV", "dev")
 

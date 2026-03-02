@@ -1,10 +1,16 @@
+# Future
 from __future__ import annotations
-from datetime import datetime, timezone, timedelta
-from typing import Optional, Dict, Any, Literal, List
-from uuid import UUID
+
+# Standard library
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Literal, Optional
+from uuid import UUID, uuid4
+
+# Third-party
 from pydantic import BaseModel
+
+# Local
 from db.client import supabase
-from uuid import uuid4
 from db.orders import Order
 from log import log
 from settings import settings

@@ -1,11 +1,14 @@
+# Standard library
 import base64
 import random
 import time
 from typing import Any, Dict, List, Optional, Union
 
+# Third-party
 import requests
 from requests.exceptions import HTTPError, RequestException
 
+# Local
 from log import log
 
 
@@ -244,6 +247,7 @@ class Trading212:
 
 
 if __name__ == "__main__":
+# Local
     from settings import settings
 
     t212 = Trading212(

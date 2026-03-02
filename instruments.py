@@ -1,13 +1,18 @@
+# Standard library
 import os
-import yfinance as yf
-import pandas as pd
-import numpy as np
+from typing import Any, Dict
 
-from trading212 import Trading212
-from settings import PortfolioSettings
-from instrument_data import T212_TO_YF, INSTRUMENT_CAPS
-from typing import Dict, Any
+# Third-party
+import numpy as np
+import pandas as pd
+import yfinance as yf
+
+# Local
+from instrument_data import INSTRUMENT_CAPS, T212_TO_YF
 from log import log
+from settings import PortfolioSettings
+from trading212 import Trading212
+
 
 class Instruments:
     def __init__(self, t212: Trading212, portfolio_settings: PortfolioSettings) -> None:
@@ -272,6 +277,7 @@ class Instruments:
 
 
 if __name__ == "__main__":
+# Local
     from settings import settings
     t212 = Trading212(api_id_key=settings.t212_id_key, api_private_key=settings.t212_private_key, env=settings.env)
     

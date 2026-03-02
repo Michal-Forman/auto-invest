@@ -1,15 +1,22 @@
+# Future
 from __future__ import annotations
+
+# Standard library
+import hashlib
 from datetime import datetime, timezone
-from typing import Optional, Literal, Dict, Any, List
+from typing import Any, Dict, List, Literal, Optional
 from uuid import UUID
+
+# Third-party
 from httpx import RequestError
 from pydantic import BaseModel, Field, model_validator
+
+# Local
+from coinmate import Coinmate
 from db.client import supabase
 from log import log
-import hashlib
-from trading212 import Trading212
-from coinmate import Coinmate
 from settings import settings
+from trading212 import Trading212
 
 TABLE = "orders"
 
@@ -331,6 +338,7 @@ class Order(BaseModel):
         )
 
 if __name__ == "__main__":
+# Standard library
     from datetime import datetime
     from uuid import uuid4
 

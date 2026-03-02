@@ -1,13 +1,19 @@
+# Future
 from __future__ import annotations
 
+# Standard library
 import hashlib
 import hmac
 import time
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
+
+# Third-party
+import requests
+
+# Local
 from log import log
 
-import requests
 
 class Coinmate:
 
@@ -140,8 +146,13 @@ class Coinmate:
 
 
 if __name__ == "__main__":
+# Standard library
     import os
+
+# Third-party
     from dotenv import load_dotenv
+
+# Local
     from settings import settings
 
     coinmate = Coinmate(settings.coinmate_client_id, settings.coinmate_public_key, settings.coinmate_private_key)

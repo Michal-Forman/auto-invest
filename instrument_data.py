@@ -1,5 +1,8 @@
-from db.orders import InstrumentType, Currency
+# Standard library
 from typing import Dict
+
+# Local
+from db.orders import Currency, InstrumentType
 
 T212_TO_YF = {
     "VWCEd_EQ": "VWCE.DE",
