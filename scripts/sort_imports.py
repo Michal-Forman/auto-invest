@@ -57,11 +57,20 @@ def sort_and_comment(path):
         f.writelines(out)
 
 
+EXCLUDE_DIRS = {"__pycache__", ".venv", "venv", ".git", "supabase", "scripts"}
+
+
+def find_py_files(root):
+    from pathlib import Path
+    return [
+        p for p in Path(root).rglob("*.py")
+        if not any(part in EXCLUDE_DIRS for part in p.parts)
+    ]
+
+
 if __name__ == "__main__":
-    paths = sys.argv[1:]
-    if not paths:
-        print("Usage: python sort_imports.py <file.py> [file.py ...]")
-        sys.exit(1)
+    root = sys.argv[1] if len(sys.argv) > 1 else "."
+    paths = find_py_files(root)
     for path in paths:
         sort_and_comment(path)
         print(f"Sorted: {path}")
