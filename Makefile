@@ -14,7 +14,7 @@ requirements:
 	@grep -qxF 'python-dotenv==1.2.2' requirements.txt || echo 'python-dotenv==1.2.2' >> requirements.txt
 	@grep -qxF 'requests==2.32.5' requirements.txt || echo 'requests==2.32.5' >> requirements.txt
 
-deploy: sort format requirements
+deploy: format sort requirements
 	@echo ">> Staging changes..."
 	@git add .
 	@echo ">> Committing..."

@@ -14,7 +14,7 @@ from trading212 import Trading212
 from utils import is_now_cron_time
 
 # ----- Start counting time for a run -----
-log.info("Starting Main scrpit")
+log.info("Starting Main script")
 run_start: datetime = datetime.utcnow()
 
 # ----- Initialization -----

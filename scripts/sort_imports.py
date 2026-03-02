@@ -17,39 +17,60 @@ LABELS = {
 
 
 def get_top_module(line):
-    m = re.match(r"(?:from\s+([\w]+)|import\s+([\w]+))", line.strip())
+    """Extract the top-level module name from an import line, ignoring indented imports."""
+    m = re.match(r"(?:from\s+([\w]+)|import\s+([\w]+))", line)
     return (m.group(1) or m.group(2)) if m else None
 
 
 def sort_and_comment(path):
-    isort.file(path)
+    # Remove existing section comments before isort so it doesn't duplicate them
+    label_set = set(LABELS.values())
+    with open(path) as f:
+        raw_lines = f.readlines()
+    with open(path, "w") as f:
+        f.writelines(l for l in raw_lines if l.strip() not in label_set)
+
+    config = Config(
+        profile="black",
+        force_sort_within_sections=True,
+        known_third_party=["supabase"],
+    )
+    isort.file(path, config=config)
 
     with open(path) as f:
         lines = f.readlines()
-
-    # Remove any existing section comments so re-runs are idempotent
-    label_set = set(LABELS.values())
-    lines = [l for l in lines if l.strip() not in label_set]
-
-    config = Config()
     out = []
     in_import_block = False
     current_section = None
+    deferred_blanks = []
+
+    in_multiline = False
 
     for line in lines:
         mod = get_top_module(line)
         if mod:
-            section = place.module(mod, config=config)
-            if section != current_section:
-                label = LABELS.get(section)
+            label = LABELS.get(place.module(mod, config=config))
+            if label != current_section:
+                # New section — flush blanks (they separate sections) and add header
+                out.extend(deferred_blanks)
                 if label:
                     out.append(label + "\n")
-                current_section = section
+                current_section = label
+            # Same section — drop deferred blank lines (Black artifact)
+            deferred_blanks = []
             in_import_block = True
+            in_multiline = "(" in line and ")" not in line
+            out.append(line)
+        elif in_multiline:
+            # Continuation of a multi-line import
+            if ")" in line:
+                in_multiline = False
             out.append(line)
         elif not line.strip() and in_import_block:
-            out.append(line)
+            deferred_blanks.append(line)
         else:
+            out.extend(deferred_blanks)
+            deferred_blanks = []
             in_import_block = False
             current_section = None
             out.append(line)

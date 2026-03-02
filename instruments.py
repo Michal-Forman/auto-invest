@@ -25,7 +25,7 @@ class Instruments:
         total = sum(ratios.values())
         return abs(total - 1.0) < 1e-6
 
-    def get_t212_ratios(self) -> dict[str, float]:
+    def get_t212_ratios(self) -> Dict[str, float]:
         """Fetch per-instrument target weight ratios from the T212 pie API. Returns raw ratios (not yet scaled by T212_WEIGHT)."""
         try:
             resp: Dict[str, Any] = self.t212.pie(self.portfolio_settings.pie_id)
@@ -41,7 +41,7 @@ class Instruments:
             if "instruments" not in resp:
                 raise ValueError("invalid t212 response: missing 'instruments' key")
 
-        result: dict[str, float] = {}
+        result: Dict[str, float] = {}
 
         for instrument in resp["instruments"]:
             try:
@@ -291,7 +291,6 @@ class Instruments:
 
 
 if __name__ == "__main__":
-    # Local
     from settings import settings
 
     t212 = Trading212(

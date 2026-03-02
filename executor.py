@@ -12,8 +12,6 @@ from instrument_data import (
     INSTRUMENT_TYPES,
     T212_TO_YF,
 )
-
-# Local
 from instruments import Instruments
 from log import log
 from settings import PortfolioSettings, settings
@@ -193,10 +191,8 @@ class Executor:
 
 
 if __name__ == "__main__":
-    # Standard library
     from uuid import uuid4
 
-    # Local
     from instruments import Instruments
     from settings import settings
 

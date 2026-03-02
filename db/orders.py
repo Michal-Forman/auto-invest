@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 # Standard library
-import hashlib
 from datetime import datetime, timezone
+import hashlib
 from typing import Any, Dict, List, Literal, Optional, cast
 from uuid import UUID
 
@@ -277,7 +277,7 @@ class Order(BaseModel):
             log.info("All orders successfully updated")
         else:
             log.warning(
-                f"{amount_of_not_updated_orders} orders were supposded to update too but did not"
+                f"{amount_of_not_updated_orders} orders were supposed to update too but did not"
             )
 
     @staticmethod
@@ -306,7 +306,7 @@ class Order(BaseModel):
             fee_currency = wallet_impact["taxes"][0]["currency"]
             fee_czk = fee if fee_currency == "CZK" else None
             filled_total_czk = wallet_impact["netValue"]
-            filled_total = filled_total_czk * fill_fx_rate
+            filled_total = filled_total_czk / fill_fx_rate
             fill_price = fill.get("price")
         else:
             filled_at = None
@@ -333,7 +333,6 @@ class Order(BaseModel):
 
 
 if __name__ == "__main__":
-    # Standard library
     from datetime import datetime
     from uuid import uuid4
 

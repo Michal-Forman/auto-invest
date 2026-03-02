@@ -2,10 +2,10 @@
 from __future__ import annotations
 
 # Standard library
+from dataclasses import dataclass
 import hashlib
 import hmac
 import time
-from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
 # Third-party
@@ -166,13 +166,10 @@ class Coinmate:
 
 
 if __name__ == "__main__":
-    # Standard library
     import os
 
-    # Third-party
     from dotenv import load_dotenv
 
-    # Local
     from settings import settings
 
     coinmate = Coinmate(

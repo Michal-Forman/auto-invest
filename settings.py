@@ -1,6 +1,6 @@
 # Standard library
-import os
 from dataclasses import dataclass
+import os
 
 # Third-party
 from dotenv import load_dotenv
