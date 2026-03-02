@@ -150,7 +150,9 @@ class Coinmate:
             "err": err,
         }
 
-    def user_trades(self, currency_pair: str = "BTC_CZK", limit: int = 10) -> Dict[str, Any]:
+    def user_trades(
+        self, currency_pair: str = "BTC_CZK", limit: int = 10
+    ) -> Dict[str, Any]:
         """
         Fetch historical trades (filled executions) for the authenticated user.
         """

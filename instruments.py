@@ -233,7 +233,9 @@ class Instruments:
             "multipliers": validated_multipliers,
         }
 
-    def _validate_cash_distribution(self, distribution: Dict[str, float]) -> Dict[str, float]:
+    def _validate_cash_distribution(
+        self, distribution: Dict[str, float]
+    ) -> Dict[str, float]:
         """Validate the cash distribution by ensuring it sums to the invest amount and applying minimum investment thresholds."""
         if (
             abs(sum(distribution.values()) - self.portfolio_settings.invest_amount)
