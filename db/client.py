@@ -1,6 +1,3 @@
-# Standard library
-import os
-
 # Local
 from settings import settings
 from supabase import Client, create_client

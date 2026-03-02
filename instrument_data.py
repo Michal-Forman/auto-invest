@@ -4,7 +4,7 @@ from typing import Dict
 # Local
 from db.orders import Currency, InstrumentType
 
-T212_TO_YF = {
+T212_TO_YF: Dict[str, str] = {
     "VWCEd_EQ": "VWCE.DE",
     "CSPX_EQ": "CSPX.L",
     "EMIMl_EQ": "EMIM.L",
@@ -17,7 +17,7 @@ T212_TO_YF = {
     "BTC": "BTC-USD",
 }
 
-INSTRUMENT_CAPS = {
+INSTRUMENT_CAPS: Dict[str, str] = {
     "VWCEd_EQ": "none",
     "CSPX_EQ": "none",
     "EMIMl_EQ": "none",

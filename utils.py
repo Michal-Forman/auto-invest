@@ -2,7 +2,7 @@
 from datetime import datetime, timezone
 
 # Third-party
-from croniter import croniter
+from croniter import croniter  # type: ignore[import-untyped]
 
 # Local
 from settings import settings

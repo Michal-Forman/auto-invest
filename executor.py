@@ -1,11 +1,11 @@
 # Standard library
 from datetime import datetime
-from typing import Dict, List
+from typing import Dict, List, Optional
 from uuid import UUID
 
 # Local
 from coinmate import Coinmate
-from db.orders import Currency, Order
+from db.orders import Currency, Order, Status
 from instrument_data import (
     INSTRUMENT_CURRENCIES,
     INSTRUMENT_NAMES,
@@ -42,7 +42,8 @@ class Executor:
         res = response_data.get("res")
         err = response_data.get("err")
 
-        if res and res["error"] == False:
+        status: Status
+        if res and res["error"] is False:
             status = "SUBMITTED"
         else:
             status = "FAILED"
@@ -77,7 +78,7 @@ class Executor:
             inserted = order.post_to_db()
         except Exception as e:
             log.error(f"Failed to insert order into database: {e}")
-            inserted = False
+            inserted = None
 
         if inserted:
             log.info(f"Order successfully placed and recorded in database: BTC")
@@ -109,6 +110,7 @@ class Executor:
         res = response_data.get("res")
         error = response_data.get("err")
 
+        status: Status
         if res is not None:
             if res["filledQuantity"] == res["quantity"]:
                 status = "FILLED"
@@ -155,7 +157,7 @@ class Executor:
             inserted = order.post_to_db()
         except Exception as e:
             log.error(f"Failed to insert order into database: {e}")
-            inserted = False
+            inserted = None
 
         if inserted:
             log.info(f"Order successfully placed and recorded in database: {ticker}")
@@ -202,7 +204,7 @@ if __name__ == "__main__":
     t212 = Trading212(
         api_id_key=settings.t212_id_key,
         api_private_key=settings.t212_private_key,
-        demo=False,
+        env=settings.env,
     )
     coinmate = Coinmate(
         settings.coinmate_client_id,

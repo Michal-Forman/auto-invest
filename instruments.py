@@ -4,8 +4,8 @@ from typing import Any, Dict
 
 # Third-party
 import numpy as np
-import pandas as pd
-import yfinance as yf
+import pandas as pd  # type: ignore[import-untyped]
+import yfinance as yf  # type: ignore[import-untyped]
 
 # Local
 from instrument_data import INSTRUMENT_CAPS, T212_TO_YF
@@ -149,7 +149,7 @@ class Instruments:
         return float(np.asarray(value))
 
     @classmethod
-    def _adjust_ratio(cls, ticker, value) -> Dict[str, float]:
+    def _adjust_ratio(cls, ticker: str, value: float) -> Dict[str, float]:
         """Adjust the given ratio for the specified ticker based on its drop from ATH and the defined cap."""
         ath: float = cls.get_ath(ticker)
         current: float = cls.get_current_price(ticker)
@@ -233,7 +233,7 @@ class Instruments:
             "multipliers": validated_multipliers,
         }
 
-    def _validate_cash_distribution(self, distribution) -> Dict[str, float]:
+    def _validate_cash_distribution(self, distribution: Dict[str, float]) -> Dict[str, float]:
         """Validate the cash distribution by ensuring it sums to the invest amount and applying minimum investment thresholds."""
         if (
             abs(sum(distribution.values()) - self.portfolio_settings.invest_amount)

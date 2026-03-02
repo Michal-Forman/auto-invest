@@ -3,7 +3,7 @@ from __future__ import annotations
 
 # Standard library
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, cast
 from uuid import UUID, uuid4
 
 # Third-party
@@ -78,7 +78,7 @@ class Run(BaseModel):
         response = supabase.table(TABLE).insert(run_data).execute()
 
         if response.data:
-            return response.data[0]
+            return cast(Dict[str, Any], response.data[0])
 
         return None
 
@@ -94,7 +94,7 @@ class Run(BaseModel):
 
         if response.data:
             log.info("Successfully updated the run in db")
-            return response.data[0]
+            return cast(Dict[str, Any], response.data[0])
 
         return None
 
@@ -131,7 +131,7 @@ class Run(BaseModel):
             raise ValueError("Cannot update run without id")
         res = (
             supabase.table("orders")
-            .select("id", count="exact")
+            .select("id", count="exact")  # type: ignore[arg-type]
             .eq("run_id", self.id)
             .neq("status", "FILLED")
             .execute()
@@ -184,7 +184,7 @@ class Run(BaseModel):
         return [Run.model_validate(row) for row in response.data]
 
     @classmethod
-    def update_runs(cls):
+    def update_runs(cls) -> None:
         finished_runs: List[Run] = cls._get_finished_runs()
         for run in finished_runs:
             try:

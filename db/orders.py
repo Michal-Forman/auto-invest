@@ -4,7 +4,7 @@ from __future__ import annotations
 # Standard library
 import hashlib
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, cast
 from uuid import UUID
 
 # Third-party
@@ -123,8 +123,6 @@ class Order(BaseModel):
 
         return self
 
-        return self
-
     # -------------------------
     # Helper methods for DB
     # -------------------------
@@ -150,7 +148,7 @@ class Order(BaseModel):
 
         # If conflict happens, Supabase returns error
         if response.data:
-            return response.data[0]
+            return cast(Dict[str, Any], response.data[0])
 
         return None
 
@@ -186,7 +184,7 @@ class Order(BaseModel):
 
         if response.data:
             log.info("Successfully updated the order in db")
-            return response.data[0]
+            return cast(Dict[str, Any], response.data[0])
 
         return None
 
@@ -200,8 +198,8 @@ class Order(BaseModel):
         return [Order.model_validate(row) for row in response.data]
 
     @staticmethod
-    def _process_new_coinmate_data(order) -> OrderUpdate:
-        status = "FILLED" if order["amount"] != 0 else "FAILED"
+    def _process_new_coinmate_data(order: Dict[str, Any]) -> OrderUpdate:
+        status: Status = "FILLED" if order["amount"] != 0 else "FAILED"
 
         ts = order["createdTimestamp"]
         filled_at = datetime.fromtimestamp(ts / 1000, tz=timezone.utc)
@@ -222,7 +220,7 @@ class Order(BaseModel):
         )
 
     @classmethod
-    def update_orders(cls, t212: Trading212, coinmate: Coinmate):
+    def update_orders(cls, t212: Trading212, coinmate: Coinmate) -> None:
         orders_to_update: List[Order] = Order.get_submitted_orders()
         coinmate_history_data: Dict[str, Any] = coinmate.user_trades()
         t212_history_data: List[Dict[str, Any]] = (
@@ -233,7 +231,7 @@ class Order(BaseModel):
         if coinmate_history_data["res"]["error"] is not False:
             raise RequestError("Failed to get coinmate history data")
 
-        if t212_history_data == None:
+        if t212_history_data is None:
             raise RequestError("Failed to get t212 history data")
 
         for order in orders_to_update:
@@ -286,10 +284,11 @@ class Order(BaseModel):
             )
 
     @staticmethod
-    def _process_new_t212_data(item) -> OrderUpdate:
-        order = item.get("order")
+    def _process_new_t212_data(item: Dict[str, Any]) -> OrderUpdate:
+        order: Dict[str, Any] = item["order"]
         fill = item.get("fill")
 
+        status: Status
         if order["status"] == "CANCELLED":
             status = "CANCELLED"
         elif fill is not None:
@@ -341,11 +340,12 @@ if __name__ == "__main__":
 
     try:
         order = Order(
-            run_id="test",
+            run_id=uuid4(),
             exchange="T212",
             instrument_type="ETF",
             t212_ticker="CSPX_EQ",
             yahoo_symbol="CSPX.L",
+            name="Ishares core S&P 500 (Acc)",
             currency="USD",
             side="BUY",
             order_type="MARKET",
@@ -353,6 +353,7 @@ if __name__ == "__main__":
             quantity=1.0,
             total=400.0,
             total_czk=9500.0,
+            fx_rate=1.0,
             extended_hours=False,
             submitted_at=datetime.utcnow(),
             multiplier=1.0,
