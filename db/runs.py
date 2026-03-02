@@ -100,7 +100,10 @@ class Run(BaseModel):
 
         if response.data:
             log.info("Successfully updated the run in db")
-            return cast(Dict[str, Any], response.data[0])
+            row = cast(Dict[str, Any], response.data[0])
+            for field, value in update_data.model_dump(exclude_none=True).items():
+                setattr(self, field, value)
+            return row
 
         return None
 
@@ -156,6 +159,7 @@ class Run(BaseModel):
             .eq("id", self.id)
             .execute()
         )
+        self.status = "FILLED"
 
     def _try_mark_run_filled(self) -> bool:
         """Mark the run as FILLED if all its orders are filled. Returns True if status was updated."""

@@ -39,14 +39,18 @@ class Trading212:
 
         for attempt in range(max_retries + 1):
             try:
-                resp: requests.Response = requests.get(url, headers=headers, params=params)
+                resp: requests.Response = requests.get(
+                    url, headers=headers, params=params
+                )
             except RequestException as e:
                 return {"req": None, "res": None, "err": e}
 
             if resp.status_code == 429:
                 if attempt == max_retries:
                     wrapped: Dict[str, Any] = self._process_response(resp)
-                    wrapped["err"] = f"429 Too Many Requests after {max_retries} retries"
+                    wrapped["err"] = (
+                        f"429 Too Many Requests after {max_retries} retries"
+                    )
                     return wrapped
                 self._sleep_for_retry(resp, attempt)
                 continue
