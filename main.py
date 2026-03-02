@@ -1,15 +1,17 @@
-from trading212 import Trading212
-from settings import settings
-from instruments import Instruments
-from executor import Executor
-from coinmate import Coinmate
-from log import log
-from typing import Dict, List
-from db.runs import Run, RunUpdate
-from db.orders import Order
-from utils import is_now_cron_time
+# Standard library
 from datetime import datetime
+from typing import Dict, List
 
+# Local
+from coinmate import Coinmate
+from db.orders import Order
+from db.runs import Run, RunUpdate
+from executor import Executor
+from instruments import Instruments
+from log import log
+from settings import settings
+from trading212 import Trading212
+from utils import is_now_cron_time
 
 #----- Start counting time for a run -----
 log.info("Starting Main scrpit")

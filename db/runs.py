@@ -247,6 +247,9 @@ class Run(BaseModel):
             .execute()
         )
 
+        if settings.env != "prod":
+            return False
+
         return bool(response.data)
         
 
