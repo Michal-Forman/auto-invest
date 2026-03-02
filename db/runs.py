@@ -1,23 +1,25 @@
+# Future
 from __future__ import annotations
-from datetime import datetime, timezone, timedelta
-from typing import Optional, Dict, Any, Literal, List
-from uuid import UUID
+
+# Standard library
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Literal, Optional, cast
+from uuid import UUID, uuid4
+
+# Third-party
 from pydantic import BaseModel
+
+# Local
 from db.client import supabase
-from uuid import uuid4
 from db.orders import Order
 from log import log
 from settings import settings
 
 TABLE = "runs"
+RUN_EXPIRY_DAYS = 14
 
-Status = Literal[
-        "CREATED",
-        "FINISHED",
-        "FILLED",
-        "FAILED",
-        "UNKNOWN"
-        ]
+Status = Literal["CREATED", "FINISHED", "FILLED", "FAILED", "UNKNOWN"]
+
 
 class RunUpdate(BaseModel):
     planned_total_czk: Optional[float] = None
@@ -30,6 +32,7 @@ class RunUpdate(BaseModel):
     distribution: Optional[Dict[str, Any]] = None
     multipliers: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
+
 
 class Run(BaseModel):
     # --- Identity ---
@@ -68,60 +71,60 @@ class Run(BaseModel):
     # -------------------------
 
     def _to_insert_dict(self) -> Dict[str, Any]:
+        """Convert the run to a dict for Supabase insert, excluding None fields."""
         return self.model_dump(mode="json", exclude_none=True)
 
     def _post_to_db(self) -> Optional[Dict[str, Any]]:
-        run_data = self._to_insert_dict()
+        """Insert this run into Supabase. Returns the inserted row dict or None."""
+        run_data: Dict[str, Any] = self._to_insert_dict()
 
-        response = (
-            supabase
-            .table(TABLE)
-            .insert(run_data)
-            .execute()
-        )
+        response: Any = supabase.table(TABLE).insert(run_data).execute()
 
         if response.data:
-            return response.data[0]
+            return cast(Dict[str, Any], response.data[0])
 
         return None
 
     def update_in_db(self, update_data: RunUpdate) -> Optional[Dict[str, Any]]:
+        """Apply a RunUpdate to this run's row in Supabase. Returns the updated row dict or None."""
         if not self.id:
             raise ValueError("Cannot update run without id")
 
-        update_fields = update_data.model_dump(mode="json", exclude_none=True)
+        update_fields: Dict[str, Any] = update_data.model_dump(
+            mode="json", exclude_none=True
+        )
 
-        response = (
-            supabase
-            .table(TABLE)
-            .update(update_fields)
-            .eq("id", str(self.id))
-            .execute()
+        response: Any = (
+            supabase.table(TABLE).update(update_fields).eq("id", str(self.id)).execute()
         )
 
         if response.data:
             log.info("Successfully updated the run in db")
-            return response.data[0]
+            row = cast(Dict[str, Any], response.data[0])
+            for field, value in update_data.model_dump(exclude_none=True).items():
+                setattr(self, field, value)
+            return row
 
         return None
 
     @staticmethod
     def create_run(run_start: datetime) -> Run:
+        """Create a new CREATED run with current portfolio settings, insert it into DB, and return the persisted Run."""
         run = Run(
-                started_at=run_start,
-                status="CREATED",
-                invest_amount=settings.portfolio.invest_amount,
-                invest_interval=settings.portfolio.invest_interval,
-                t212_default_weight=settings.portfolio.t212_weight,
-                btc_default_weight=settings.portfolio.btc_weight,
-                total_orders=0,
-                successful_orders=0,
-                failed_orders=0,
-                test=False
-        )       
+            started_at=run_start,
+            status="CREATED",
+            invest_amount=settings.portfolio.invest_amount,
+            invest_interval=settings.portfolio.invest_interval,
+            t212_default_weight=settings.portfolio.t212_weight,
+            btc_default_weight=settings.portfolio.btc_weight,
+            total_orders=0,
+            successful_orders=0,
+            failed_orders=0,
+            test=False,
+        )
 
         try:
-            inserted = run._post_to_db()
+            inserted: Optional[Dict[str, Any]] = run._post_to_db()
         except Exception as e:
             log.error(f"Failed to insert run into database: {e}")
             raise RuntimeError("Run creation failed during DB insert") from e
@@ -134,12 +137,12 @@ class Run(BaseModel):
         return Run.model_validate(inserted)
 
     def _are_all_orders_filled(self) -> bool:
+        """Check whether every order in this run has status FILLED."""
         if not self.id:
             raise ValueError("Cannot update run without id")
-        res = (
-            supabase
-            .table("orders")
-            .select("id", count="exact")
+        res: Any = (
+            supabase.table("orders")
+            .select("id", count="exact")  # type: ignore[arg-type]
             .eq("run_id", self.id)
             .neq("status", "FILLED")
             .execute()
@@ -147,31 +150,34 @@ class Run(BaseModel):
         return (res.count or 0) == 0
 
     def _mark_run_filled(self) -> None:
+        """Set this run's status to FILLED in the database."""
         if not self.id:
             raise ValueError("Cannot update run without id")
         (
-            supabase
-            .table("runs")
+            supabase.table("runs")
             .update({"status": "FILLED"})
             .eq("id", self.id)
             .execute()
         )
+        self.status = "FILLED"
 
     def _try_mark_run_filled(self) -> bool:
+        """Mark the run as FILLED if all its orders are filled. Returns True if status was updated."""
         if self._are_all_orders_filled():
             self._mark_run_filled()
             return True
         return False
 
     def _try_mark_run_failed_if_expired(self) -> None:
+        """Mark a FINISHED run as FAILED if it has been waiting for order fills for more than 14 days."""
         if self.status != "FINISHED":
             return
 
         if not self.finished_at:
             return
 
-        now = datetime.now(timezone.utc)
-        expiry_threshold = now - timedelta(days=14)
+        now: datetime = datetime.now(timezone.utc)
+        expiry_threshold: datetime = now - timedelta(days=RUN_EXPIRY_DAYS)
 
         if self.finished_at < expiry_threshold:
             update = RunUpdate(status="FAILED")
@@ -179,9 +185,9 @@ class Run(BaseModel):
 
     @staticmethod
     def _get_finished_runs() -> List[Run]:
-        response = (
-            supabase
-            .table("runs")
+        """Fetch all runs with status FINISHED from the database, ordered by most recent first."""
+        response: Any = (
+            supabase.table("runs")
             .select("*")
             .eq("status", "FINISHED")
             .order("started_at", desc=True)
@@ -194,29 +200,32 @@ class Run(BaseModel):
         return [Run.model_validate(row) for row in response.data]
 
     @classmethod
-    def update_runs(cls):
+    def update_runs(cls) -> None:
+        """Process all FINISHED runs: mark expired ones as FAILED, mark fully-filled ones as FILLED."""
         finished_runs: List[Run] = cls._get_finished_runs()
         for run in finished_runs:
             try:
                 run._try_mark_run_failed_if_expired()
                 run._try_mark_run_filled()
             except Exception as e:
-                log.error(f"error in Run.update_runs(): {e}")
-
+                log.error(f"Failed to update run {run.id}: {e}")
 
     @staticmethod
     def process_new_run_data(orders: List[Order]) -> RunUpdate:
+        """Build a RunUpdate from the placed orders with totals, distribution, multipliers, and error summary."""
         total_orders = len(orders)
-        successful_orders = sum(1 for o in orders if o.status not in ("FAILED", "UNKNOWN"))
+        successful_orders = sum(
+            1 for o in orders if o.status not in ("FAILED", "UNKNOWN")
+        )
         failed_orders = sum(1 for o in orders if o.status in ("FAILED", "UNKNOWN"))
 
-        planned_total_czk = float(sum(o.total_czk for o in orders))
+        planned_total_czk: float = float(sum(o.total_czk for o in orders))
 
-        distribution = {o.t212_ticker: o.total_czk for o in orders}
-        multipliers = {o.t212_ticker: o.multiplier for o in orders}
+        distribution: Dict[str, float] = {o.t212_ticker: o.total_czk for o in orders}
+        multipliers: Dict[str, float] = {o.t212_ticker: o.multiplier for o in orders}
 
-        errors = [o.error for o in orders if o.error]
-        error = "; ".join(errors) if errors else None
+        errors: List[str] = [o.error for o in orders if o.error]
+        error: Optional[str] = "; ".join(errors) if errors else None
 
         return RunUpdate(
             planned_total_czk=planned_total_czk,
@@ -232,14 +241,14 @@ class Run(BaseModel):
 
     @staticmethod
     def run_exists_today() -> bool:
-        now = datetime.now(timezone.utc)
+        """Check if a run was already created today (UTC). Always returns False in non-prod."""
+        now: datetime = datetime.now(timezone.utc)
 
-        start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        end_of_day = start_of_day + timedelta(days=1)
+        start_of_day: datetime = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_of_day: datetime = start_of_day + timedelta(days=1)
 
-        response = (
-            supabase
-            .table(TABLE)
+        response: Any = (
+            supabase.table(TABLE)
             .select("id")
             .gte("started_at", start_of_day.isoformat())
             .lt("started_at", end_of_day.isoformat())
@@ -247,10 +256,7 @@ class Run(BaseModel):
             .execute()
         )
 
+        if settings.env != "prod":
+            return False
+
         return bool(response.data)
-        
-
-if __name__ == "__main__":
-    print(Run.run_exists_today())
-
-

@@ -1,0 +1,1 @@
+insert into auth.schema_migrations values ('20221208132122')

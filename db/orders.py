@@ -1,15 +1,22 @@
+# Future
 from __future__ import annotations
+
+# Standard library
 from datetime import datetime, timezone
-from typing import Optional, Literal, Dict, Any, List
+import hashlib
+from typing import Any, Dict, List, Literal, Optional, cast
 from uuid import UUID
+
+# Third-party
 from httpx import RequestError
 from pydantic import BaseModel, Field, model_validator
+
+# Local
+from coinmate import Coinmate
 from db.client import supabase
 from log import log
-import hashlib
-from trading212 import Trading212
-from coinmate import Coinmate
 from settings import settings
+from trading212 import Trading212
 
 TABLE = "orders"
 
@@ -27,6 +34,7 @@ Status = Literal[
     "UNKNOWN",
 ]
 
+
 class OrderUpdate(BaseModel):
     # --- Update ---
     status: Optional[Status] = None
@@ -42,6 +50,7 @@ class OrderUpdate(BaseModel):
     fee_currency: Optional[Currency] = None
     fee: Optional[float] = None
     fee_czk: Optional[float] = None
+
 
 class Order(BaseModel):
     # --- Identity ---
@@ -99,7 +108,7 @@ class Order(BaseModel):
 
     @model_validator(mode="after")
     def validate_business_rules(self) -> "Order":
-        # LIMIT must have limit_price
+        """Enforce business rules: LIMIT orders need limit_price, auto-generate idempotency key, normalize precision."""
         if self.order_type == "LIMIT" and self.limit_price is None:
             raise ValueError("LIMIT order must have limit_price")
 
@@ -114,48 +123,34 @@ class Order(BaseModel):
 
         return self
 
-        return self
-
-
     # -------------------------
     # Helper methods for DB
     # -------------------------
 
     def _to_insert_dict(self) -> Dict[str, Any]:
-        """
-        Připraví dict pro Supabase insert.
-        Vyhodí None hodnoty.
-        """
+        """Convert the order to a dict for Supabase insert, excluding None fields."""
         data = self.model_dump(mode="json", exclude_none=True)
         return data
 
     def post_to_db(self) -> Optional[Dict[str, Any]]:
-        """
-        Inserts a new order into Supabase.
-        Returns inserted row (including generated id).
-        Returns None if idempotency_key already exists.
-        """
+        """Insert this order into Supabase. Returns the inserted row dict, or None if the idempotency key already exists."""
 
-        order_data = self._to_insert_dict()
+        order_data: Dict[str, Any] = self._to_insert_dict()
 
-        response = (
-            supabase
-            .table(TABLE)
-            .insert(order_data)
-            .execute()
-        )
+        response: Any = supabase.table(TABLE).insert(order_data).execute()
 
         # If conflict happens, Supabase returns error
         if response.data:
-            return response.data[0]
+            row = cast(Dict[str, Any], response.data[0])
+            validated = Order.model_validate(row)
+            self.id = validated.id
+            self.created_at = validated.created_at
+            return row
 
         return None
 
     def generate_idempotency_key(self) -> str:
-        """
-        Generates a unique idempotency key based on order parameters.
-        This can be used to ensure that the same order is not created multiple times.
-        """
+        """Generate a SHA-256 idempotency key from the order's identifying fields to prevent duplicate inserts."""
 
         raw = (
             f"{self.run_id}|"
@@ -172,33 +167,32 @@ class Order(BaseModel):
         return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
     def update_in_db(self, update_data: OrderUpdate) -> Optional[Dict[str, Any]]:
+        """Apply an OrderUpdate to this order's row in Supabase. Returns the updated row dict or None."""
         if not self.id:
             raise ValueError("Cannot update order without id")
 
-        update_fields = update_data.model_dump(mode="json", exclude_none=True)
+        update_fields: Dict[str, Any] = update_data.model_dump(
+            mode="json", exclude_none=True
+        )
 
-        response = (
-            supabase
-            .table(TABLE)
-            .update(update_fields)
-            .eq("id", str(self.id))
-            .execute()
+        response: Any = (
+            supabase.table(TABLE).update(update_fields).eq("id", str(self.id)).execute()
         )
 
         if response.data:
             log.info("Successfully updated the order in db")
-            return response.data[0]
+            row = cast(Dict[str, Any], response.data[0])
+            for field, value in update_data.model_dump(exclude_none=True).items():
+                setattr(self, field, value)
+            return row
 
         return None
 
     @staticmethod
     def get_submitted_orders() -> List[Order]:
-        response = (
-            supabase
-            .table(TABLE)
-            .select("*")
-            .eq("status", "SUBMITTED")
-            .execute()
+        """Fetch all orders with status SUBMITTED from the database."""
+        response: Any = (
+            supabase.table(TABLE).select("*").eq("status", "SUBMITTED").execute()
         )
 
         if not response.data:
@@ -207,13 +201,14 @@ class Order(BaseModel):
         return [Order.model_validate(row) for row in response.data]
 
     @staticmethod
-    def _process_new_coinmate_data(order) -> OrderUpdate:
-        status = "FILLED" if order["amount"] != 0 else "FAILED"
+    def _process_new_coinmate_data(order: Dict[str, Any]) -> OrderUpdate:
+        """Parse a Coinmate trade history entry into an OrderUpdate with fill details and fees."""
+        status: Status = "FILLED" if order["amount"] != 0 else "FAILED"
 
-        ts = order["createdTimestamp"]
-        filled_at = datetime.fromtimestamp(ts / 1000, tz=timezone.utc)
+        ts: int = order["createdTimestamp"]
+        filled_at: datetime = datetime.fromtimestamp(ts / 1000, tz=timezone.utc)
 
-        filled_total = order["amount"] * order["price"] - order["fee"]
+        filled_total: float = order["amount"] * order["price"] - order["fee"]
 
         return OrderUpdate(
             status=status,
@@ -226,66 +221,108 @@ class Order(BaseModel):
             fee_currency="CZK",
             fee=order["fee"],
             fee_czk=order["fee"],
-            
         )
 
     @classmethod
-    def update_orders(cls, t212: Trading212, coinmate: Coinmate):
+    def update_orders(cls, t212: Trading212, coinmate: Coinmate) -> None:
+        """Match all SUBMITTED orders against T212/Coinmate trade history and update their fill status in the DB."""
         orders_to_update: List[Order] = Order.get_submitted_orders()
+
+        if not orders_to_update:
+            log.info("No submitted orders to update")
+            return
+
         coinmate_history_data: Dict[str, Any] = coinmate.user_trades()
-        t212_history_data: List[Dict[str, Any]] = t212.orders() if settings.env == "prod" else t212.orders_page()
+        t212_history_data: List[Dict[str, Any]] = (
+            t212.orders() if settings.env == "prod" else t212.orders_page()
+        )
         updated_orders: List[Order] = []
+        pending_orders: List[Order] = []
+        unresolved_orders: List[Order] = []
 
-        if coinmate_history_data["res"]["error"] is not False:
-            raise RequestError("Failed to get coinmate history data")
+        coinmate_res = coinmate_history_data.get("res") or {}
+        if coinmate_res.get("error") is not False:
+            raise RequestError("Failed to get Coinmate history data")
 
-        if t212_history_data == None:
-            raise RequestError("Failed to get t212 history data")
+        if t212_history_data is None:
+            raise RequestError("Failed to get T212 history data")
 
         for order in orders_to_update:
+            order_update: Optional[OrderUpdate] = None
+
             if order.t212_ticker == "BTC":
-                orders = coinmate_history_data["res"]["data"]
-                matched_order = next(
-                    (o for o in orders if str(o["orderId"]) == str(order.external_order_id)),
-                    None
+                orders: List[Dict[str, Any]] = coinmate_res.get("data") or []
+                matched_order: Optional[Dict[str, Any]] = next(
+                    (
+                        o
+                        for o in orders
+                        if str(o["orderId"]) == str(order.external_order_id)
+                    ),
+                    None,
                 )
                 if matched_order:
-                    orderUpdate = cls._process_new_coinmate_data(matched_order)
-                    try:
-                        order.update_in_db(orderUpdate)                       
-                        updated_orders.append(order)
-                    except Exception as e:
-                        log.error(e)
+                    order_update = cls._process_new_coinmate_data(matched_order)
                 else:
-                    log.warning("No matching order found")
-                
+                    log.warning(
+                        f"No matching Coinmate order found for {order.external_order_id} ({order.t212_ticker})"
+                    )
+                    unresolved_orders.append(order)
+
             else:
-                items = t212_history_data
-                matched_item = next(
-                    (item for item in items if str(item["order"]["id"]) == str(order.external_order_id)),
-                    None
+                items: List[Dict[str, Any]] = t212_history_data
+                matched_item: Optional[Dict[str, Any]] = next(
+                    (
+                        item
+                        for item in items
+                        if str(item["order"]["id"]) == str(order.external_order_id)
+                    ),
+                    None,
                 )
                 if matched_item:
-                    orderUpdate = cls._process_new_t212_data(matched_item)
-                    try:
-                        order.update_in_db(orderUpdate)                       
-                        updated_orders.append(order)
-                    except Exception as e:
-                        log.error(e)
+                    order_update = cls._process_new_t212_data(matched_item)
+                elif order.external_order_id:
+                    equity_resp: Dict[str, Any] = t212.equity_order(
+                        int(order.external_order_id)
+                    )
+                    if equity_resp.get("err") is None:
+                        log.info(
+                            f"Order {order.external_order_id} ({order.t212_ticker}) is still pending on T212"
+                        )
+                        pending_orders.append(order)
+                    else:
+                        log.warning(
+                            f"No matching order found for {order.external_order_id} ({order.t212_ticker})"
+                        )
+                        unresolved_orders.append(order)
                 else:
-                    log.warning("No matching order found")
+                    log.warning(
+                        f"No matching order found and no external_order_id for {order.t212_ticker}"
+                    )
+                    unresolved_orders.append(order)
 
-        amount_of_not_updated_orders = len(orders_to_update) - len(updated_orders)
-        if amount_of_not_updated_orders == 0:
-            log.info("All orders successfully updated")
-        else:
-            log.warning(f"{amount_of_not_updated_orders} orders were supposded to update too but did not")
+            if order_update:
+                try:
+                    order.update_in_db(order_update)
+                    log.info(
+                        f"Successfully updated order {order.external_order_id} ({order.t212_ticker})"
+                    )
+                    updated_orders.append(order)
+                except Exception as e:
+                    log.error(
+                        f"Failed to update order {order.id} ({order.t212_ticker}): {e}"
+                    )
+
+        log.info(
+            f"Orders updated: {len(updated_orders)}, pending: {len(pending_orders)}, unresolved: {len(unresolved_orders)}"
+        )
 
     @staticmethod
-    def _process_new_t212_data(item) -> OrderUpdate:
-        order = item.get("order")
-        fill = item.get("fill")
+    def _process_new_t212_data(item: Dict[str, Any]) -> OrderUpdate:
+        """Parse a T212 order history item into an OrderUpdate with fill details, fees, and FX rate."""
+        order: Dict[str, Any] = item["order"]
+        fill: Optional[Dict[str, Any]] = item.get("fill")
 
+        status: Status
         if order["status"] == "CANCELLED":
             status = "CANCELLED"
         elif fill is not None:
@@ -298,14 +335,15 @@ class Order(BaseModel):
             filled_total = order.get("walletImpact", {}).get("netValue")
 
         if fill is not None:
-            filled_at=fill.get("filledAt")
-            fill_fx_rate= 1 / fill.get("walletImpact").get("fxRate")
-            fee = abs(fill.get("walletImpact").get("taxes")[0].get("quantity")) 
-            fee_currency= fill.get("walletImpact").get("taxes")[0].get("currency")
+            wallet_impact: Dict[str, Any] = fill["walletImpact"]
+            filled_at = fill.get("filledAt")
+            fill_fx_rate = 1 / wallet_impact["fxRate"]
+            fee = abs(wallet_impact["taxes"][0]["quantity"])
+            fee_currency = wallet_impact["taxes"][0]["currency"]
             fee_czk = fee if fee_currency == "CZK" else None
-            filled_total_czk = fill.get("walletImpact").get("netValue")
-            filled_total = filled_total_czk * fill_fx_rate
-            fill_price=fill.get("price")
+            filled_total_czk = wallet_impact["netValue"]
+            filled_total = filled_total_czk / fill_fx_rate
+            fill_price = fill.get("price")
         else:
             filled_at = None
             fill_fx_rate = None
@@ -315,7 +353,6 @@ class Order(BaseModel):
             filled_total_czk = None
             filled_total = None
             fill_price = None
-
 
         return OrderUpdate(
             status=status,
@@ -329,42 +366,3 @@ class Order(BaseModel):
             fee=fee,
             fee_czk=fee_czk,
         )
-
-if __name__ == "__main__":
-    from datetime import datetime
-    from uuid import uuid4
-
-    try:
-        order = Order(
-            run_id="test",
-            exchange="T212",
-            instrument_type="ETF",
-            t212_ticker="CSPX_EQ",
-            yahoo_symbol="CSPX.L",
-            currency="USD",
-            side="BUY",
-            order_type="MARKET",
-            price=400.0,
-            quantity=1.0,
-            total=400.0,
-            total_czk=9500.0,
-            extended_hours=False,
-            submitted_at=datetime.utcnow(),
-            multiplier=1.0
-        )
-
-        print("Creating order in DB...")
-
-        inserted = order.post_to_db()
- 
-        if inserted:
-            print("Inserted successfully:")
-            print(inserted)
-        else:
-            print("Order already exists (idempotency triggered)")
-
-
-    except Exception as e:
-        print("Error while creating Order:")
-        print(e)
-

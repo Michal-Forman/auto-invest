@@ -4,5 +4,8 @@
 .env*
 
 __pycache__/
-supabase
+.mypy_cache/
+.claude/
+
+CLAUDE.md
 

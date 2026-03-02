@@ -1,7 +1,10 @@
-from db.orders import InstrumentType, Currency
+# Standard library
 from typing import Dict
 
-T212_TO_YF = {
+# Local
+from db.orders import Currency, InstrumentType
+
+T212_TO_YF: Dict[str, str] = {
     "VWCEd_EQ": "VWCE.DE",
     "CSPX_EQ": "CSPX.L",
     "EMIMl_EQ": "EMIM.L",
@@ -14,7 +17,7 @@ T212_TO_YF = {
     "BTC": "BTC-USD",
 }
 
-INSTRUMENT_CAPS = {
+INSTRUMENT_CAPS: Dict[str, str] = {
     "VWCEd_EQ": "none",
     "CSPX_EQ": "none",
     "EMIMl_EQ": "none",
@@ -59,11 +62,9 @@ INSTRUMENT_NAMES: Dict[str, str] = {
     "EMIMl_EQ": "Ishares core MSCI EM IMI (Acc)",
     "SC0Ud_EQ": "Invesco STOXX Europe 600 optimised banks (Acc)",
     "XNAQl_EQ": "Xtrackers NASDAQ 100 (Acc)",
-    "VERGl_EQ": "Vanguard FTSE developed Europe ex UK (Acc)" ,
+    "VERGl_EQ": "Vanguard FTSE developed Europe ex UK (Acc)",
     "BX_US_EQ": "Blackstone",
     "KKR_US_EQ": "KKR & Co",
     "RBOTl_EQ": "Ishares automation & robotics (Acc)",
     "BTC": "Bitcoin",
 }
-
-
