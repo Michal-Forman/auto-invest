@@ -42,10 +42,12 @@ class Executor:
         err: Any = response_data.get("err")
 
         status: Status
-        if res and res["error"] is False:
+        if res and res.get("error") is False:
             status = "SUBMITTED"
         else:
             status = "FAILED"
+
+        btc_price = Instruments.get_btc_price()
 
         # Write the order in database
         order = Order(
@@ -58,33 +60,29 @@ class Executor:
             currency="CZK",
             side="BUY",
             order_type="INSTANT",
-            price=Instruments.get_btc_price(),
-            quantity=round(amount / Instruments.get_btc_price(), 8),
+            price=btc_price,
+            quantity=round(amount / btc_price, 8),
             total=round(amount, 2),
             total_czk=round(amount, 2),
             extended_hours=False,
             submitted_at=datetime.now(timezone.utc),
             status=status,
-            external_order_id=str(res["data"]) if res else None,
+            external_order_id=str(res.get("data")) if res else None,
             request=req,
             response=res,
-            error=err,
+            error=str(err) if err else None,
             multiplier=multiplier,
             fx_rate=1,
         )
 
         try:
             inserted: Optional[Dict[str, Any]] = order.post_to_db()
+            if inserted:
+                log.info("BTC order recorded in database")
+            else:
+                log.warning("BTC order already exists in DB (idempotency key matched)")
         except Exception as e:
-            log.error(f"Failed to insert order into database: {e}")
-            inserted = None
-
-        if inserted:
-            log.info(f"Order successfully placed and recorded in database: BTC")
-        else:
-            log.error(
-                "Order already exists (idempotency triggered) or failed to insert"
-            )
+            log.error(f"Failed to insert BTC order into database: {e}")
 
         return order
 
@@ -111,16 +109,18 @@ class Executor:
 
         status: Status
         if res is not None:
-            if res["filledQuantity"] == res["quantity"]:
+            filled_qty = res.get("filledQuantity", 0)
+            quantity = res.get("quantity", 0)
+            if filled_qty == quantity:
                 status = "FILLED"
-            elif res["filledQuantity"] > 0:
+            elif filled_qty > 0:
                 status = "PARTIALLY_FILLED"
-            elif res["filledQuantity"] == 0:
+            elif filled_qty == 0:
                 status = "SUBMITTED"
             else:
                 status = "UNKNOWN"
                 log.warning(
-                    f"Can't get order status for some reason. Not a big runtime risk, but it's not good"
+                    f"Unexpected filledQuantity value for {ticker}: {filled_qty}"
                 )
         else:
             status = "FAILED"
@@ -154,16 +154,14 @@ class Executor:
 
         try:
             inserted: Optional[Dict[str, Any]] = order.post_to_db()
+            if inserted:
+                log.info(f"{ticker} order recorded in database")
+            else:
+                log.warning(
+                    f"{ticker} order already exists in DB (idempotency key matched)"
+                )
         except Exception as e:
-            log.error(f"Failed to insert order into database: {e}")
-            inserted = None
-
-        if inserted:
-            log.info(f"Order successfully placed and recorded in database: {ticker}")
-        else:
-            log.error(
-                "Order already exists (idempotency triggered) or failed to insert"
-            )
+            log.error(f"Failed to insert {ticker} order into database: {e}")
 
         return order
 

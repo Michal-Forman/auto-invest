@@ -226,17 +226,18 @@ class Order(BaseModel):
         )
         updated_orders: List[Order] = []
 
-        if coinmate_history_data["res"]["error"] is not False:
-            raise RequestError("Failed to get coinmate history data")
+        coinmate_res = coinmate_history_data.get("res") or {}
+        if coinmate_res.get("error") is not False:
+            raise RequestError("Failed to get Coinmate history data")
 
         if t212_history_data is None:
-            raise RequestError("Failed to get t212 history data")
+            raise RequestError("Failed to get T212 history data")
 
         for order in orders_to_update:
             order_update: Optional[OrderUpdate] = None
 
             if order.t212_ticker == "BTC":
-                orders: List[Dict[str, Any]] = coinmate_history_data["res"]["data"]
+                orders: List[Dict[str, Any]] = coinmate_res.get("data") or []
                 matched_order: Optional[Dict[str, Any]] = next(
                     (
                         o
@@ -270,7 +271,9 @@ class Order(BaseModel):
                     order.update_in_db(order_update)
                     updated_orders.append(order)
                 except Exception as e:
-                    log.error(e)
+                    log.error(
+                        f"Failed to update order {order.id} ({order.t212_ticker}): {e}"
+                    )
 
         amount_of_not_updated_orders = len(orders_to_update) - len(updated_orders)
         if amount_of_not_updated_orders == 0:

@@ -204,7 +204,7 @@ class Run(BaseModel):
                 run._try_mark_run_failed_if_expired()
                 run._try_mark_run_filled()
             except Exception as e:
-                log.error(f"error in Run.update_runs(): {e}")
+                log.error(f"Failed to update run {run.id}: {e}")
 
     @staticmethod
     def process_new_run_data(orders: List[Order]) -> RunUpdate:

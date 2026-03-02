@@ -49,21 +49,28 @@ if is_now_cron_time(settings.portfolio.invest_interval) and not Run.run_exists_t
     run: Run = Run.create_run(run_start)
     assert run.id is not None
 
-    # Actually create the orders
-    calculated_investment: Dict[str, Dict[str, float]] = instruments.distribute_cash()
-    cash_distribution: Dict[str, float] = calculated_investment["cash_distribution"]
-    multipliers: Dict[str, float] = calculated_investment["multipliers"]
-    orders: List[Order] = executor.place_orders(
-        cash_distribution, multipliers, run_id=run.id
-    )
-    log.info("Investment process finished")
-
-    # Update the run data with info about the orders
-    run_data_for_update: RunUpdate = Run.process_new_run_data(orders)
     try:
+        # Actually create the orders
+        calculated_investment: Dict[str, Dict[str, float]] = (
+            instruments.distribute_cash()
+        )
+        cash_distribution: Dict[str, float] = calculated_investment["cash_distribution"]
+        multipliers: Dict[str, float] = calculated_investment["multipliers"]
+        orders: List[Order] = executor.place_orders(
+            cash_distribution, multipliers, run_id=run.id
+        )
+        log.info("Investment process finished")
+
+        # Update the run data with info about the orders
+        run_data_for_update: RunUpdate = Run.process_new_run_data(orders)
         run.update_in_db(run_data_for_update)
-        log.info("Updated Run data based on Orders made successfully")
+        log.info("Run data updated successfully")
+
     except Exception as e:
-        log.error(f"Failed to update the db, error: {e}")
+        log.error(f"Investment run failed: {e}")
+        try:
+            run.update_in_db(RunUpdate(status="FAILED", error=str(e)))
+        except Exception as db_err:
+            log.error(f"Also failed to mark run as FAILED in DB: {db_err}")
 else:
     log.info("No investments / orders were supposed to be made in this run")

@@ -120,12 +120,18 @@ class Instruments:
             log.warning(
                 "BTC-USD lastPrice not found in fast_info, falling back to history"
             )
-            btc_usd = float(btc.history(period="1d", interval="1m")["Close"].iloc[-1])
+            btc_hist = btc.history(period="1d", interval="1m")
+            if btc_hist.empty:
+                raise ValueError("BTC-USD history is empty, cannot determine price")
+            btc_usd = float(btc_hist["Close"].iloc[-1])
         if usdczk is None:
             log.warning(
                 "USDCZK=X lastPrice not found in fast_info, falling back to history"
             )
-            usdczk = float(fx.history(period="1d", interval="1m")["Close"].iloc[-1])
+            fx_hist = fx.history(period="1d", interval="1m")
+            if fx_hist.empty:
+                raise ValueError("USDCZK=X history is empty, cannot determine FX rate")
+            usdczk = float(fx_hist["Close"].iloc[-1])
 
         return float(btc_usd) * float(usdczk)
 
