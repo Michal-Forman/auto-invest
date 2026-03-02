@@ -28,6 +28,35 @@ class Trading212:
             else "https://demo.trading212.com"
         )
 
+    def _get_with_retry(
+        self,
+        url: str,
+        params: Optional[Dict[str, Any]] = None,
+        max_retries: int = 6,
+    ) -> Dict[str, Any]:
+        """Perform a GET request with automatic 429 retry and exponential backoff."""
+        headers: Dict[str, str] = {"Authorization": self._auth_header}
+
+        for attempt in range(max_retries + 1):
+            try:
+                resp: requests.Response = requests.get(url, headers=headers, params=params)
+            except RequestException as e:
+                return {"req": None, "res": None, "err": e}
+
+            if resp.status_code == 429:
+                if attempt == max_retries:
+                    wrapped: Dict[str, Any] = self._process_response(resp)
+                    wrapped["err"] = f"429 Too Many Requests after {max_retries} retries"
+                    return wrapped
+                self._sleep_for_retry(resp, attempt)
+                continue
+
+            return self._process_response(resp)
+
+        raise RuntimeError(
+            f"_get_with_retry exited retry loop without returning (max_retries={max_retries})"
+        )
+
     def _get(
         self,
         endpoint: str,
@@ -35,12 +64,8 @@ class Trading212:
         api_version: str = "v0",
     ) -> Dict[str, Any]:
         """Send an authenticated GET request and return the wrapped response."""
-        return self._process_response(
-            requests.get(
-                f"{self.host}/api/{api_version}/{endpoint}",
-                headers={"Authorization": self._auth_header},
-                params=params,
-            )
+        return self._get_with_retry(
+            f"{self.host}/api/{api_version}/{endpoint}", params=params
         )
 
     def _post(
@@ -72,32 +97,8 @@ class Trading212:
 
     def _get_url(self, next_page_path: str, max_retries: int = 6) -> Dict[str, Any]:
         """Fetch a full URL (used for pagination) with automatic 429 retry and exponential backoff."""
-        url: str = f"{self.host}{next_page_path}"
-        headers: Dict[str, str] = {"Authorization": self._auth_header}
-
-        for attempt in range(max_retries + 1):
-            try:
-                resp: requests.Response = requests.get(url, headers=headers)
-            except RequestException as e:
-                return {"req": None, "res": None, "err": e}
-
-            if resp.status_code == 429:
-                if attempt == max_retries:
-                    wrapped: Dict[str, Any] = self._process_response(resp)
-                    wrapped["err"] = (
-                        f"429 Too Many Requests after {max_retries} retries"
-                    )
-                    return wrapped
-
-                # sleep before retry
-                self._sleep_for_retry(resp, attempt)
-                continue
-
-            # success case
-            return self._process_response(resp)
-
-        raise RuntimeError(
-            f"_get_url exited retry loop without returning (max_retries={max_retries})"
+        return self._get_with_retry(
+            f"{self.host}{next_page_path}", max_retries=max_retries
         )
 
     @staticmethod

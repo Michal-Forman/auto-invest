@@ -225,6 +225,8 @@ class Order(BaseModel):
             t212.orders() if settings.env == "prod" else t212.orders_page()
         )
         updated_orders: List[Order] = []
+        pending_orders: List[Order] = []
+        unresolved_orders: List[Order] = []
 
         coinmate_res = coinmate_history_data.get("res") or {}
         if coinmate_res.get("error") is not False:
@@ -249,7 +251,8 @@ class Order(BaseModel):
                 if matched_order:
                     order_update = cls._process_new_coinmate_data(matched_order)
                 else:
-                    log.warning("No matching order found")
+                    log.warning(f"No matching Coinmate order found for {order.external_order_id} ({order.t212_ticker})")
+                    unresolved_orders.append(order)
 
             else:
                 items: List[Dict[str, Any]] = t212_history_data
@@ -263,25 +266,29 @@ class Order(BaseModel):
                 )
                 if matched_item:
                     order_update = cls._process_new_t212_data(matched_item)
+                elif order.external_order_id:
+                    equity_resp: Dict[str, Any] = t212.equity_order(
+                        int(order.external_order_id)
+                    )
+                    if equity_resp.get("err") is None:
+                        log.info(f"Order {order.external_order_id} ({order.t212_ticker}) is still pending on T212")
+                        pending_orders.append(order)
+                    else:
+                        log.warning(f"No matching order found for {order.external_order_id} ({order.t212_ticker})")
+                        unresolved_orders.append(order)
                 else:
-                    log.warning("No matching order found")
+                    log.warning(f"No matching order found and no external_order_id for {order.t212_ticker}")
+                    unresolved_orders.append(order)
 
             if order_update:
                 try:
                     order.update_in_db(order_update)
+                    log.info(f"Successfully updated order {order.external_order_id} ({order.t212_ticker})")
                     updated_orders.append(order)
                 except Exception as e:
-                    log.error(
-                        f"Failed to update order {order.id} ({order.t212_ticker}): {e}"
-                    )
+                    log.error(f"Failed to update order {order.id} ({order.t212_ticker}): {e}")
 
-        amount_of_not_updated_orders = len(orders_to_update) - len(updated_orders)
-        if amount_of_not_updated_orders == 0:
-            log.info("All orders successfully updated")
-        else:
-            log.warning(
-                f"{amount_of_not_updated_orders} orders were supposed to update too but did not"
-            )
+        log.info(f"Orders updated: {len(updated_orders)}, pending: {len(pending_orders)}, unresolved: {len(unresolved_orders)}")
 
     @staticmethod
     def _process_new_t212_data(item: Dict[str, Any]) -> OrderUpdate:
