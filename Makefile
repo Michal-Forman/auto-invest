@@ -8,7 +8,11 @@ format:
 	@echo ">> Formatting with Black..."
 	@black .
 
-deploy: format sort
+typecheck:
+	@echo ">> Type checking with mypy..."
+	@python3 -m mypy --explicit-package-bases *.py db/*.py
+
+deploy: format sort typecheck
 	@echo ">> Staging changes..."
 	@git add .
 	@echo ">> Committing..."
