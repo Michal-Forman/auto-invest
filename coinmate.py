@@ -22,6 +22,7 @@ class Coinmate:
     def __init__(
         self, client_id: int, public_key: str, private_key: str, timeout_s: int = 20
     ) -> None:
+        """Initialize the Coinmate REST client with HMAC-SHA256 authentication credentials."""
         self.client_id = client_id
         self.public_key = public_key
         self.private_key = private_key
@@ -30,7 +31,7 @@ class Coinmate:
         self._last_nonce = 0
 
     def _nonce(self) -> str:
-        """Generate a nonce that is always increasing. Coinmate requires a nonce for private endpoints, and it must be greater than the previous one."""
+        """Return a monotonically increasing nonce (millisecond timestamp) required by Coinmate private endpoints."""
         # docs recommend unix timestamps; ms is standard
         n = int(time.time() * 1000)
         if n <= self._last_nonce:
@@ -39,7 +40,7 @@ class Coinmate:
         return str(n)
 
     def _signature(self, nonce: str) -> str:
-        """Generate the HMAC signature for private API requests. Coinmate requires a signature that is an HMAC-SHA256 of the concatenation of nonce, clientId, and publicApiKey, using the private key as the HMAC key."""
+        """Compute the HMAC-SHA256 signature over (nonce + clientId + publicKey) using the private key."""
         # signatureInput = nonce + clientId + publicApiKey
         msg = f"{nonce}{self.client_id}{self.public_key}".encode("utf-8")
         key = self.private_key.encode("utf-8")
@@ -48,7 +49,7 @@ class Coinmate:
     def _private_payload(
         self, extra: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
-        """Generate the payload for private API requests, including the required authentication parameters."""
+        """Build the authenticated form payload (clientId, publicKey, nonce, signature) with optional extra fields."""
         nonce: str = self._nonce()
         payload: Dict[str, Any] = {
             "clientId": self.client_id,
@@ -63,7 +64,7 @@ class Coinmate:
     def _get(
         self, path: str, params: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
-        """Helper method for GET requests to the Coinmate API."""
+        """Send a GET request to the Coinmate public API and return the parsed JSON response."""
         url = f"{self.BASE_URL}{path}"
         resp: requests.Response = self.session.get(
             url, params=params, timeout=self.timeout_s
@@ -72,7 +73,7 @@ class Coinmate:
         return resp.json()
 
     def _post(self, path: str, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Helper method for POST requests to the Coinmate API. Coinmate expects form-encoded data for POST requests."""
+        """Send a form-encoded POST to Coinmate. Returns a wrapped dict with req (redacted body), res, and err keys."""
 
         url = f"{self.BASE_URL}{path}"
         resp: requests.Response = self.session.post(
@@ -107,12 +108,13 @@ class Coinmate:
     # ---------- Public endpoints ----------
 
     def ticker(self, currency_pair: str = "BTC_CZK") -> Dict[str, Any]:
+        """Fetch the current ticker (bid, ask, last price, volume) for a currency pair."""
         return self._get("/ticker", params={"currencyPair": currency_pair})
 
     def transactions(
         self, currency_pair: str = "BTC_CZK", limit: int = 100
     ) -> Dict[str, Any]:
-        # public "Transactions" endpoint; exact params may vary, keep minimal
+        """Fetch recent public transactions for a currency pair."""
         return self._get(
             "/transactions", params={"currencyPair": currency_pair, "limit": limit}
         )
@@ -120,7 +122,7 @@ class Coinmate:
     # ---------- Private endpoints ----------
 
     def balances(self) -> Dict[str, Any]:
-        """Get account balances. POST /balances with authentication parameters."""
+        """Fetch all account balances (available, reserved, total) for the authenticated user."""
         return self._post("/balances", data=self._private_payload())
 
     def buy_instant(
@@ -129,11 +131,7 @@ class Coinmate:
         currency_pair: str = "BTC_CZK",
         client_order_id: Optional[int] = None,
     ) -> Dict[str, Any]:
-        """
-        Buy instant order:
-          POST /buyInstant
-          required: total, currencyPair
-        """
+        """Execute an instant buy for the given total amount in the quote currency. Returns wrapped req/res/err dict."""
         extra: Dict[str, Any] = {
             "total": str(total),
             "currencyPair": currency_pair,
@@ -157,9 +155,7 @@ class Coinmate:
     def user_trades(
         self, currency_pair: str = "BTC_CZK", limit: int = 10
     ) -> Dict[str, Any]:
-        """
-        Fetch historical trades (filled executions) for the authenticated user.
-        """
+        """Fetch the authenticated user's recent trade history for a currency pair."""
         payload: Dict[str, Any] = self._private_payload(
             {
                 "currencyPair": currency_pair,

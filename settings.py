@@ -23,6 +23,7 @@ class PortfolioSettings:
 
     @classmethod
     def from_env(cls) -> "PortfolioSettings":
+        """Load portfolio settings from environment variables."""
         return cls(
             pie_id=int(os.environ["PIE_ID"]),
             t212_weight=int(os.environ["T212_WEIGHT"]),
@@ -46,6 +47,7 @@ class Settings:
 
     @classmethod
     def from_env(cls) -> "Settings":
+        """Load all application settings (API keys, Supabase, portfolio) from environment variables."""
         return cls(
             t212_id_key=os.environ["T212_ID_KEY"],
             t212_private_key=os.environ["T212_PRIVATE_KEY"],

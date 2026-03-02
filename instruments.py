@@ -16,16 +16,17 @@ from trading212 import Trading212
 
 class Instruments:
     def __init__(self, t212: Trading212, portfolio_settings: PortfolioSettings) -> None:
+        """Initialize with a Trading212 client and portfolio configuration."""
         self.t212 = t212
         self.portfolio_settings = portfolio_settings
 
     def _validate_t212_ratios(self, ratios: Dict[str, float]) -> bool:
-        """Validate if the T212 ratios sum to 1.0 (100%)"""
+        """Return True if ratios sum to 1.0 (within floating-point tolerance)."""
         total = sum(ratios.values())
         return abs(total - 1.0) < 1e-6
 
     def get_t212_ratios(self) -> dict[str, float]:
-        """Fetch the expected share ratios for each instrument in the T212 pie. The values are not multiplied by the T212 weight, as this is done in get_default_ratios."""
+        """Fetch per-instrument target weight ratios from the T212 pie API. Returns raw ratios (not yet scaled by T212_WEIGHT)."""
         try:
             resp: Dict[str, Any] = self.t212.pie(self.portfolio_settings.pie_id)
         except Exception as e:
@@ -58,7 +59,7 @@ class Instruments:
         return result
 
     def get_default_ratios(self) -> Dict[str, float]:
-        """Calculate the final default ratios. Multiplies the T212 ratios by the T212 weight, and adds the BTC ratio."""
+        """Scale T212 ratios by T212_WEIGHT and append BTC at BTC_WEIGHT to produce the full portfolio ratios."""
         ratios: Dict[str, float] = self.get_t212_ratios()
         ratios = {k: v * self.portfolio_settings.t212_weight for k, v in ratios.items()}
         ratios["BTC"] = self.portfolio_settings.btc_weight
@@ -66,14 +67,14 @@ class Instruments:
 
     @staticmethod
     def get_yahoo_symbol(t212_ticker: str) -> str:
-        """Get the corresponding Yahoo Finance symbol for a given T212 ticker."""
+        """Map a T212 ticker to its Yahoo Finance symbol. Raises ValueError if unmapped."""
         if t212_ticker not in T212_TO_YF:
             raise ValueError(f"No Yahoo mapping for {t212_ticker}")
         return T212_TO_YF[t212_ticker]
 
     @classmethod
     def get_ath(cls, t212_ticker: str) -> float:
-        """Returns the all-time high price for a given T212 ticker."""
+        """Return the all-time high close price for a ticker. BTC is computed in CZK, others via Yahoo Finance history."""
         if t212_ticker == "BTC":
             return cls._get_btc_ath()
         symbol = cls.get_yahoo_symbol(t212_ticker)
@@ -88,9 +89,7 @@ class Instruments:
 
     @classmethod
     def get_current_price(cls, t212_ticker: str) -> float:
-        """
-        Returns latest close price for a given T212 ticker.
-        """
+        """Return the latest close price for a ticker. BTC is computed in CZK, others via Yahoo Finance 5-day history."""
         if t212_ticker == "BTC":
             return cls.get_btc_price()
 
@@ -106,7 +105,7 @@ class Instruments:
 
     @staticmethod
     def get_btc_price() -> float:
-        """Get the current price of BTC in CZK by multiplying the BTC-USD price with the USDCZK exchange rate."""
+        """Return the current BTC price in CZK (BTC-USD * USDCZK). Falls back to intraday history if fast_info is unavailable."""
         btc: yf.Ticker = yf.Ticker("BTC-USD")
         fx: yf.Ticker = yf.Ticker("USDCZK=X")
 
@@ -129,7 +128,7 @@ class Instruments:
 
     @staticmethod
     def _get_btc_ath() -> float:
-        """Get the all-time high price of BTC in CZK by multiplying the BTC-USD ATH with the maximum USDCZK exchange rate."""
+        """Return the BTC ATH in CZK by joining daily BTC-USD and USDCZK history and taking the max of (btc_usd * usdczk)."""
         btc: pd.DataFrame = yf.Ticker("BTC-USD").history(period="max")[["Close"]]
         btc.columns = ["btc_usd"]
         fx: pd.DataFrame = yf.Ticker("USDCZK=X").history(period="max")[["Close"]]
@@ -150,7 +149,7 @@ class Instruments:
 
     @classmethod
     def _adjust_ratio(cls, ticker: str, value: float) -> Dict[str, float]:
-        """Adjust the given ratio for the specified ticker based on its drop from ATH and the defined cap."""
+        """Compute the drop-from-ATH multiplier for a ticker and return the adjusted ratio value along with the multiplier."""
         ath: float = cls.get_ath(ticker)
         current: float = cls.get_current_price(ticker)
         drop = (ath - current) / ath * 100
@@ -173,7 +172,7 @@ class Instruments:
         }
 
     def get_adjusted_ratios(self) -> Dict[str, Dict[str, float]]:
-        """Calculate the adjusted ratios for each instrument by applying the drop-based adjustment to the default ratios."""
+        """Apply drop-from-ATH adjustments to all default ratios. Returns per-ticker multiplier and adjusted value."""
         ratios: Dict[str, float] = self.get_default_ratios()
         adjusted_ratios: Dict[str, Dict[str, float]] = {
             ticker: self._adjust_ratio(ticker, value)
@@ -184,7 +183,7 @@ class Instruments:
 
     @staticmethod
     def _soft_cap(drop: float) -> float:
-        """Apply a soft cap to the drop percentage, limiting it to a maximum of 75%."""
+        """Cap the drop percentage at 75%."""
         if drop >= 75:
             return 75
         else:
@@ -192,14 +191,14 @@ class Instruments:
 
     @classmethod
     def _hard_cap(cls, drop: float) -> float:
-        """Apply a hard cap to the drop percentage, default will reset itself if drop is 90% or more. Hard cap also implies soft cap"""
+        """Cap the drop at 75% (soft cap), but reset to 0% if drop >= 90% (treat as recovered)."""
         if drop >= 90:
             return 0
         else:
             return cls._soft_cap(drop)
 
     def distribute_cash(self) -> Dict[str, Dict[str, float]]:
-        """Distribute the total invest amount across the instruments based on the adjusted ratios, ensuring the distribution sums to the invest amount and respects minimum investment thresholds."""
+        """Distribute INVEST_AMOUNT CZK across instruments using adjusted ratios. Returns cash_distribution and multipliers dicts, with minimum-investment thresholds enforced."""
         adjusted_ratios: Dict[str, Dict[str, float]] = self.get_adjusted_ratios()
 
         total = sum(v["adjusted_value"] for v in adjusted_ratios.values())
@@ -236,7 +235,7 @@ class Instruments:
     def _validate_cash_distribution(
         self, distribution: Dict[str, float]
     ) -> Dict[str, float]:
-        """Validate the cash distribution by ensuring it sums to the invest amount and applying minimum investment thresholds."""
+        """Enforce minimum order size (25 CZK). Drops instruments below 12.5 CZK, bumps those between 12.5-25 CZK up to 25 CZK."""
         if (
             abs(sum(distribution.values()) - self.portfolio_settings.invest_amount)
             > 1e-6
@@ -268,7 +267,7 @@ class Instruments:
 
     @staticmethod
     def get_fx_rate_to_czk(currency: str) -> float:
-        """Get the exchange rate from the specified currency to CZK using Yahoo Finance. For GBX, it converts the price to GBP first and then to CZK."""
+        """Return the exchange rate from the given currency to CZK via Yahoo Finance. GBX is converted through GBP (divided by 100)."""
         if currency == "CZK":
             return 1.0
         if currency == "GBX":

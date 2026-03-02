@@ -108,7 +108,7 @@ class Order(BaseModel):
 
     @model_validator(mode="after")
     def validate_business_rules(self) -> "Order":
-        # LIMIT must have limit_price
+        """Enforce business rules: LIMIT orders need limit_price, auto-generate idempotency key, normalize precision."""
         if self.order_type == "LIMIT" and self.limit_price is None:
             raise ValueError("LIMIT order must have limit_price")
 
@@ -128,19 +128,12 @@ class Order(BaseModel):
     # -------------------------
 
     def _to_insert_dict(self) -> Dict[str, Any]:
-        """
-        Připraví dict pro Supabase insert.
-        Vyhodí None hodnoty.
-        """
+        """Convert the order to a dict for Supabase insert, excluding None fields."""
         data = self.model_dump(mode="json", exclude_none=True)
         return data
 
     def post_to_db(self) -> Optional[Dict[str, Any]]:
-        """
-        Inserts a new order into Supabase.
-        Returns inserted row (including generated id).
-        Returns None if idempotency_key already exists.
-        """
+        """Insert this order into Supabase. Returns the inserted row dict, or None if the idempotency key already exists."""
 
         order_data: Dict[str, Any] = self._to_insert_dict()
 
@@ -153,10 +146,7 @@ class Order(BaseModel):
         return None
 
     def generate_idempotency_key(self) -> str:
-        """
-        Generates a unique idempotency key based on order parameters.
-        This can be used to ensure that the same order is not created multiple times.
-        """
+        """Generate a SHA-256 idempotency key from the order's identifying fields to prevent duplicate inserts."""
 
         raw = (
             f"{self.run_id}|"
@@ -173,6 +163,7 @@ class Order(BaseModel):
         return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
     def update_in_db(self, update_data: OrderUpdate) -> Optional[Dict[str, Any]]:
+        """Apply an OrderUpdate to this order's row in Supabase. Returns the updated row dict or None."""
         if not self.id:
             raise ValueError("Cannot update order without id")
 
@@ -192,6 +183,7 @@ class Order(BaseModel):
 
     @staticmethod
     def get_submitted_orders() -> List[Order]:
+        """Fetch all orders with status SUBMITTED from the database."""
         response: Any = (
             supabase.table(TABLE).select("*").eq("status", "SUBMITTED").execute()
         )
@@ -203,6 +195,7 @@ class Order(BaseModel):
 
     @staticmethod
     def _process_new_coinmate_data(order: Dict[str, Any]) -> OrderUpdate:
+        """Parse a Coinmate trade history entry into an OrderUpdate with fill details and fees."""
         status: Status = "FILLED" if order["amount"] != 0 else "FAILED"
 
         ts: int = order["createdTimestamp"]
@@ -225,6 +218,7 @@ class Order(BaseModel):
 
     @classmethod
     def update_orders(cls, t212: Trading212, coinmate: Coinmate) -> None:
+        """Match all SUBMITTED orders against T212/Coinmate trade history and update their fill status in the DB."""
         orders_to_update: List[Order] = Order.get_submitted_orders()
         coinmate_history_data: Dict[str, Any] = coinmate.user_trades()
         t212_history_data: List[Dict[str, Any]] = (
@@ -288,6 +282,7 @@ class Order(BaseModel):
 
     @staticmethod
     def _process_new_t212_data(item: Dict[str, Any]) -> OrderUpdate:
+        """Parse a T212 order history item into an OrderUpdate with fill details, fees, and FX rate."""
         order: Dict[str, Any] = item["order"]
         fill: Optional[Dict[str, Any]] = item.get("fill")
 

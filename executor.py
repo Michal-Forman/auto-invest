@@ -27,12 +27,13 @@ class Executor:
         coinmate: Coinmate,
         portfolio_settings: PortfolioSettings,
     ) -> None:
+        """Initialize with Trading212 and Coinmate clients plus portfolio configuration."""
         self.t212 = t212
         self.coinmate = coinmate
         self.portfolio_settings = portfolio_settings
 
     def _place_btc_order(self, amount: float, multiplier: float, run_id: UUID) -> Order:
-        """Place a market order to buy BTC on Coinmate for the specified amount in CZK."""
+        """Place an instant BTC buy on Coinmate for the given CZK amount, persist the Order to DB, and return it."""
         amount = round(
             amount, 2
         )  # Coinmate requires amounts to have at most 2 decimal places
@@ -92,7 +93,7 @@ class Executor:
     def _place_t212_order(
         self, ticker: str, amount: float, multiplier: float, run_id: UUID
     ) -> Order:
-        """Place a market order to buy the specified ticker on Trading212 for the specified amount in CZK."""
+        """Place a T212 market buy for the given CZK amount (converted to the instrument's currency), persist the Order to DB, and return it."""
         instrument_currency: Currency = INSTRUMENT_CURRENCIES[ticker]
         if not instrument_currency:
             raise ValueError(f"Unknown currency for ticker {ticker}")
@@ -174,7 +175,7 @@ class Executor:
         multipliers: Dict[str, float],
         run_id: UUID,
     ) -> List[Order]:
-        """Place orders for each instrument according to the provided cash distribution"""
+        """Place a buy order for every instrument in the cash distribution. Routes BTC to Coinmate and everything else to T212."""
         orders: List[Order] = []
 
         for ticker, amount in cash_distribution.items():

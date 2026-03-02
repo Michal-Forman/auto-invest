@@ -70,9 +70,11 @@ class Run(BaseModel):
     # -------------------------
 
     def _to_insert_dict(self) -> Dict[str, Any]:
+        """Convert the run to a dict for Supabase insert, excluding None fields."""
         return self.model_dump(mode="json", exclude_none=True)
 
     def _post_to_db(self) -> Optional[Dict[str, Any]]:
+        """Insert this run into Supabase. Returns the inserted row dict or None."""
         run_data: Dict[str, Any] = self._to_insert_dict()
 
         response: Any = supabase.table(TABLE).insert(run_data).execute()
@@ -83,6 +85,7 @@ class Run(BaseModel):
         return None
 
     def update_in_db(self, update_data: RunUpdate) -> Optional[Dict[str, Any]]:
+        """Apply a RunUpdate to this run's row in Supabase. Returns the updated row dict or None."""
         if not self.id:
             raise ValueError("Cannot update run without id")
 
@@ -102,6 +105,7 @@ class Run(BaseModel):
 
     @staticmethod
     def create_run(run_start: datetime) -> Run:
+        """Create a new CREATED run with current portfolio settings, insert it into DB, and return the persisted Run."""
         run = Run(
             started_at=run_start,
             status="CREATED",
@@ -129,6 +133,7 @@ class Run(BaseModel):
         return Run.model_validate(inserted)
 
     def _are_all_orders_filled(self) -> bool:
+        """Check whether every order in this run has status FILLED."""
         if not self.id:
             raise ValueError("Cannot update run without id")
         res: Any = (
@@ -141,6 +146,7 @@ class Run(BaseModel):
         return (res.count or 0) == 0
 
     def _mark_run_filled(self) -> None:
+        """Set this run's status to FILLED in the database."""
         if not self.id:
             raise ValueError("Cannot update run without id")
         (
@@ -151,12 +157,14 @@ class Run(BaseModel):
         )
 
     def _try_mark_run_filled(self) -> bool:
+        """Mark the run as FILLED if all its orders are filled. Returns True if status was updated."""
         if self._are_all_orders_filled():
             self._mark_run_filled()
             return True
         return False
 
     def _try_mark_run_failed_if_expired(self) -> None:
+        """Mark a FINISHED run as FAILED if it has been waiting for order fills for more than 14 days."""
         if self.status != "FINISHED":
             return
 
@@ -172,6 +180,7 @@ class Run(BaseModel):
 
     @staticmethod
     def _get_finished_runs() -> List[Run]:
+        """Fetch all runs with status FINISHED from the database, ordered by most recent first."""
         response: Any = (
             supabase.table("runs")
             .select("*")
@@ -187,6 +196,7 @@ class Run(BaseModel):
 
     @classmethod
     def update_runs(cls) -> None:
+        """Process all FINISHED runs: mark expired ones as FAILED, mark fully-filled ones as FILLED."""
         finished_runs: List[Run] = cls._get_finished_runs()
         for run in finished_runs:
             try:
@@ -197,6 +207,7 @@ class Run(BaseModel):
 
     @staticmethod
     def process_new_run_data(orders: List[Order]) -> RunUpdate:
+        """Build a RunUpdate from the placed orders with totals, distribution, multipliers, and error summary."""
         total_orders = len(orders)
         successful_orders = sum(
             1 for o in orders if o.status not in ("FAILED", "UNKNOWN")
@@ -225,6 +236,7 @@ class Run(BaseModel):
 
     @staticmethod
     def run_exists_today() -> bool:
+        """Check if a run was already created today (UTC). Always returns False in non-prod."""
         now: datetime = datetime.now(timezone.utc)
 
         start_of_day: datetime = now.replace(hour=0, minute=0, second=0, microsecond=0)

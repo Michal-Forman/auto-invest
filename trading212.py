@@ -19,6 +19,7 @@ class Trading212:
     host: str
 
     def __init__(self, api_id_key: str, api_private_key: str, env: str = "dev") -> None:
+        """Initialize the T212 REST client with Basic Auth. Uses live host in prod, demo otherwise."""
         credentials: str = f"{api_id_key}:{api_private_key}"
         encoded: str = base64.b64encode(credentials.encode()).decode()
 
@@ -35,6 +36,7 @@ class Trading212:
         params: Optional[Dict[str, Any]] = None,
         api_version: str = "v0",
     ) -> Dict[str, Any]:
+        """Send an authenticated GET request and return the wrapped response."""
         return self._process_response(
             requests.get(
                 f"{self.host}/api/{api_version}/{endpoint}",
@@ -46,6 +48,7 @@ class Trading212:
     def _post(
         self, endpoint: str, data: Dict[str, Any], api_version: str = "v0"
     ) -> Dict[str, Any]:
+        """Send an authenticated POST request with JSON body and return the wrapped response."""
         url: str = f"{self.host}/api/{api_version}/{endpoint}"
         headers: Dict[str, str] = {
             "Authorization": self._auth_header,
@@ -63,7 +66,7 @@ class Trading212:
 
     @staticmethod
     def _sleep_for_retry(resp: requests.Response, attempt: int) -> None:
-        # Prefer server-provided hint
+        """Sleep before retrying a rate-limited request. Uses Retry-After header if available, otherwise exponential backoff with jitter."""
         retry_after: Optional[str] = resp.headers.get("Retry-After")
         if retry_after:
             try:
@@ -77,6 +80,7 @@ class Trading212:
         time.sleep(base_delay + random.random())
 
     def _get_url(self, next_page_path: str, max_retries: int = 6) -> Dict[str, Any]:
+        """Fetch a full URL (used for pagination) with automatic 429 retry and exponential backoff."""
         url: str = f"{self.host}{next_page_path}"
         headers: Dict[str, str] = {"Authorization": self._auth_header}
 
@@ -107,6 +111,7 @@ class Trading212:
 
     @staticmethod
     def _process_response(resp: requests.Response) -> Dict[str, Any]:
+        """Wrap a raw HTTP response into the standard {req, res, err} dict format."""
         req_data: Dict[str, Any] = {
             "method": resp.request.method,
             "url": resp.request.url,
@@ -140,11 +145,11 @@ class Trading212:
     # --------------
 
     def portfolio(self) -> Dict[str, Any]:
-        """All open positions"""
+        """Fetch all open equity positions."""
         return self._get("equity/portfolio")
 
     def equity_order_place_market(self, ticker: str, quantity: float) -> Dict[str, Any]:
-        """Place market order"""
+        """Place a market buy/sell order for the given ticker and quantity."""
         response_data: Dict[str, Any] = self._post(
             "equity/orders/market",
             data={"quantity": quantity, "ticker": ticker},
@@ -156,11 +161,11 @@ class Trading212:
         }
 
     def pie(self, id: int) -> Dict[str, Any]:
-        """Fetch Pie by ID"""
+        """Fetch a single pie's configuration (instruments and target weights) by ID."""
         return self._get(f"/equity/pies/{id}")
 
     def pies(self) -> Dict[str, Any]:
-        """Fetch all Pies"""
+        """Fetch all pies on the account."""
         return self._get("equity/pies")
 
     def positions(self, ticker: Optional[str] = None) -> Dict[str, Any]:
@@ -193,6 +198,7 @@ class Trading212:
         return float(position_list[0]["currentPrice"])
 
     def _process_items(self, response: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Collect all items from a paginated T212 response by following nextPagePath links."""
         res: List[Dict[str, Any]] = list(response["items"])
         count: int = 0
         amount_of_pages: int = (
@@ -215,6 +221,7 @@ class Trading212:
     def orders(
         self, cursor: int = 0, ticker: Optional[str] = None, limit: int = 50
     ) -> List[Dict[str, Any]]:
+        """Fetch order history with full pagination (follows nextPagePath up to the configured page limit)."""
         params: Dict[str, Union[int, str]] = {"cursor": cursor, "limit": limit}
         if ticker:
             params["ticker"] = ticker
@@ -229,6 +236,7 @@ class Trading212:
     def orders_page(
         self, cursor: int = 0, ticker: Optional[str] = None, limit: int = 50
     ) -> List[Dict[str, Any]]:
+        """Fetch a single page of order history (no pagination). Used in non-prod to avoid rate limits."""
         params: Dict[str, Union[int, str]] = {"cursor": cursor, "limit": limit}
         if ticker:
             params["ticker"] = ticker
@@ -242,7 +250,7 @@ class Trading212:
         ]  # just the raw response with items + nextPagePath
 
     def equity_order(self, id: int) -> Dict[str, Any]:
-        """Equity order by ID"""
+        """Fetch a single equity order by its ID."""
         return self._get(f"equity/orders/{id}")
 
 
