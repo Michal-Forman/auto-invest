@@ -247,7 +247,7 @@ class Trading212:
 
 
 if __name__ == "__main__":
-# Local
+    # Local
     from settings import settings
 
     t212 = Trading212(

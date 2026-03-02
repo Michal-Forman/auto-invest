@@ -34,6 +34,7 @@ Status = Literal[
     "UNKNOWN",
 ]
 
+
 class OrderUpdate(BaseModel):
     # --- Update ---
     status: Optional[Status] = None
@@ -49,6 +50,7 @@ class OrderUpdate(BaseModel):
     fee_currency: Optional[Currency] = None
     fee: Optional[float] = None
     fee_czk: Optional[float] = None
+
 
 class Order(BaseModel):
     # --- Identity ---
@@ -123,7 +125,6 @@ class Order(BaseModel):
 
         return self
 
-
     # -------------------------
     # Helper methods for DB
     # -------------------------
@@ -145,12 +146,7 @@ class Order(BaseModel):
 
         order_data = self._to_insert_dict()
 
-        response = (
-            supabase
-            .table(TABLE)
-            .insert(order_data)
-            .execute()
-        )
+        response = supabase.table(TABLE).insert(order_data).execute()
 
         # If conflict happens, Supabase returns error
         if response.data:
@@ -185,11 +181,7 @@ class Order(BaseModel):
         update_fields = update_data.model_dump(mode="json", exclude_none=True)
 
         response = (
-            supabase
-            .table(TABLE)
-            .update(update_fields)
-            .eq("id", str(self.id))
-            .execute()
+            supabase.table(TABLE).update(update_fields).eq("id", str(self.id)).execute()
         )
 
         if response.data:
@@ -200,13 +192,7 @@ class Order(BaseModel):
 
     @staticmethod
     def get_submitted_orders() -> List[Order]:
-        response = (
-            supabase
-            .table(TABLE)
-            .select("*")
-            .eq("status", "SUBMITTED")
-            .execute()
-        )
+        response = supabase.table(TABLE).select("*").eq("status", "SUBMITTED").execute()
 
         if not response.data:
             return []
@@ -233,14 +219,15 @@ class Order(BaseModel):
             fee_currency="CZK",
             fee=order["fee"],
             fee_czk=order["fee"],
-            
         )
 
     @classmethod
     def update_orders(cls, t212: Trading212, coinmate: Coinmate):
         orders_to_update: List[Order] = Order.get_submitted_orders()
         coinmate_history_data: Dict[str, Any] = coinmate.user_trades()
-        t212_history_data: List[Dict[str, Any]] = t212.orders() if settings.env == "prod" else t212.orders_page()
+        t212_history_data: List[Dict[str, Any]] = (
+            t212.orders() if settings.env == "prod" else t212.orders_page()
+        )
         updated_orders: List[Order] = []
 
         if coinmate_history_data["res"]["error"] is not False:
@@ -253,29 +240,37 @@ class Order(BaseModel):
             if order.t212_ticker == "BTC":
                 orders = coinmate_history_data["res"]["data"]
                 matched_order = next(
-                    (o for o in orders if str(o["orderId"]) == str(order.external_order_id)),
-                    None
+                    (
+                        o
+                        for o in orders
+                        if str(o["orderId"]) == str(order.external_order_id)
+                    ),
+                    None,
                 )
                 if matched_order:
                     orderUpdate = cls._process_new_coinmate_data(matched_order)
                     try:
-                        order.update_in_db(orderUpdate)                       
+                        order.update_in_db(orderUpdate)
                         updated_orders.append(order)
                     except Exception as e:
                         log.error(e)
                 else:
                     log.warning("No matching order found")
-                
+
             else:
                 items = t212_history_data
                 matched_item = next(
-                    (item for item in items if str(item["order"]["id"]) == str(order.external_order_id)),
-                    None
+                    (
+                        item
+                        for item in items
+                        if str(item["order"]["id"]) == str(order.external_order_id)
+                    ),
+                    None,
                 )
                 if matched_item:
                     orderUpdate = cls._process_new_t212_data(matched_item)
                     try:
-                        order.update_in_db(orderUpdate)                       
+                        order.update_in_db(orderUpdate)
                         updated_orders.append(order)
                     except Exception as e:
                         log.error(e)
@@ -286,7 +281,9 @@ class Order(BaseModel):
         if amount_of_not_updated_orders == 0:
             log.info("All orders successfully updated")
         else:
-            log.warning(f"{amount_of_not_updated_orders} orders were supposded to update too but did not")
+            log.warning(
+                f"{amount_of_not_updated_orders} orders were supposded to update too but did not"
+            )
 
     @staticmethod
     def _process_new_t212_data(item) -> OrderUpdate:
@@ -305,14 +302,14 @@ class Order(BaseModel):
             filled_total = order.get("walletImpact", {}).get("netValue")
 
         if fill is not None:
-            filled_at=fill.get("filledAt")
-            fill_fx_rate= 1 / fill.get("walletImpact").get("fxRate")
-            fee = abs(fill.get("walletImpact").get("taxes")[0].get("quantity")) 
-            fee_currency= fill.get("walletImpact").get("taxes")[0].get("currency")
+            filled_at = fill.get("filledAt")
+            fill_fx_rate = 1 / fill.get("walletImpact").get("fxRate")
+            fee = abs(fill.get("walletImpact").get("taxes")[0].get("quantity"))
+            fee_currency = fill.get("walletImpact").get("taxes")[0].get("currency")
             fee_czk = fee if fee_currency == "CZK" else None
             filled_total_czk = fill.get("walletImpact").get("netValue")
             filled_total = filled_total_czk * fill_fx_rate
-            fill_price=fill.get("price")
+            fill_price = fill.get("price")
         else:
             filled_at = None
             fill_fx_rate = None
@@ -322,7 +319,6 @@ class Order(BaseModel):
             filled_total_czk = None
             filled_total = None
             fill_price = None
-
 
         return OrderUpdate(
             status=status,
@@ -337,8 +333,9 @@ class Order(BaseModel):
             fee_czk=fee_czk,
         )
 
+
 if __name__ == "__main__":
-# Standard library
+    # Standard library
     from datetime import datetime
     from uuid import uuid4
 
@@ -358,21 +355,19 @@ if __name__ == "__main__":
             total_czk=9500.0,
             extended_hours=False,
             submitted_at=datetime.utcnow(),
-            multiplier=1.0
+            multiplier=1.0,
         )
 
         print("Creating order in DB...")
 
         inserted = order.post_to_db()
- 
+
         if inserted:
             print("Inserted successfully:")
             print(inserted)
         else:
             print("Order already exists (idempotency triggered)")
 
-
     except Exception as e:
         print("Error while creating Order:")
         print(e)
-

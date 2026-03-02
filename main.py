@@ -13,19 +13,27 @@ from settings import settings
 from trading212 import Trading212
 from utils import is_now_cron_time
 
-#----- Start counting time for a run -----
+# ----- Start counting time for a run -----
 log.info("Starting Main scrpit")
 run_start = datetime.utcnow()
 
-#----- Initialization -----
+# ----- Initialization -----
 
 log.info("Initializing all classes")
-t212 = Trading212(api_id_key=settings.t212_id_key, api_private_key=settings.t212_private_key, env=settings.env)
-coinmate = Coinmate(settings.coinmate_client_id, settings.coinmate_public_key, settings.coinmate_private_key)
+t212 = Trading212(
+    api_id_key=settings.t212_id_key,
+    api_private_key=settings.t212_private_key,
+    env=settings.env,
+)
+coinmate = Coinmate(
+    settings.coinmate_client_id,
+    settings.coinmate_public_key,
+    settings.coinmate_private_key,
+)
 instruments = Instruments(t212=t212, portfolio_settings=settings.portfolio)
 executor = Executor(t212, coinmate, settings.portfolio)
 
-#----- Main program logic -----
+# ----- Main program logic -----
 
 # Update values in db based on current state - Do as often as possible = on every script run
 log.info("Start updating old Orders and Runs")
@@ -45,7 +53,9 @@ if is_now_cron_time(settings.portfolio.invest_interval) and not Run.run_exists_t
     calculated_investment: Dict[str, Dict[str, float]] = instruments.distribute_cash()
     cash_distribution = calculated_investment["cash_distribution"]
     multipliers = calculated_investment["multipliers"]
-    orders: List[Order] = executor.place_orders(cash_distribution, multipliers, run_id=run.id)
+    orders: List[Order] = executor.place_orders(
+        cash_distribution, multipliers, run_id=run.id
+    )
     log.info("Investment process finished")
 
     # Update the run data with info about the orders
@@ -57,6 +67,3 @@ if is_now_cron_time(settings.portfolio.invest_interval) and not Run.run_exists_t
         log.error(f"Failed to update the db, error: {e}")
 else:
     log.info("No investments / orders were supposed to be made in this run")
-
-
-

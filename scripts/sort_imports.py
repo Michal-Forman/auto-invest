@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Run isort then add section header comments to import blocks."""
+
 import re
 import sys
 
@@ -62,8 +63,10 @@ EXCLUDE_DIRS = {"__pycache__", ".venv", "venv", ".git", "supabase", "scripts"}
 
 def find_py_files(root):
     from pathlib import Path
+
     return [
-        p for p in Path(root).rglob("*.py")
+        p
+        for p in Path(root).rglob("*.py")
         if not any(part in EXCLUDE_DIRS for part in p.parts)
     ]
 

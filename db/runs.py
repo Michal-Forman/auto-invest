@@ -17,13 +17,8 @@ from settings import settings
 
 TABLE = "runs"
 
-Status = Literal[
-        "CREATED",
-        "FINISHED",
-        "FILLED",
-        "FAILED",
-        "UNKNOWN"
-        ]
+Status = Literal["CREATED", "FINISHED", "FILLED", "FAILED", "UNKNOWN"]
+
 
 class RunUpdate(BaseModel):
     planned_total_czk: Optional[float] = None
@@ -36,6 +31,7 @@ class RunUpdate(BaseModel):
     distribution: Optional[Dict[str, Any]] = None
     multipliers: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
+
 
 class Run(BaseModel):
     # --- Identity ---
@@ -79,12 +75,7 @@ class Run(BaseModel):
     def _post_to_db(self) -> Optional[Dict[str, Any]]:
         run_data = self._to_insert_dict()
 
-        response = (
-            supabase
-            .table(TABLE)
-            .insert(run_data)
-            .execute()
-        )
+        response = supabase.table(TABLE).insert(run_data).execute()
 
         if response.data:
             return response.data[0]
@@ -98,11 +89,7 @@ class Run(BaseModel):
         update_fields = update_data.model_dump(mode="json", exclude_none=True)
 
         response = (
-            supabase
-            .table(TABLE)
-            .update(update_fields)
-            .eq("id", str(self.id))
-            .execute()
+            supabase.table(TABLE).update(update_fields).eq("id", str(self.id)).execute()
         )
 
         if response.data:
@@ -114,17 +101,17 @@ class Run(BaseModel):
     @staticmethod
     def create_run(run_start: datetime) -> Run:
         run = Run(
-                started_at=run_start,
-                status="CREATED",
-                invest_amount=settings.portfolio.invest_amount,
-                invest_interval=settings.portfolio.invest_interval,
-                t212_default_weight=settings.portfolio.t212_weight,
-                btc_default_weight=settings.portfolio.btc_weight,
-                total_orders=0,
-                successful_orders=0,
-                failed_orders=0,
-                test=False
-        )       
+            started_at=run_start,
+            status="CREATED",
+            invest_amount=settings.portfolio.invest_amount,
+            invest_interval=settings.portfolio.invest_interval,
+            t212_default_weight=settings.portfolio.t212_weight,
+            btc_default_weight=settings.portfolio.btc_weight,
+            total_orders=0,
+            successful_orders=0,
+            failed_orders=0,
+            test=False,
+        )
 
         try:
             inserted = run._post_to_db()
@@ -143,8 +130,7 @@ class Run(BaseModel):
         if not self.id:
             raise ValueError("Cannot update run without id")
         res = (
-            supabase
-            .table("orders")
+            supabase.table("orders")
             .select("id", count="exact")
             .eq("run_id", self.id)
             .neq("status", "FILLED")
@@ -156,8 +142,7 @@ class Run(BaseModel):
         if not self.id:
             raise ValueError("Cannot update run without id")
         (
-            supabase
-            .table("runs")
+            supabase.table("runs")
             .update({"status": "FILLED"})
             .eq("id", self.id)
             .execute()
@@ -186,8 +171,7 @@ class Run(BaseModel):
     @staticmethod
     def _get_finished_runs() -> List[Run]:
         response = (
-            supabase
-            .table("runs")
+            supabase.table("runs")
             .select("*")
             .eq("status", "FINISHED")
             .order("started_at", desc=True)
@@ -209,11 +193,12 @@ class Run(BaseModel):
             except Exception as e:
                 log.error(f"error in Run.update_runs(): {e}")
 
-
     @staticmethod
     def process_new_run_data(orders: List[Order]) -> RunUpdate:
         total_orders = len(orders)
-        successful_orders = sum(1 for o in orders if o.status not in ("FAILED", "UNKNOWN"))
+        successful_orders = sum(
+            1 for o in orders if o.status not in ("FAILED", "UNKNOWN")
+        )
         failed_orders = sum(1 for o in orders if o.status in ("FAILED", "UNKNOWN"))
 
         planned_total_czk = float(sum(o.total_czk for o in orders))
@@ -244,8 +229,7 @@ class Run(BaseModel):
         end_of_day = start_of_day + timedelta(days=1)
 
         response = (
-            supabase
-            .table(TABLE)
+            supabase.table(TABLE)
             .select("id")
             .gte("started_at", start_of_day.isoformat())
             .lt("started_at", end_of_day.isoformat())
@@ -257,9 +241,7 @@ class Run(BaseModel):
             return False
 
         return bool(response.data)
-        
+
 
 if __name__ == "__main__":
     print(Run.run_exists_today())
-
-

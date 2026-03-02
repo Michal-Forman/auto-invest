@@ -12,6 +12,7 @@ if ENV == "prod":
 else:
     load_dotenv(".env.dev")
 
+
 @dataclass(frozen=True)
 class PortfolioSettings:
     pie_id: int
@@ -29,6 +30,7 @@ class PortfolioSettings:
             invest_amount=float(os.environ["INVEST_AMOUNT"]),
             invest_interval=os.getenv("INVEST_INTERVAL", "monthly"),
         )
+
 
 @dataclass(frozen=True)
 class Settings:
@@ -53,8 +55,9 @@ class Settings:
             coinmate_private_key=os.environ["COINMATE_PRIVATE_KEY"],
             supabase_url=os.environ["SUPABASE_URL"],
             supabase_key=os.environ["SUPABASE_SERVICE_ROLE_KEY"],
-            env=os.getenv("ENV", "dev")
+            env=os.getenv("ENV", "dev"),
         )
+
 
 settings = Settings.from_env()
 portfolio_settings = PortfolioSettings.from_env()

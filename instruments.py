@@ -53,9 +53,7 @@ class Instruments:
 
         if not self._validate_t212_ratios(result):
             total = sum(result.values())
-            raise ValueError(
-                f"t212 ratios do not sum to 1.0 (got {total:.8f})"
-            )
+            raise ValueError(f"t212 ratios do not sum to 1.0 (got {total:.8f})")
 
         return result
 
@@ -117,21 +115,24 @@ class Instruments:
 
         # Fallback if fast_info missing
         if btc_usd is None:
-            log.warn("Warning: BTC-USD lastPrice not found in fast_info, falling back to history")
+            log.warn(
+                "Warning: BTC-USD lastPrice not found in fast_info, falling back to history"
+            )
             btc_usd = float(btc.history(period="1d", interval="1m")["Close"].iloc[-1])
         if usdczk is None:
-            log.warn("Warning: USDCZK=X lastPrice not found in fast_info, falling back to history")
+            log.warn(
+                "Warning: USDCZK=X lastPrice not found in fast_info, falling back to history"
+            )
             usdczk = float(fx.history(period="1d", interval="1m")["Close"].iloc[-1])
 
         return float(btc_usd) * float(usdczk)
-
 
     @staticmethod
     def _get_btc_ath() -> float:
         """Get the all-time high price of BTC in CZK by multiplying the BTC-USD ATH with the maximum USDCZK exchange rate."""
         btc = yf.Ticker("BTC-USD").history(period="max")[["Close"]]
         btc.columns = ["btc_usd"]
-        fx  = yf.Ticker("USDCZK=X").history(period="max")[["Close"]]
+        fx = yf.Ticker("USDCZK=X").history(period="max")[["Close"]]
         fx.columns = ["usdczk"]
 
         if btc.empty or fx.empty:
@@ -146,7 +147,7 @@ class Instruments:
             raise ValueError("BTC CZK series empty")
 
         return float(np.asarray(value))
-    
+
     @classmethod
     def _adjust_ratio(cls, ticker, value) -> Dict[str, float]:
         """Adjust the given ratio for the specified ticker based on its drop from ATH and the defined cap."""
@@ -164,22 +165,23 @@ class Instruments:
         else:
             raise ValueError(f"Invalid cap type for {ticker}: {cap_type}")
 
-
-        multiplier = (100 / (100 - drop))
+        multiplier = 100 / (100 - drop)
         adjusted_value = value * multiplier
         return {
-                "multiplier": multiplier,
-                "adjusted_value": adjusted_value,
+            "multiplier": multiplier,
+            "adjusted_value": adjusted_value,
         }
-    
+
     def get_adjusted_ratios(self) -> Dict[str, Dict[str, float]]:
         """Calculate the adjusted ratios for each instrument by applying the drop-based adjustment to the default ratios."""
         ratios = self.get_default_ratios()
-        adjusted_ratios = {ticker: self._adjust_ratio(ticker, value) for ticker, value in ratios.items()}
+        adjusted_ratios = {
+            ticker: self._adjust_ratio(ticker, value)
+            for ticker, value in ratios.items()
+        }
 
         return adjusted_ratios
 
-    
     @staticmethod
     def _soft_cap(drop: float) -> float:
         """Apply a soft cap to the drop percentage, limiting it to a maximum of 75%."""
@@ -200,10 +202,7 @@ class Instruments:
         """Distribute the total invest amount across the instruments based on the adjusted ratios, ensuring the distribution sums to the invest amount and respects minimum investment thresholds."""
         adjusted_ratios = self.get_adjusted_ratios()
 
-        total = sum(
-            v["adjusted_value"]
-            for v in adjusted_ratios.values()
-        )
+        total = sum(v["adjusted_value"] for v in adjusted_ratios.values())
 
         if total == 0:
             raise ValueError("Total adjusted ratio is zero, cannot distribute cash")
@@ -213,35 +212,50 @@ class Instruments:
             for ticker, result in adjusted_ratios.items()
         }
 
-        distribution: Dict[str, float] = {ticker: self.portfolio_settings.invest_amount * ratio for ticker, ratio in normalized_ratios.items()}
-        validated_distribution: Dict[str, float] = self._validate_cash_distribution(distribution)
+        distribution: Dict[str, float] = {
+            ticker: self.portfolio_settings.invest_amount * ratio
+            for ticker, ratio in normalized_ratios.items()
+        }
+        validated_distribution: Dict[str, float] = self._validate_cash_distribution(
+            distribution
+        )
 
         multipliers: Dict[str, float] = {
-            ticker: result["multiplier"]
-            for ticker, result in adjusted_ratios.items()
+            ticker: result["multiplier"] for ticker, result in adjusted_ratios.items()
         }
 
-        validated_multipliers = {t: multipliers[t] for t in validated_distribution.keys()}
+        validated_multipliers = {
+            t: multipliers[t] for t in validated_distribution.keys()
+        }
 
         return {
-                "cash_distribution": validated_distribution,
-                "multipliers": validated_multipliers,
-                }
+            "cash_distribution": validated_distribution,
+            "multipliers": validated_multipliers,
+        }
 
     def _validate_cash_distribution(self, distribution) -> Dict[str, float]:
         """Validate the cash distribution by ensuring it sums to the invest amount and applying minimum investment thresholds."""
-        if abs(sum(distribution.values()) - self.portfolio_settings.invest_amount) > 1e-6:
-            raise ValueError(f"Cash distribution does not sum to invest amount: {distribution} (total: {sum(distribution.values())})")
+        if (
+            abs(sum(distribution.values()) - self.portfolio_settings.invest_amount)
+            > 1e-6
+        ):
+            raise ValueError(
+                f"Cash distribution does not sum to invest amount: {distribution} (total: {sum(distribution.values())})"
+            )
         instruments_to_delete = []
         for ticker, amount in distribution.items():
             minimum_investment = 25
             if amount < minimum_investment:
                 if amount <= minimum_investment / 2:
-                    log.warning(f"Ticker: {ticker} was not bought since the order would not reach the minimum investment")
+                    log.warning(
+                        f"Ticker: {ticker} was not bought since the order would not reach the minimum investment"
+                    )
                     instruments_to_delete.append(ticker)
                 else:
                     bonus = minimum_investment - amount
-                    log.warning(f"Ticker: {ticker} was bought for the minimum investment: {minimum_investment} czk, which is for {bonus} czk more than it was supposed to.")
+                    log.warning(
+                        f"Ticker: {ticker} was bought for the minimum investment: {minimum_investment} czk, which is for {bonus} czk more than it was supposed to."
+                    )
                     distribution[ticker] = minimum_investment
                     amount = minimum_investment
 
@@ -264,7 +278,7 @@ class Instruments:
                 raise ValueError(f"No price data for {pair}")
 
             return float(hist["Close"].iloc[-1]) / 100.0
-        
+
         pair = f"{currency}CZK=X"
         t = yf.Ticker(pair)
         hist = t.history(period="5d")
@@ -273,21 +287,20 @@ class Instruments:
             raise ValueError(f"No price data for {pair}")
 
         return float(hist["Close"].iloc[-1])
-            
 
 
 if __name__ == "__main__":
-# Local
+    # Local
     from settings import settings
-    t212 = Trading212(api_id_key=settings.t212_id_key, api_private_key=settings.t212_private_key, env=settings.env)
-    
+
+    t212 = Trading212(
+        api_id_key=settings.t212_id_key,
+        api_private_key=settings.t212_private_key,
+        env=settings.env,
+    )
+
     instruments = Instruments(t212, portfolio_settings=settings.portfolio)
     # print(Instruments.get_current_price("XNAQl_EQ"))
     # print(Instruments.get_ath("XNAQl_EQ"))
     # print(Instruments.get_fx_rate_to_czk("EUR"))
     print(instruments.get_t212_ratios())
-
-
-
-
-        
