@@ -1,6 +1,6 @@
 # Standard library
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 # Local
@@ -37,10 +37,10 @@ class Executor:
             amount, 2
         )  # Coinmate requires amounts to have at most 2 decimal places
         # Place the order on Coinmate
-        response_data = self.coinmate.buy_instant(amount, "BTC_CZK")
-        req = response_data.get("req")
-        res = response_data.get("res")
-        err = response_data.get("err")
+        response_data: Dict[str, Any] = self.coinmate.buy_instant(amount, "BTC_CZK")
+        req: Any = response_data.get("req")
+        res: Any = response_data.get("res")
+        err: Any = response_data.get("err")
 
         status: Status
         if res and res["error"] is False:
@@ -75,7 +75,7 @@ class Executor:
         )
 
         try:
-            inserted = order.post_to_db()
+            inserted: Optional[Dict[str, Any]] = order.post_to_db()
         except Exception as e:
             log.error(f"Failed to insert order into database: {e}")
             inserted = None
@@ -99,16 +99,16 @@ class Executor:
         fx_rate = 1 / Instruments.get_fx_rate_to_czk(instrument_currency)
         amount_in_correct_currency: float = amount * fx_rate
 
-        current_price = Instruments.get_current_price(ticker)
+        current_price: float = Instruments.get_current_price(ticker)
         amount_in_shares = amount_in_correct_currency / current_price
 
         # Place the order
-        response_data = self.t212.equity_order_place_market(
+        response_data: Dict[str, Any] = self.t212.equity_order_place_market(
             ticker, round(amount_in_shares, 3)
         )
-        req = response_data.get("req")
-        res = response_data.get("res")
-        error = response_data.get("err")
+        req: Any = response_data.get("req")
+        res: Any = response_data.get("res")
+        error: Any = response_data.get("err")
 
         status: Status
         if res is not None:
@@ -154,7 +154,7 @@ class Executor:
         )
 
         try:
-            inserted = order.post_to_db()
+            inserted: Optional[Dict[str, Any]] = order.post_to_db()
         except Exception as e:
             log.error(f"Failed to insert order into database: {e}")
             inserted = None

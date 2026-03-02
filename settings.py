@@ -5,7 +5,7 @@ from dataclasses import dataclass
 # Third-party
 from dotenv import load_dotenv
 
-ENV = os.getenv("ENV", "dev")
+ENV: str = os.getenv("ENV", "dev")
 
 if ENV == "prod":
     load_dotenv(".env.prod")
@@ -59,5 +59,5 @@ class Settings:
         )
 
 
-settings = Settings.from_env()
-portfolio_settings = PortfolioSettings.from_env()
+settings: Settings = Settings.from_env()
+portfolio_settings: PortfolioSettings = PortfolioSettings.from_env()

@@ -73,9 +73,9 @@ class Run(BaseModel):
         return self.model_dump(mode="json", exclude_none=True)
 
     def _post_to_db(self) -> Optional[Dict[str, Any]]:
-        run_data = self._to_insert_dict()
+        run_data: Dict[str, Any] = self._to_insert_dict()
 
-        response = supabase.table(TABLE).insert(run_data).execute()
+        response: Any = supabase.table(TABLE).insert(run_data).execute()
 
         if response.data:
             return cast(Dict[str, Any], response.data[0])
@@ -86,9 +86,11 @@ class Run(BaseModel):
         if not self.id:
             raise ValueError("Cannot update run without id")
 
-        update_fields = update_data.model_dump(mode="json", exclude_none=True)
+        update_fields: Dict[str, Any] = update_data.model_dump(
+            mode="json", exclude_none=True
+        )
 
-        response = (
+        response: Any = (
             supabase.table(TABLE).update(update_fields).eq("id", str(self.id)).execute()
         )
 
@@ -114,7 +116,7 @@ class Run(BaseModel):
         )
 
         try:
-            inserted = run._post_to_db()
+            inserted: Optional[Dict[str, Any]] = run._post_to_db()
         except Exception as e:
             log.error(f"Failed to insert run into database: {e}")
             raise RuntimeError("Run creation failed during DB insert") from e
@@ -129,7 +131,7 @@ class Run(BaseModel):
     def _are_all_orders_filled(self) -> bool:
         if not self.id:
             raise ValueError("Cannot update run without id")
-        res = (
+        res: Any = (
             supabase.table("orders")
             .select("id", count="exact")  # type: ignore[arg-type]
             .eq("run_id", self.id)
@@ -161,8 +163,8 @@ class Run(BaseModel):
         if not self.finished_at:
             return
 
-        now = datetime.now(timezone.utc)
-        expiry_threshold = now - timedelta(days=14)
+        now: datetime = datetime.now(timezone.utc)
+        expiry_threshold: datetime = now - timedelta(days=14)
 
         if self.finished_at < expiry_threshold:
             update = RunUpdate(status="FAILED")
@@ -170,7 +172,7 @@ class Run(BaseModel):
 
     @staticmethod
     def _get_finished_runs() -> List[Run]:
-        response = (
+        response: Any = (
             supabase.table("runs")
             .select("*")
             .eq("status", "FINISHED")
@@ -201,13 +203,13 @@ class Run(BaseModel):
         )
         failed_orders = sum(1 for o in orders if o.status in ("FAILED", "UNKNOWN"))
 
-        planned_total_czk = float(sum(o.total_czk for o in orders))
+        planned_total_czk: float = float(sum(o.total_czk for o in orders))
 
-        distribution = {o.t212_ticker: o.total_czk for o in orders}
-        multipliers = {o.t212_ticker: o.multiplier for o in orders}
+        distribution: Dict[str, float] = {o.t212_ticker: o.total_czk for o in orders}
+        multipliers: Dict[str, float] = {o.t212_ticker: o.multiplier for o in orders}
 
-        errors = [o.error for o in orders if o.error]
-        error = "; ".join(errors) if errors else None
+        errors: List[str] = [o.error for o in orders if o.error]
+        error: Optional[str] = "; ".join(errors) if errors else None
 
         return RunUpdate(
             planned_total_czk=planned_total_czk,
@@ -223,12 +225,12 @@ class Run(BaseModel):
 
     @staticmethod
     def run_exists_today() -> bool:
-        now = datetime.now(timezone.utc)
+        now: datetime = datetime.now(timezone.utc)
 
-        start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        end_of_day = start_of_day + timedelta(days=1)
+        start_of_day: datetime = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_of_day: datetime = start_of_day + timedelta(days=1)
 
-        response = (
+        response: Any = (
             supabase.table(TABLE)
             .select("id")
             .gte("started_at", start_of_day.isoformat())

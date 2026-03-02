@@ -26,7 +26,7 @@ class Coinmate:
         self.public_key = public_key
         self.private_key = private_key
         self.timeout_s = timeout_s
-        self.session = requests.Session()
+        self.session: requests.Session = requests.Session()
         self._last_nonce = 0
 
     def _nonce(self) -> str:
@@ -49,7 +49,7 @@ class Coinmate:
         self, extra: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """Generate the payload for private API requests, including the required authentication parameters."""
-        nonce = self._nonce()
+        nonce: str = self._nonce()
         payload: Dict[str, Any] = {
             "clientId": self.client_id,
             "publicKey": self.public_key,
@@ -65,7 +65,9 @@ class Coinmate:
     ) -> Dict[str, Any]:
         """Helper method for GET requests to the Coinmate API."""
         url = f"{self.BASE_URL}{path}"
-        resp = self.session.get(url, params=params, timeout=self.timeout_s)
+        resp: requests.Response = self.session.get(
+            url, params=params, timeout=self.timeout_s
+        )
         resp.raise_for_status()
         return resp.json()
 
@@ -73,7 +75,7 @@ class Coinmate:
         """Helper method for POST requests to the Coinmate API. Coinmate expects form-encoded data for POST requests."""
 
         url = f"{self.BASE_URL}{path}"
-        resp = self.session.post(
+        resp: requests.Response = self.session.post(
             url, data=data, timeout=self.timeout_s
         )  # Coinmate uses form params
         resp.raise_for_status()
@@ -85,8 +87,8 @@ class Coinmate:
             "body": "FORM_DATA_REDACTED",
         }
 
-        out = resp.json()
-        error = out.get("error")
+        out: Dict[str, Any] = resp.json()
+        error: Any = out.get("error")
         if error:
             log.error(f"Coinmate response error: {error}")
             # raise RuntimeError(out.get("errorMessage") or f"Coinmate error: {out}")
@@ -139,10 +141,12 @@ class Coinmate:
         if client_order_id is not None:
             extra["clientOrderId"] = str(client_order_id)
 
-        response_data = self._post("/buyInstant", data=self._private_payload(extra))
-        req = response_data.get("req")
-        res = response_data.get("res")
-        err = response_data.get("err")
+        response_data: Dict[str, Any] = self._post(
+            "/buyInstant", data=self._private_payload(extra)
+        )
+        req: Any = response_data.get("req")
+        res: Any = response_data.get("res")
+        err: Any = response_data.get("err")
 
         return {
             "req": req,
@@ -156,7 +160,7 @@ class Coinmate:
         """
         Fetch historical trades (filled executions) for the authenticated user.
         """
-        payload = self._private_payload(
+        payload: Dict[str, Any] = self._private_payload(
             {
                 "currencyPair": currency_pair,
                 "limit": str(limit),

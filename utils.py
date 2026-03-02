@@ -14,13 +14,13 @@ def is_now_cron_time(cron_expr: str) -> bool:
     Cron format example: "0 9 * * *"
     """
 
-    now = datetime.now(timezone.utc).replace(second=0, microsecond=0)
+    now: datetime = datetime.now(timezone.utc).replace(second=0, microsecond=0)
 
     # Create iterator using one minute before now
-    base = now.replace(minute=now.minute - 1)
+    base: datetime = now.replace(minute=now.minute - 1)
 
-    itr = croniter(cron_expr, base)
-    next_run = itr.get_next(datetime)
+    itr: croniter = croniter(cron_expr, base)
+    next_run: datetime = itr.get_next(datetime)
 
     return next_run == now
 

@@ -15,23 +15,23 @@ from utils import is_now_cron_time
 
 # ----- Start counting time for a run -----
 log.info("Starting Main scrpit")
-run_start = datetime.utcnow()
+run_start: datetime = datetime.utcnow()
 
 # ----- Initialization -----
 
 log.info("Initializing all classes")
-t212 = Trading212(
+t212: Trading212 = Trading212(
     api_id_key=settings.t212_id_key,
     api_private_key=settings.t212_private_key,
     env=settings.env,
 )
-coinmate = Coinmate(
+coinmate: Coinmate = Coinmate(
     settings.coinmate_client_id,
     settings.coinmate_public_key,
     settings.coinmate_private_key,
 )
-instruments = Instruments(t212=t212, portfolio_settings=settings.portfolio)
-executor = Executor(t212, coinmate, settings.portfolio)
+instruments: Instruments = Instruments(t212=t212, portfolio_settings=settings.portfolio)
+executor: Executor = Executor(t212, coinmate, settings.portfolio)
 
 # ----- Main program logic -----
 
@@ -46,13 +46,13 @@ if is_now_cron_time(settings.portfolio.invest_interval) and not Run.run_exists_t
     log.info("Starting investment process")
 
     # Init new run
-    run = Run.create_run(run_start)
+    run: Run = Run.create_run(run_start)
     assert run.id is not None
 
     # Actually create the orders
     calculated_investment: Dict[str, Dict[str, float]] = instruments.distribute_cash()
-    cash_distribution = calculated_investment["cash_distribution"]
-    multipliers = calculated_investment["multipliers"]
+    cash_distribution: Dict[str, float] = calculated_investment["cash_distribution"]
+    multipliers: Dict[str, float] = calculated_investment["multipliers"]
     orders: List[Order] = executor.place_orders(
         cash_distribution, multipliers, run_id=run.id
     )

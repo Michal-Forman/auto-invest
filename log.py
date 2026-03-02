@@ -13,4 +13,4 @@ logging.basicConfig(
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 
-log = logging.getLogger("auto-invest")
+log: logging.Logger = logging.getLogger("auto-invest")

@@ -142,9 +142,9 @@ class Order(BaseModel):
         Returns None if idempotency_key already exists.
         """
 
-        order_data = self._to_insert_dict()
+        order_data: Dict[str, Any] = self._to_insert_dict()
 
-        response = supabase.table(TABLE).insert(order_data).execute()
+        response: Any = supabase.table(TABLE).insert(order_data).execute()
 
         # If conflict happens, Supabase returns error
         if response.data:
@@ -176,9 +176,11 @@ class Order(BaseModel):
         if not self.id:
             raise ValueError("Cannot update order without id")
 
-        update_fields = update_data.model_dump(mode="json", exclude_none=True)
+        update_fields: Dict[str, Any] = update_data.model_dump(
+            mode="json", exclude_none=True
+        )
 
-        response = (
+        response: Any = (
             supabase.table(TABLE).update(update_fields).eq("id", str(self.id)).execute()
         )
 
@@ -190,7 +192,9 @@ class Order(BaseModel):
 
     @staticmethod
     def get_submitted_orders() -> List[Order]:
-        response = supabase.table(TABLE).select("*").eq("status", "SUBMITTED").execute()
+        response: Any = (
+            supabase.table(TABLE).select("*").eq("status", "SUBMITTED").execute()
+        )
 
         if not response.data:
             return []
@@ -201,10 +205,10 @@ class Order(BaseModel):
     def _process_new_coinmate_data(order: Dict[str, Any]) -> OrderUpdate:
         status: Status = "FILLED" if order["amount"] != 0 else "FAILED"
 
-        ts = order["createdTimestamp"]
-        filled_at = datetime.fromtimestamp(ts / 1000, tz=timezone.utc)
+        ts: int = order["createdTimestamp"]
+        filled_at: datetime = datetime.fromtimestamp(ts / 1000, tz=timezone.utc)
 
-        filled_total = order["amount"] * order["price"] - order["fee"]
+        filled_total: float = order["amount"] * order["price"] - order["fee"]
 
         return OrderUpdate(
             status=status,
@@ -235,9 +239,11 @@ class Order(BaseModel):
             raise RequestError("Failed to get t212 history data")
 
         for order in orders_to_update:
+            order_update: Optional[OrderUpdate] = None
+
             if order.t212_ticker == "BTC":
-                orders = coinmate_history_data["res"]["data"]
-                matched_order = next(
+                orders: List[Dict[str, Any]] = coinmate_history_data["res"]["data"]
+                matched_order: Optional[Dict[str, Any]] = next(
                     (
                         o
                         for o in orders
@@ -246,18 +252,13 @@ class Order(BaseModel):
                     None,
                 )
                 if matched_order:
-                    orderUpdate = cls._process_new_coinmate_data(matched_order)
-                    try:
-                        order.update_in_db(orderUpdate)
-                        updated_orders.append(order)
-                    except Exception as e:
-                        log.error(e)
+                    order_update = cls._process_new_coinmate_data(matched_order)
                 else:
                     log.warning("No matching order found")
 
             else:
-                items = t212_history_data
-                matched_item = next(
+                items: List[Dict[str, Any]] = t212_history_data
+                matched_item: Optional[Dict[str, Any]] = next(
                     (
                         item
                         for item in items
@@ -266,14 +267,16 @@ class Order(BaseModel):
                     None,
                 )
                 if matched_item:
-                    orderUpdate = cls._process_new_t212_data(matched_item)
-                    try:
-                        order.update_in_db(orderUpdate)
-                        updated_orders.append(order)
-                    except Exception as e:
-                        log.error(e)
+                    order_update = cls._process_new_t212_data(matched_item)
                 else:
                     log.warning("No matching order found")
+
+            if order_update:
+                try:
+                    order.update_in_db(order_update)
+                    updated_orders.append(order)
+                except Exception as e:
+                    log.error(e)
 
         amount_of_not_updated_orders = len(orders_to_update) - len(updated_orders)
         if amount_of_not_updated_orders == 0:
@@ -286,7 +289,7 @@ class Order(BaseModel):
     @staticmethod
     def _process_new_t212_data(item: Dict[str, Any]) -> OrderUpdate:
         order: Dict[str, Any] = item["order"]
-        fill = item.get("fill")
+        fill: Optional[Dict[str, Any]] = item.get("fill")
 
         status: Status
         if order["status"] == "CANCELLED":
@@ -301,12 +304,13 @@ class Order(BaseModel):
             filled_total = order.get("walletImpact", {}).get("netValue")
 
         if fill is not None:
+            wallet_impact: Dict[str, Any] = fill["walletImpact"]
             filled_at = fill.get("filledAt")
-            fill_fx_rate = 1 / fill.get("walletImpact").get("fxRate")
-            fee = abs(fill.get("walletImpact").get("taxes")[0].get("quantity"))
-            fee_currency = fill.get("walletImpact").get("taxes")[0].get("currency")
+            fill_fx_rate = 1 / wallet_impact["fxRate"]
+            fee = abs(wallet_impact["taxes"][0]["quantity"])
+            fee_currency = wallet_impact["taxes"][0]["currency"]
             fee_czk = fee if fee_currency == "CZK" else None
-            filled_total_czk = fill.get("walletImpact").get("netValue")
+            filled_total_czk = wallet_impact["netValue"]
             filled_total = filled_total_czk * fill_fx_rate
             fill_price = fill.get("price")
         else:

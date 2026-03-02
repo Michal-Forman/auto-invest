@@ -27,7 +27,7 @@ class Instruments:
     def get_t212_ratios(self) -> dict[str, float]:
         """Fetch the expected share ratios for each instrument in the T212 pie. The values are not multiplied by the T212 weight, as this is done in get_default_ratios."""
         try:
-            resp = self.t212.pie(self.portfolio_settings.pie_id)
+            resp: Dict[str, Any] = self.t212.pie(self.portfolio_settings.pie_id)
         except Exception as e:
             raise RuntimeError(f"failed to fetch t212 pie: {e}") from e
 
@@ -77,9 +77,9 @@ class Instruments:
         if t212_ticker == "BTC":
             return cls._get_btc_ath()
         symbol = cls.get_yahoo_symbol(t212_ticker)
-        ticker = yf.Ticker(symbol)
+        ticker: yf.Ticker = yf.Ticker(symbol)
 
-        hist = ticker.history(period="max")
+        hist: pd.DataFrame = ticker.history(period="max")
 
         if hist.empty:
             raise ValueError(f"No historical data for {symbol}")
@@ -96,8 +96,8 @@ class Instruments:
 
         symbol = cls.get_yahoo_symbol(t212_ticker)
 
-        t = yf.Ticker(symbol)
-        hist = t.history(period="5d")
+        t: yf.Ticker = yf.Ticker(symbol)
+        hist: pd.DataFrame = t.history(period="5d")
 
         if hist.empty:
             raise ValueError(f"No price data for {t212_ticker} ({symbol})")
@@ -107,11 +107,11 @@ class Instruments:
     @staticmethod
     def get_btc_price() -> float:
         """Get the current price of BTC in CZK by multiplying the BTC-USD price with the USDCZK exchange rate."""
-        btc = yf.Ticker("BTC-USD")
-        fx = yf.Ticker("USDCZK=X")
+        btc: yf.Ticker = yf.Ticker("BTC-USD")
+        fx: yf.Ticker = yf.Ticker("USDCZK=X")
 
-        btc_usd = btc.fast_info.get("lastPrice")
-        usdczk = fx.fast_info.get("lastPrice")
+        btc_usd: Any = btc.fast_info.get("lastPrice")
+        usdczk: Any = fx.fast_info.get("lastPrice")
 
         # Fallback if fast_info missing
         if btc_usd is None:
@@ -130,18 +130,18 @@ class Instruments:
     @staticmethod
     def _get_btc_ath() -> float:
         """Get the all-time high price of BTC in CZK by multiplying the BTC-USD ATH with the maximum USDCZK exchange rate."""
-        btc = yf.Ticker("BTC-USD").history(period="max")[["Close"]]
+        btc: pd.DataFrame = yf.Ticker("BTC-USD").history(period="max")[["Close"]]
         btc.columns = ["btc_usd"]
-        fx = yf.Ticker("USDCZK=X").history(period="max")[["Close"]]
+        fx: pd.DataFrame = yf.Ticker("USDCZK=X").history(period="max")[["Close"]]
         fx.columns = ["usdczk"]
 
         if btc.empty or fx.empty:
             raise ValueError("Missing BTC-USD or USDCZK=X history")
 
-        df = btc.join(fx, how="inner").dropna()
+        df: pd.DataFrame = btc.join(fx, how="inner").dropna()
         df["btc_czk"] = df["btc_usd"] * df["usdczk"]
 
-        value = df["btc_czk"].max()
+        value: Any = df["btc_czk"].max()
 
         if value is None:
             raise ValueError("BTC CZK series empty")
@@ -174,8 +174,8 @@ class Instruments:
 
     def get_adjusted_ratios(self) -> Dict[str, Dict[str, float]]:
         """Calculate the adjusted ratios for each instrument by applying the drop-based adjustment to the default ratios."""
-        ratios = self.get_default_ratios()
-        adjusted_ratios = {
+        ratios: Dict[str, float] = self.get_default_ratios()
+        adjusted_ratios: Dict[str, Dict[str, float]] = {
             ticker: self._adjust_ratio(ticker, value)
             for ticker, value in ratios.items()
         }
@@ -200,7 +200,7 @@ class Instruments:
 
     def distribute_cash(self) -> Dict[str, Dict[str, float]]:
         """Distribute the total invest amount across the instruments based on the adjusted ratios, ensuring the distribution sums to the invest amount and respects minimum investment thresholds."""
-        adjusted_ratios = self.get_adjusted_ratios()
+        adjusted_ratios: Dict[str, Dict[str, float]] = self.get_adjusted_ratios()
 
         total = sum(v["adjusted_value"] for v in adjusted_ratios.values())
 
@@ -224,7 +224,7 @@ class Instruments:
             ticker: result["multiplier"] for ticker, result in adjusted_ratios.items()
         }
 
-        validated_multipliers = {
+        validated_multipliers: Dict[str, float] = {
             t: multipliers[t] for t in validated_distribution.keys()
         }
 
