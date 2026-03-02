@@ -9,7 +9,9 @@ requirements:
 	grep -qxF 'python-dotenv==1.2.2' requirements.txt || echo 'python-dotenv==1.2.2' >> requirements.txt
 	grep -qxF 'requests==2.32.5' requirements.txt || echo 'requests==2.32.5' >> requirements.txt
 
+BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
+
 deploy: sort format requirements
 	git add .
 	git commit -m "prepare for deploy"
-	git push
+	git push -u origin $(BRANCH)
