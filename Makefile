@@ -8,13 +8,7 @@ format:
 	@echo ">> Formatting with Black..."
 	@black .
 
-requirements:
-	@echo ">> Updating requirements.txt..."
-	@pipreqs . --force --ignore supabase,scripts
-	@grep -qxF 'python-dotenv==1.2.2' requirements.txt || echo 'python-dotenv==1.2.2' >> requirements.txt
-	@grep -qxF 'requests==2.32.5' requirements.txt || echo 'requests==2.32.5' >> requirements.txt
-
-deploy: format sort requirements
+deploy: format sort
 	@echo ">> Staging changes..."
 	@git add .
 	@echo ">> Committing..."
