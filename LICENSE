@@ -1,0 +1,71 @@
+PROPRIETARY SOFTWARE LICENSE
+
+Copyright (c) 2026 Michal Forman. All rights reserved.
+
+DEFINITIONS
+
+"Software" means all source code, object code, documentation, configuration
+files, scripts, and any other files contained in this repository.
+
+"Author" means Michal Forman, the sole copyright holder of the Software.
+
+"You" means any individual or legal entity exercising rights under this License.
+
+GRANT OF RIGHTS
+
+No rights are granted to You by default. The Author grants You no license to
+use, copy, modify, merge, publish, distribute, sublicense, sell, or otherwise
+exploit the Software or any derivative works thereof, except as expressly
+permitted in writing and signed by the Author.
+
+RESTRICTIONS
+
+You may NOT, without prior written permission from the Author:
+
+  1. Use the Software, in whole or in part, for any purpose — commercial,
+     personal, academic, or otherwise.
+
+  2. Copy, reproduce, or duplicate the Software or any portion thereof.
+
+  3. Modify, adapt, translate, reverse engineer, decompile, disassemble, or
+     create derivative works based on the Software.
+
+  4. Distribute, publish, sublicense, rent, lease, lend, or otherwise transfer
+     the Software or any rights therein to any third party.
+
+  5. Remove, alter, or obscure any proprietary notices, labels, or markings
+     on or in the Software.
+
+  6. Use the Software to train, fine-tune, or otherwise develop any machine
+     learning model, AI system, or automated tool.
+
+VIEWING
+
+You may view the Software solely for the purpose of evaluating it, provided
+that you do not retain copies beyond what is strictly necessary for that
+evaluation and do not exercise any other rights listed above.
+
+NO WARRANTY
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. IN NO EVENT SHALL THE AUTHOR
+BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+TERMINATION
+
+Any unauthorized use of the Software automatically and immediately terminates
+any permissions that may have been expressly granted to You by the Author, and
+may subject You to civil and criminal liability under applicable law.
+
+GOVERNING LAW
+
+This License shall be governed by and construed in accordance with the laws of
+the Czech Republic, without regard to its conflict of law provisions.
+
+CONTACT
+
+To request permission for any use not expressly permitted above, contact:
+Michal Forman — via the repository listed as the origin of this Software.
