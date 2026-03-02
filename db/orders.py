@@ -227,6 +227,11 @@ class Order(BaseModel):
     def update_orders(cls, t212: Trading212, coinmate: Coinmate) -> None:
         """Match all SUBMITTED orders against T212/Coinmate trade history and update their fill status in the DB."""
         orders_to_update: List[Order] = Order.get_submitted_orders()
+
+        if not orders_to_update:
+            log.info("No submitted orders to update")
+            return
+
         coinmate_history_data: Dict[str, Any] = coinmate.user_trades()
         t212_history_data: List[Dict[str, Any]] = (
             t212.orders() if settings.env == "prod" else t212.orders_page()
