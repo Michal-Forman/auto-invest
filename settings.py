@@ -62,4 +62,3 @@ class Settings:
 
 
 settings: Settings = Settings.from_env()
-portfolio_settings: PortfolioSettings = PortfolioSettings.from_env()

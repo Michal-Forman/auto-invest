@@ -1,5 +1,5 @@
 # Standard library
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List
 
 # Local
@@ -15,7 +15,7 @@ from utils import is_now_cron_time
 
 # ----- Start counting time for a run -----
 log.info("Starting Main script")
-run_start: datetime = datetime.utcnow()
+run_start: datetime = datetime.now(timezone.utc)
 
 # ----- Initialization -----
 
@@ -59,7 +59,7 @@ if is_now_cron_time(settings.portfolio.invest_interval) and not Run.run_exists_t
     log.info("Investment process finished")
 
     # Update the run data with info about the orders
-    run_data_for_update: RunUpdate = run.process_new_run_data(orders)
+    run_data_for_update: RunUpdate = Run.process_new_run_data(orders)
     try:
         run.update_in_db(run_data_for_update)
         log.info("Updated Run data based on Orders made successfully")

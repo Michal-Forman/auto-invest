@@ -92,7 +92,6 @@ class Coinmate:
         error: Any = out.get("error")
         if error:
             log.error(f"Coinmate response error: {error}")
-            # raise RuntimeError(out.get("errorMessage") or f"Coinmate error: {out}")
             return {
                 "req": req_data,
                 "res": out if out else None,
@@ -139,18 +138,7 @@ class Coinmate:
         if client_order_id is not None:
             extra["clientOrderId"] = str(client_order_id)
 
-        response_data: Dict[str, Any] = self._post(
-            "/buyInstant", data=self._private_payload(extra)
-        )
-        req: Any = response_data.get("req")
-        res: Any = response_data.get("res")
-        err: Any = response_data.get("err")
-
-        return {
-            "req": req,
-            "res": res,
-            "err": err,
-        }
+        return self._post("/buyInstant", data=self._private_payload(extra))
 
     def user_trades(
         self, currency_pair: str = "BTC_CZK", limit: int = 10
@@ -163,22 +151,3 @@ class Coinmate:
             }
         )
         return self._post("/tradeHistory", data=payload)
-
-
-if __name__ == "__main__":
-    import os
-
-    from dotenv import load_dotenv
-
-    from settings import settings
-
-    coinmate = Coinmate(
-        settings.coinmate_client_id,
-        settings.coinmate_public_key,
-        settings.coinmate_private_key,
-    )
-    # print(coinmate.ticker())
-    # print("test private function")
-    # print(coinmate.balances())
-    # print(coinmate.user_trades())
-    coinmate.buy_instant(50)

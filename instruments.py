@@ -1,5 +1,4 @@
 # Standard library
-import os
 from typing import Any, Dict
 
 # Third-party
@@ -12,6 +11,10 @@ from instrument_data import INSTRUMENT_CAPS, T212_TO_YF
 from log import log
 from settings import PortfolioSettings
 from trading212 import Trading212
+
+SOFT_CAP_PERCENT = 75
+HARD_CAP_RESET_PERCENT = 90
+MIN_ORDER_CZK = 25
 
 
 class Instruments:
@@ -114,13 +117,13 @@ class Instruments:
 
         # Fallback if fast_info missing
         if btc_usd is None:
-            log.warn(
-                "Warning: BTC-USD lastPrice not found in fast_info, falling back to history"
+            log.warning(
+                "BTC-USD lastPrice not found in fast_info, falling back to history"
             )
             btc_usd = float(btc.history(period="1d", interval="1m")["Close"].iloc[-1])
         if usdczk is None:
-            log.warn(
-                "Warning: USDCZK=X lastPrice not found in fast_info, falling back to history"
+            log.warning(
+                "USDCZK=X lastPrice not found in fast_info, falling back to history"
             )
             usdczk = float(fx.history(period="1d", interval="1m")["Close"].iloc[-1])
 
@@ -184,18 +187,16 @@ class Instruments:
     @staticmethod
     def _soft_cap(drop: float) -> float:
         """Cap the drop percentage at 75%."""
-        if drop >= 75:
-            return 75
-        else:
-            return drop
+        if drop >= SOFT_CAP_PERCENT:
+            return SOFT_CAP_PERCENT
+        return drop
 
     @classmethod
     def _hard_cap(cls, drop: float) -> float:
         """Cap the drop at 75% (soft cap), but reset to 0% if drop >= 90% (treat as recovered)."""
-        if drop >= 90:
+        if drop >= HARD_CAP_RESET_PERCENT:
             return 0
-        else:
-            return cls._soft_cap(drop)
+        return cls._soft_cap(drop)
 
     def distribute_cash(self) -> Dict[str, Dict[str, float]]:
         """Distribute INVEST_AMOUNT CZK across instruments using adjusted ratios. Returns cash_distribution and multipliers dicts, with minimum-investment thresholds enforced."""
@@ -245,20 +246,18 @@ class Instruments:
             )
         instruments_to_delete = []
         for ticker, amount in distribution.items():
-            minimum_investment = 25
-            if amount < minimum_investment:
-                if amount <= minimum_investment / 2:
+            if amount < MIN_ORDER_CZK:
+                if amount <= MIN_ORDER_CZK / 2:
                     log.warning(
                         f"Ticker: {ticker} was not bought since the order would not reach the minimum investment"
                     )
                     instruments_to_delete.append(ticker)
                 else:
-                    bonus = minimum_investment - amount
+                    bonus = MIN_ORDER_CZK - amount
                     log.warning(
-                        f"Ticker: {ticker} was bought for the minimum investment: {minimum_investment} czk, which is for {bonus} czk more than it was supposed to."
+                        f"Ticker: {ticker} was bought for the minimum investment: {MIN_ORDER_CZK} czk, which is for {bonus} czk more than it was supposed to."
                     )
-                    distribution[ticker] = minimum_investment
-                    amount = minimum_investment
+                    distribution[ticker] = MIN_ORDER_CZK
 
         for ticker in instruments_to_delete:
             del distribution[ticker]
@@ -271,7 +270,7 @@ class Instruments:
         if currency == "CZK":
             return 1.0
         if currency == "GBX":
-            pair = f"GBPCZK=X"
+            pair = "GBPCZK=X"
             t = yf.Ticker(pair)
             hist = t.history(period="5d")
 
@@ -288,19 +287,3 @@ class Instruments:
             raise ValueError(f"No price data for {pair}")
 
         return float(hist["Close"].iloc[-1])
-
-
-if __name__ == "__main__":
-    from settings import settings
-
-    t212 = Trading212(
-        api_id_key=settings.t212_id_key,
-        api_private_key=settings.t212_private_key,
-        env=settings.env,
-    )
-
-    instruments = Instruments(t212, portfolio_settings=settings.portfolio)
-    # print(Instruments.get_current_price("XNAQl_EQ"))
-    # print(Instruments.get_ath("XNAQl_EQ"))
-    # print(Instruments.get_fx_rate_to_czk("EUR"))
-    print(instruments.get_t212_ratios())

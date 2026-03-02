@@ -1,5 +1,5 @@
 # Standard library
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
@@ -63,7 +63,7 @@ class Executor:
             total=round(amount, 2),
             total_czk=round(amount, 2),
             extended_hours=False,
-            submitted_at=datetime.utcnow(),
+            submitted_at=datetime.now(timezone.utc),
             status=status,
             external_order_id=str(res["data"]) if res else None,
             request=req,
@@ -142,7 +142,7 @@ class Executor:
             total_czk=round(amount, 2),
             extended_hours=res.get("extendedHours") if res else False,
             status=status,
-            submitted_at=datetime.utcnow(),
+            submitted_at=datetime.now(timezone.utc),
             request=req,
             response=res,
             error=str(error),
@@ -188,31 +188,3 @@ class Executor:
         log.info("All orders placed successfully")
 
         return orders
-
-
-if __name__ == "__main__":
-    from uuid import uuid4
-
-    from instruments import Instruments
-    from settings import settings
-
-    run_id = uuid4()
-
-    t212 = Trading212(
-        api_id_key=settings.t212_id_key,
-        api_private_key=settings.t212_private_key,
-        env=settings.env,
-    )
-    coinmate = Coinmate(
-        settings.coinmate_client_id,
-        settings.coinmate_public_key,
-        settings.coinmate_private_key,
-    )
-    instruments = Instruments(t212=t212, portfolio_settings=settings.portfolio)
-    executor = Executor(t212, coinmate, settings.portfolio)
-
-    executor._place_t212_order("VWCEd_EQ", 25.0, 2.5, run_id=run_id)
-    # executor._place_btc_order(11, 1.5, run_id) # Fails if its less than 50
-
-    # cash_distribution = instruments.distribute_cash()
-    # executor.place_orders(cash_distribution)

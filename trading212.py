@@ -13,8 +13,6 @@ from log import log
 
 
 class Trading212:
-    """API client for trading212"""
-
     _auth_header: str
     host: str
 
@@ -55,14 +53,7 @@ class Trading212:
             "Content-Type": "application/json",
         }
 
-        response_data: Dict[str, Any] = self._process_response(
-            requests.post(url, headers=headers, json=data)
-        )
-        return {
-            "req": response_data.get("req"),
-            "res": response_data.get("res"),
-            "err": response_data.get("err"),
-        }
+        return self._process_response(requests.post(url, headers=headers, json=data))
 
     @staticmethod
     def _sleep_for_retry(resp: requests.Response, attempt: int) -> None:
@@ -150,19 +141,14 @@ class Trading212:
 
     def equity_order_place_market(self, ticker: str, quantity: float) -> Dict[str, Any]:
         """Place a market buy/sell order for the given ticker and quantity."""
-        response_data: Dict[str, Any] = self._post(
+        return self._post(
             "equity/orders/market",
             data={"quantity": quantity, "ticker": ticker},
         )
-        return {
-            "req": response_data.get("req"),
-            "res": response_data.get("res"),
-            "err": response_data.get("err"),
-        }
 
-    def pie(self, id: int) -> Dict[str, Any]:
+    def pie(self, pie_id: int) -> Dict[str, Any]:
         """Fetch a single pie's configuration (instruments and target weights) by ID."""
-        return self._get(f"/equity/pies/{id}")
+        return self._get(f"equity/pies/{pie_id}")
 
     def pies(self) -> Dict[str, Any]:
         """Fetch all pies on the account."""
@@ -202,7 +188,7 @@ class Trading212:
         res: List[Dict[str, Any]] = list(response["items"])
         count: int = 0
         amount_of_pages: int = (
-            5  # this number * 50 is the total amount of orders we can access, but thanks to Trading 212 429 error increasing this number will increase the run time exponentially! So don't do it if u can. 5 Seems to work prety quick.
+            5  # this number * 50 is the total amount of orders we can access, but thanks to Trading 212 429 error increasing this number will increase the run time exponentially! So don't do it if you can. 5 seems to work pretty quick.
         )
 
         while count < amount_of_pages:
@@ -249,25 +235,6 @@ class Trading212:
             "items"
         ]  # just the raw response with items + nextPagePath
 
-    def equity_order(self, id: int) -> Dict[str, Any]:
+    def equity_order(self, order_id: int) -> Dict[str, Any]:
         """Fetch a single equity order by its ID."""
-        return self._get(f"equity/orders/{id}")
-
-
-if __name__ == "__main__":
-    from settings import settings
-
-    t212 = Trading212(
-        api_id_key=settings.t212_id_key,
-        api_private_key=settings.t212_private_key,
-        env=settings.env,
-    )
-
-    page = t212.orders_page()
-    # print(len(page["items"]))
-    # print(page["items"][0])
-    # print(t212.equity_order(47212278194))
-    # urint(t212.orders())
-    # print(t212.pies())
-    # print(t212.equity_order_place_market(ticker="VWCEd_EQ", quantity=1))
-    print(t212.pies())
+        return self._get(f"equity/orders/{order_id}")

@@ -16,6 +16,7 @@ from log import log
 from settings import settings
 
 TABLE = "runs"
+RUN_EXPIRY_DAYS = 14
 
 Status = Literal["CREATED", "FINISHED", "FILLED", "FAILED", "UNKNOWN"]
 
@@ -172,7 +173,7 @@ class Run(BaseModel):
             return
 
         now: datetime = datetime.now(timezone.utc)
-        expiry_threshold: datetime = now - timedelta(days=14)
+        expiry_threshold: datetime = now - timedelta(days=RUN_EXPIRY_DAYS)
 
         if self.finished_at < expiry_threshold:
             update = RunUpdate(status="FAILED")
@@ -255,7 +256,3 @@ class Run(BaseModel):
             return False
 
         return bool(response.data)
-
-
-if __name__ == "__main__":
-    print(Run.run_exists_today())
