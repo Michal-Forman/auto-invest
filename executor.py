@@ -93,8 +93,9 @@ class Executor:
         instrument_currency: Currency = INSTRUMENT_CURRENCIES[ticker]
         if not instrument_currency:
             raise ValueError(f"Unknown currency for ticker {ticker}")
-        fx_rate = 1 / Instruments.get_fx_rate_to_czk(instrument_currency)
-        amount_in_correct_currency: float = amount * fx_rate
+        fx_rate = Instruments.get_fx_rate_to_czk(instrument_currency)
+        amount_in_correct_currency: float = amount / fx_rate
+
 
         current_price: float = Instruments.get_current_price(ticker)
         amount_in_shares = amount_in_correct_currency / current_price
