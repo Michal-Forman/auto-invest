@@ -1,6 +1,6 @@
 # <img src="assets/logo_trans.png" alt="" height="72" valign="middle" /> auto-invest
 
-> A self-running investment engine that dollar-cost averages into a multi-asset portfolio — and automatically buys more when markets dip.
+A self-running investment engine that dollar-cost averages into a multi-asset portfolio — and automatically buys more when markets dip.
 
 ---
 
