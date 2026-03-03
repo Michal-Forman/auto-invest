@@ -290,14 +290,16 @@ class TestExchangeApiCallArguments:
         """equity_order_place_market receives the right ticker and exact share quantity."""
         mocker.patch.object(Instruments, "get_fx_rate_to_czk", return_value=25.0)
         mocker.patch.object(Instruments, "get_current_price", return_value=100.0)
-        mocker.patch.object(t212, "equity_order_place_market", return_value=t212_order_place_response)
+        mock_eq_order = mocker.patch.object(
+            t212, "equity_order_place_market", return_value=t212_order_place_response
+        )
         mocker.patch.object(Order, "post_to_db", return_value=None)
 
         executor = Executor(t212, coinmate, portfolio_settings)
         executor.place_orders({"VWCEd_EQ": 5000.0}, {"VWCEd_EQ": 1.0}, RUN_ID)
 
         # 5000 CZK / 25 (fx) / 100 (price) = 2.0 shares
-        t212.equity_order_place_market.assert_called_once_with("VWCEd_EQ", 2.0)
+        mock_eq_order.assert_called_once_with("VWCEd_EQ", 2.0)
 
     def test_t212_quantity_rounded_to_3_decimal_places(
         self,
@@ -310,7 +312,9 @@ class TestExchangeApiCallArguments:
         """Share quantity is rounded to 3 decimal places before being sent to T212."""
         mocker.patch.object(Instruments, "get_fx_rate_to_czk", return_value=25.0)
         mocker.patch.object(Instruments, "get_current_price", return_value=100.3)
-        mocker.patch.object(t212, "equity_order_place_market", return_value=t212_order_place_response)
+        mock_eq_order = mocker.patch.object(
+            t212, "equity_order_place_market", return_value=t212_order_place_response
+        )
         mocker.patch.object(Order, "post_to_db", return_value=None)
 
         executor = Executor(t212, coinmate, portfolio_settings)
@@ -318,7 +322,7 @@ class TestExchangeApiCallArguments:
 
         # 5000 / 25 / 100.3 = 1.99401..., rounded to 3dp = 1.994
         expected_qty = round(5000.0 / 25.0 / 100.3, 3)
-        t212.equity_order_place_market.assert_called_once_with("VWCEd_EQ", expected_qty)
+        mock_eq_order.assert_called_once_with("VWCEd_EQ", expected_qty)
 
     def test_coinmate_called_with_correct_amount_and_pair(
         self,
@@ -330,13 +334,15 @@ class TestExchangeApiCallArguments:
     ) -> None:
         """buy_instant receives the exact CZK amount and the BTC_CZK pair string."""
         mocker.patch.object(Instruments, "get_btc_price", return_value=1_500_000.0)
-        mocker.patch.object(coinmate, "buy_instant", return_value=coinmate_buy_response)
+        mock_buy = mocker.patch.object(
+            coinmate, "buy_instant", return_value=coinmate_buy_response
+        )
         mocker.patch.object(Order, "post_to_db", return_value=None)
 
         executor = Executor(t212, coinmate, portfolio_settings)
         executor.place_orders({"BTC": 250.0}, {"BTC": 1.0}, RUN_ID)
 
-        coinmate.buy_instant.assert_called_once_with(250.0, "BTC_CZK")
+        mock_buy.assert_called_once_with(250.0, "BTC_CZK")
 
     def test_coinmate_amount_rounded_to_2_decimal_places(
         self,
@@ -348,11 +354,13 @@ class TestExchangeApiCallArguments:
     ) -> None:
         """CZK amount is rounded to 2 decimal places before being sent to Coinmate."""
         mocker.patch.object(Instruments, "get_btc_price", return_value=1_500_000.0)
-        mocker.patch.object(coinmate, "buy_instant", return_value=coinmate_buy_response)
+        mock_buy = mocker.patch.object(
+            coinmate, "buy_instant", return_value=coinmate_buy_response
+        )
         mocker.patch.object(Order, "post_to_db", return_value=None)
 
         executor = Executor(t212, coinmate, portfolio_settings)
         executor.place_orders({"BTC": 1234.567}, {"BTC": 1.0}, RUN_ID)
 
         # 1234.567 rounded to 2dp = 1234.57
-        coinmate.buy_instant.assert_called_once_with(1234.57, "BTC_CZK")
+        mock_buy.assert_called_once_with(1234.57, "BTC_CZK")
