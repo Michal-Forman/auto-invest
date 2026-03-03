@@ -149,22 +149,35 @@ class Run(BaseModel):
         )
         return (res.count or 0) == 0
 
-    def _mark_run_filled(self) -> None:
-        """Set this run's status to FILLED in the database."""
+    def _sum_orders_filled_czk(self) -> float:
+        """Sum filled_total_czk across all orders belonging to this run."""
+        if not self.id:
+            raise ValueError("Cannot sum orders without run id")
+        res: Any = (
+            supabase.table("orders")
+            .select("filled_total_czk")
+            .eq("run_id", self.id)
+            .execute()
+        )
+        return sum(row["filled_total_czk"] or 0.0 for row in (res.data or []))
+
+    def _mark_run_filled(self, filled_total_czk: float) -> None:
+        """Set this run's status to FILLED and persist filled_total_czk."""
         if not self.id:
             raise ValueError("Cannot update run without id")
         (
             supabase.table("runs")
-            .update({"status": "FILLED"})
+            .update({"status": "FILLED", "filled_total_czk": filled_total_czk})
             .eq("id", self.id)
             .execute()
         )
         self.status = "FILLED"
+        self.filled_total_czk = filled_total_czk
 
     def _try_mark_run_filled(self) -> bool:
         """Mark the run as FILLED if all its orders are filled. Returns True if status was updated."""
         if self._are_all_orders_filled():
-            self._mark_run_filled()
+            self._mark_run_filled(self._sum_orders_filled_czk())
             return True
         return False
 
