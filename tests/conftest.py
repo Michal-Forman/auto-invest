@@ -1,6 +1,9 @@
 # Standard library
 import os
+from datetime import datetime, timezone
+from typing import Any, Callable, Dict
 from unittest.mock import MagicMock
+from uuid import UUID
 
 # Set all required env vars before importing any local modules.
 # setdefault won't override values already in os.environ (e.g. from a shell),
@@ -26,6 +29,7 @@ for _key, _val in {
 import pytest
 
 # Local
+from db.orders import Order
 from instruments import Instruments
 from settings import PortfolioSettings
 
@@ -42,6 +46,40 @@ def portfolio_settings() -> PortfolioSettings:
 
 
 @pytest.fixture
-def instruments(portfolio_settings: PortfolioSettings) -> Instruments:
-    mock_t212 = MagicMock()
+def mock_t212() -> MagicMock:
+    return MagicMock()
+
+
+@pytest.fixture
+def instruments(mock_t212: MagicMock, portfolio_settings: PortfolioSettings) -> Instruments:
     return Instruments(mock_t212, portfolio_settings)
+
+
+@pytest.fixture
+def make_order() -> Callable[..., Order]:
+    """Factory that builds a minimal valid Order, accepting field overrides."""
+
+    def _factory(**overrides: Any) -> Order:
+        defaults: Dict[str, Any] = {
+            "run_id": UUID("12345678-1234-5678-1234-567812345678"),
+            "exchange": "T212",
+            "instrument_type": "ETF",
+            "t212_ticker": "VWCEd_EQ",
+            "yahoo_symbol": "VWCE.DE",
+            "name": "Vanguard FTSE All-World",
+            "currency": "EUR",
+            "side": "BUY",
+            "order_type": "MARKET",
+            "fx_rate": 25.0,
+            "price": 100.0,
+            "quantity": 2.5,
+            "total": 250.0,
+            "total_czk": 6250.0,
+            "extended_hours": False,
+            "multiplier": 1.0,
+            "submitted_at": datetime(2026, 3, 3, 9, 0, 0, tzinfo=timezone.utc),
+        }
+        defaults.update(overrides)
+        return Order(**defaults)
+
+    return _factory

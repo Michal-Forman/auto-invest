@@ -10,36 +10,6 @@ import pytest
 from db.orders import Order, OrderUpdate
 
 
-@pytest.fixture
-def make_order() -> Callable[..., Order]:
-    """Factory that builds a minimal valid Order, accepting field overrides."""
-
-    def _factory(**overrides: Any) -> Order:
-        defaults: Dict[str, Any] = {
-            "run_id": UUID("12345678-1234-5678-1234-567812345678"),
-            "exchange": "T212",
-            "instrument_type": "ETF",
-            "t212_ticker": "VWCEd_EQ",
-            "yahoo_symbol": "VWCE.DE",
-            "name": "Vanguard FTSE All-World",
-            "currency": "EUR",
-            "side": "BUY",
-            "order_type": "MARKET",
-            "fx_rate": 25.0,
-            "price": 100.0,
-            "quantity": 2.5,
-            "total": 250.0,
-            "total_czk": 6250.0,
-            "extended_hours": False,
-            "multiplier": 1.0,
-            "submitted_at": datetime(2026, 3, 3, 9, 0, 0, tzinfo=timezone.utc),
-        }
-        defaults.update(overrides)
-        return Order(**defaults)
-
-    return _factory
-
-
 class TestGenerateIdempotencyKey:
     def test_same_inputs_produce_same_key(
         self, make_order: Callable[..., Order]
