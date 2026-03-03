@@ -1,5 +1,5 @@
 # Standard library
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 # Third-party
 from croniter import croniter  # type: ignore[import-untyped]
@@ -17,7 +17,7 @@ def is_now_cron_time(cron_expr: str) -> bool:
     now: datetime = datetime.now(timezone.utc).replace(second=0, microsecond=0)
 
     # Create iterator using one minute before now
-    base: datetime = now.replace(minute=now.minute - 1)
+    base: datetime = now - timedelta(minutes=1)
 
     itr: croniter = croniter(cron_expr, base)
     next_run: datetime = itr.get_next(datetime)

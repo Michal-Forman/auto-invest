@@ -12,6 +12,10 @@ typecheck:
 	@echo ">> Type checking with mypy..."
 	@python3 -m mypy --explicit-package-bases *.py db/*.py
 
+test:
+	@echo ">> Running tests..."
+	@python3 -m pytest
+
 deploy: format sort typecheck
 	@echo ">> Staging changes..."
 	@git add .
