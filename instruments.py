@@ -293,3 +293,16 @@ class Instruments:
             raise ValueError(f"No price data for {pair}")
 
         return float(hist["Close"].iloc[-1])
+
+
+if __name__ == "__main__":
+    from instrument_data import INSTRUMENT_CURRENCIES, INSTRUMENT_NAMES, T212_TO_YF
+
+    for ticker in T212_TO_YF:
+        try:
+            ath = Instruments.get_ath(ticker)
+            name = INSTRUMENT_NAMES.get(ticker, ticker)
+            currency = INSTRUMENT_CURRENCIES.get(ticker, "")
+            print(f"{name} ({ticker}): {ath:.2f} {currency}")
+        except Exception as e:
+            print(f"{ticker}: ERROR - {e}")
