@@ -26,7 +26,7 @@ deploy: format sort test
 	@echo ">> Staging changes..."
 	@git add .
 	@echo ">> Committing..."
-	@git commit -m "prepare for deploy"
+	@git diff --cached --quiet && echo ">> Nothing to commit, skipping." || git commit -m "prepare for deploy"
 	@echo ">> Pushing to $(BRANCH)..."
 	@git push -u origin $(BRANCH)
 	@echo ">> Done!"

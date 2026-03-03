@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Check formatting (Black)
+        run: black --check .
+
+      - name: Check import sorting
+        run: |
+          python scripts/sort_imports.py
+          git diff --exit-code
+
+      - name: Type check (mypy)
+        run: python -m mypy . --explicit-package-bases
+
+      - name: Unit tests
+        run: python -m pytest tests/unit/ -v
+
+      - name: Integration tests
+        run: python -m pytest tests/integration/ -v
