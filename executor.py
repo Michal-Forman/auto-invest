@@ -96,7 +96,6 @@ class Executor:
         fx_rate = Instruments.get_fx_rate_to_czk(instrument_currency)
         amount_in_correct_currency: float = amount / fx_rate
 
-
         current_price: float = Instruments.get_current_price(ticker)
         amount_in_shares = amount_in_correct_currency / current_price
 
