@@ -1,5 +1,5 @@
 # Standard library
-from typing import Dict
+from typing import Any, Dict
 from unittest.mock import MagicMock
 
 # Third-party
@@ -119,3 +119,195 @@ class TestGetFxRateToCzk:
         mocker.patch("instruments.yf.Ticker", return_value=mock_ticker)
         result = Instruments.get_fx_rate_to_czk("EUR")
         assert result == pytest.approx(24.5)
+
+    def test_raises_when_no_history(self, mocker: MockerFixture) -> None:
+        mock_ticker = MagicMock()
+        mock_ticker.history.return_value = pd.DataFrame()
+        mocker.patch("instruments.yf.Ticker", return_value=mock_ticker)
+        with pytest.raises(ValueError, match="No price data"):
+            Instruments.get_fx_rate_to_czk("USD")
+
+
+class TestGetT212Ratios:
+    def test_returns_ticker_weight_dict_on_success(
+        self, instruments: Instruments
+    ) -> None:
+        instruments.t212.pie.return_value = {
+            "req": None,
+            "res": {
+                "instruments": [
+                    {"ticker": "VWCEd_EQ", "expectedShare": 0.6},
+                    {"ticker": "CSPX_EQ", "expectedShare": 0.4},
+                ]
+            },
+            "err": None,
+        }
+        result = instruments.get_t212_ratios()
+        assert result == {"VWCEd_EQ": pytest.approx(0.6), "CSPX_EQ": pytest.approx(0.4)}
+
+    def test_raises_on_api_error(self, instruments: Instruments) -> None:
+        instruments.t212.pie.return_value = {
+            "req": None,
+            "res": None,
+            "err": "HTTP 429 Too Many Requests",
+        }
+        with pytest.raises(ValueError, match="T212 pie request failed"):
+            instruments.get_t212_ratios()
+
+    def test_raises_on_empty_instruments(self, instruments: Instruments) -> None:
+        instruments.t212.pie.return_value = {
+            "req": None,
+            "res": {"instruments": []},
+            "err": None,
+        }
+        with pytest.raises(ValueError, match="do not sum to 1.0"):
+            instruments.get_t212_ratios()
+
+
+class TestGetDefaultRatios:
+    def test_returns_combined_t212_and_btc_ratios(
+        self, instruments: Instruments, mocker: MockerFixture
+    ) -> None:
+        mocker.patch.object(
+            instruments,
+            "get_t212_ratios",
+            return_value={"VWCEd_EQ": 0.8, "CSPX_EQ": 0.2},
+        )
+        result = instruments.get_default_ratios()
+        # T212 ratios scaled by t212_weight (95), BTC appended at btc_weight (0.05)
+        assert "VWCEd_EQ" in result
+        assert "CSPX_EQ" in result
+        assert "BTC" in result
+        assert result["BTC"] == pytest.approx(0.05)
+        assert result["VWCEd_EQ"] == pytest.approx(0.8 * 95)
+
+
+class TestGetAth:
+    def test_returns_max_close_for_regular_ticker(
+        self, mocker: MockerFixture
+    ) -> None:
+        mock_ticker = MagicMock()
+        mock_ticker.history.return_value = pd.DataFrame(
+            {"Close": [100.0, 200.0, 150.0]}
+        )
+        mocker.patch("instruments.yf.Ticker", return_value=mock_ticker)
+        result = Instruments.get_ath("VWCEd_EQ")
+        assert result == pytest.approx(200.0)
+
+    def test_raises_on_empty_history(self, mocker: MockerFixture) -> None:
+        mock_ticker = MagicMock()
+        mock_ticker.history.return_value = pd.DataFrame()
+        mocker.patch("instruments.yf.Ticker", return_value=mock_ticker)
+        with pytest.raises(ValueError, match="No historical data"):
+            Instruments.get_ath("VWCEd_EQ")
+
+    def test_calls_get_btc_ath_for_btc(self, mocker: MockerFixture) -> None:
+        mock_btc_ath = mocker.patch.object(
+            Instruments, "_get_btc_ath", return_value=5_000_000.0
+        )
+        result = Instruments.get_ath("BTC")
+        mock_btc_ath.assert_called_once()
+        assert result == pytest.approx(5_000_000.0)
+
+
+class TestGetCurrentPrice:
+    def test_returns_latest_close(self, mocker: MockerFixture) -> None:
+        mock_ticker = MagicMock()
+        mock_ticker.history.return_value = pd.DataFrame(
+            {"Close": [100.0, 105.0, 110.0]}
+        )
+        mocker.patch("instruments.yf.Ticker", return_value=mock_ticker)
+        result = Instruments.get_current_price("VWCEd_EQ")
+        assert result == pytest.approx(110.0)
+
+    def test_raises_on_empty_history(self, mocker: MockerFixture) -> None:
+        mock_ticker = MagicMock()
+        mock_ticker.history.return_value = pd.DataFrame()
+        mocker.patch("instruments.yf.Ticker", return_value=mock_ticker)
+        with pytest.raises(ValueError, match="No price data"):
+            Instruments.get_current_price("VWCEd_EQ")
+
+
+class TestGetBtcPrice:
+    def _make_ticker(self, fast_info: Any, history_data: Any = None) -> MagicMock:
+        mock = MagicMock()
+        mock.fast_info = fast_info
+        if history_data is not None:
+            mock.history.return_value = history_data
+        return mock
+
+    def test_uses_fast_info_last_price_when_available(
+        self, mocker: MockerFixture
+    ) -> None:
+        btc_ticker = self._make_ticker({"lastPrice": 85_000.0})
+        fx_ticker = self._make_ticker({"lastPrice": 23.5})
+        mocker.patch(
+            "instruments.yf.Ticker", side_effect=[btc_ticker, fx_ticker]
+        )
+        result = Instruments.get_btc_price()
+        assert result == pytest.approx(85_000.0 * 23.5)
+
+    def test_falls_back_to_history_close_when_fast_info_missing(
+        self, mocker: MockerFixture
+    ) -> None:
+        btc_hist = pd.DataFrame({"Close": [85_000.0]})
+        btc_ticker = self._make_ticker({}, history_data=btc_hist)
+        fx_ticker = self._make_ticker({"lastPrice": 23.5})
+        mocker.patch(
+            "instruments.yf.Ticker", side_effect=[btc_ticker, fx_ticker]
+        )
+        result = Instruments.get_btc_price()
+        assert result == pytest.approx(85_000.0 * 23.5)
+
+    def test_converts_using_fx_rate(self, mocker: MockerFixture) -> None:
+        btc_ticker = self._make_ticker({"lastPrice": 100_000.0})
+        fx_ticker = self._make_ticker({"lastPrice": 22.0})
+        mocker.patch(
+            "instruments.yf.Ticker", side_effect=[btc_ticker, fx_ticker]
+        )
+        result = Instruments.get_btc_price()
+        assert result == pytest.approx(2_200_000.0)
+
+
+class TestGetBtcAth:
+    def test_returns_max_across_all_tickers(self, mocker: MockerFixture) -> None:
+        dates = pd.date_range("2020-01-01", periods=2)
+        btc_df = pd.DataFrame({"Close": [10_000.0, 50_000.0]}, index=dates)
+        fx_df = pd.DataFrame({"Close": [22.0, 25.0]}, index=dates)
+
+        def mock_ticker(symbol: str) -> MagicMock:
+            mock = MagicMock()
+            if symbol == "BTC-USD":
+                mock.history.return_value = btc_df
+            else:
+                mock.history.return_value = fx_df
+            return mock
+
+        mocker.patch("instruments.yf.Ticker", side_effect=mock_ticker)
+        result = Instruments._get_btc_ath()
+        # max(10000*22, 50000*25) = max(220000, 1250000) = 1250000
+        assert result == pytest.approx(1_250_000.0)
+
+
+class TestGetAdjustedRatios:
+    def test_returns_adjusted_ratios_dict(
+        self, instruments: Instruments, mocker: MockerFixture
+    ) -> None:
+        mocker.patch.object(
+            instruments,
+            "get_default_ratios",
+            return_value={"VWCEd_EQ": 0.9, "BTC": 0.1},
+        )
+        mocker.patch.object(
+            Instruments,
+            "_adjust_ratio",
+            side_effect=[
+                {"multiplier": 1.5, "adjusted_value": 1.35},
+                {"multiplier": 2.0, "adjusted_value": 0.2},
+            ],
+        )
+        result = instruments.get_adjusted_ratios()
+        assert "VWCEd_EQ" in result
+        assert "BTC" in result
+        assert result["VWCEd_EQ"]["multiplier"] == pytest.approx(1.5)
+        assert result["BTC"]["multiplier"] == pytest.approx(2.0)

@@ -30,6 +30,7 @@ import pytest
 
 # Local
 from db.orders import Order
+from db.runs import Run
 from instruments import Instruments
 from settings import PortfolioSettings
 
@@ -81,5 +82,27 @@ def make_order() -> Callable[..., Order]:
         }
         defaults.update(overrides)
         return Order(**defaults)
+
+    return _factory
+
+
+@pytest.fixture
+def make_run() -> Callable[..., Run]:
+    """Factory that builds a minimal valid Run, accepting field overrides."""
+
+    def _factory(**overrides: Any) -> Run:
+        defaults: Dict[str, Any] = {
+            "id": UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+            "started_at": datetime(2026, 3, 3, 9, 0, 0, tzinfo=timezone.utc),
+            "finished_at": datetime(2026, 3, 3, 9, 5, 0, tzinfo=timezone.utc),
+            "status": "FINISHED",
+            "invest_amount": 5000.0,
+            "invest_interval": "0 9 * * *",
+            "t212_default_weight": 95.0,
+            "btc_default_weight": 0.05,
+            "test": False,
+        }
+        defaults.update(overrides)
+        return Run(**defaults)
 
     return _factory

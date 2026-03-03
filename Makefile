@@ -16,7 +16,7 @@ test:
 	@echo ">> Running tests..."
 	@python3 -m pytest
 
-deploy: format sort typecheck
+deploy: format sort typecheck test
 	@echo ">> Staging changes..."
 	@git add .
 	@echo ">> Committing..."

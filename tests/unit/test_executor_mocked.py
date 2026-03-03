@@ -82,6 +82,38 @@ class TestPlaceBtcOrder:
         order = executor._place_btc_order(500.0, 1.0, run_id)
         assert order.quantity == pytest.approx(round(500.0 / 2_000_000, 8))
 
+    def test_logs_error_when_post_to_db_raises(
+        self, executor: Executor, run_id: UUID, mock_coinmate: MagicMock, mocker: MockerFixture
+    ) -> None:
+        mock_coinmate.buy_instant.return_value = {
+            "req": None,
+            "res": {"error": False, "data": "CM99"},
+            "err": None,
+        }
+        mocker.patch.object(Order, "post_to_db", side_effect=RuntimeError("DB down"))
+        mock_log_error = mocker.patch("executor.log.error")
+
+        executor._place_btc_order(500.0, 1.0, run_id)
+
+        mock_log_error.assert_called_once()
+        assert "Failed to insert BTC order" in mock_log_error.call_args[0][0]
+
+    def test_logs_info_on_successful_db_insert(
+        self, executor: Executor, run_id: UUID, mock_coinmate: MagicMock, mocker: MockerFixture
+    ) -> None:
+        mock_coinmate.buy_instant.return_value = {
+            "req": None,
+            "res": {"error": False, "data": "CM99"},
+            "err": None,
+        }
+        mocker.patch.object(Order, "post_to_db", return_value={"id": "some-uuid"})
+        mock_log_info = mocker.patch("executor.log.info")
+
+        executor._place_btc_order(500.0, 1.0, run_id)
+
+        info_calls = [str(c) for c in mock_log_info.call_args_list]
+        assert any("BTC order recorded" in c for c in info_calls)
+
 
 class TestPlaceT212Order:
     @pytest.fixture(autouse=True)
@@ -141,6 +173,43 @@ class TestPlaceT212Order:
         mock_t212.equity_order_place_market.return_value = self._t212_response(2.0, 2.0, "T212-4")
         order = executor._place_t212_order("VWCEd_EQ", 5000.0, 1.0, run_id)
         assert order.quantity == pytest.approx(2.0)
+
+    def test_logs_warning_when_filled_quantity_is_unknown(
+        self, executor: Executor, run_id: UUID, mock_t212: MagicMock, mocker: MockerFixture
+    ) -> None:
+        # filledQuantity < 0 triggers UNKNOWN branch
+        mock_t212.equity_order_place_market.return_value = self._t212_response(-1.0, 2.0)
+        mock_log_warning = mocker.patch("executor.log.warning")
+
+        order = executor._place_t212_order("VWCEd_EQ", 5000.0, 1.0, run_id)
+
+        assert order.status == "UNKNOWN"
+        warning_calls = [str(c) for c in mock_log_warning.call_args_list]
+        assert any("Unexpected filledQuantity" in c for c in warning_calls)
+
+    def test_logs_error_when_post_to_db_raises(
+        self, executor: Executor, run_id: UUID, mock_t212: MagicMock, mocker: MockerFixture
+    ) -> None:
+        mock_t212.equity_order_place_market.return_value = self._t212_response(0, 2.0)
+        mocker.patch.object(Order, "post_to_db", side_effect=RuntimeError("DB down"))
+        mock_log_error = mocker.patch("executor.log.error")
+
+        executor._place_t212_order("VWCEd_EQ", 5000.0, 1.0, run_id)
+
+        mock_log_error.assert_called_once()
+        assert "Failed to insert" in mock_log_error.call_args[0][0]
+
+    def test_logs_info_on_successful_db_insert(
+        self, executor: Executor, run_id: UUID, mock_t212: MagicMock, mocker: MockerFixture
+    ) -> None:
+        mock_t212.equity_order_place_market.return_value = self._t212_response(2.0, 2.0)
+        mocker.patch.object(Order, "post_to_db", return_value={"id": "some-uuid"})
+        mock_log_info = mocker.patch("executor.log.info")
+
+        executor._place_t212_order("VWCEd_EQ", 5000.0, 1.0, run_id)
+
+        info_calls = [str(c) for c in mock_log_info.call_args_list]
+        assert any("order recorded" in c for c in info_calls)
 
 
 class TestPlaceOrders:
