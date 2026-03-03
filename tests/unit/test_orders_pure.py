@@ -71,7 +71,9 @@ class TestProcessNewCoinmateData:
     def test_timestamp_converted_to_utc_datetime(self) -> None:
         expected_dt = datetime(2026, 3, 3, 9, 0, 0, tzinfo=timezone.utc)
         ts_ms = int(expected_dt.timestamp() * 1000)
-        update = Order._process_new_coinmate_data(self._make_data(createdTimestamp=ts_ms))
+        update = Order._process_new_coinmate_data(
+            self._make_data(createdTimestamp=ts_ms)
+        )
         assert update.filled_at == expected_dt
 
 

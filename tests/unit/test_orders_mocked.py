@@ -17,7 +17,17 @@ def _build_supabase_mock(mocker: MockerFixture) -> tuple:
     mock_sb = mocker.patch("db.orders.supabase")
     mock_chain = MagicMock()
     mock_sb.table.return_value = mock_chain
-    for method in ["select", "insert", "update", "eq", "neq", "gte", "lt", "limit", "order"]:
+    for method in [
+        "select",
+        "insert",
+        "update",
+        "eq",
+        "neq",
+        "gte",
+        "lt",
+        "limit",
+        "order",
+    ]:
         getattr(mock_chain, method).return_value = mock_chain
     return mock_sb, mock_chain
 

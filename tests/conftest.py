@@ -1,6 +1,6 @@
 # Standard library
-import os
 from datetime import datetime, timezone
+import os
 from typing import Any, Callable, Dict
 from unittest.mock import MagicMock
 from uuid import UUID
@@ -52,7 +52,9 @@ def mock_t212() -> MagicMock:
 
 
 @pytest.fixture
-def instruments(mock_t212: MagicMock, portfolio_settings: PortfolioSettings) -> Instruments:
+def instruments(
+    mock_t212: MagicMock, portfolio_settings: PortfolioSettings
+) -> Instruments:
     return Instruments(mock_t212, portfolio_settings)
 
 

@@ -1,13 +1,13 @@
 # Standard library
 from datetime import datetime, timezone
-from typing import Any, Callable
 from types import SimpleNamespace
+from typing import Any, Callable
 from unittest.mock import MagicMock
 from uuid import UUID
 
 # Third-party
-import pytest
 from freezegun import freeze_time
+import pytest
 from pytest_mock import MockerFixture
 
 # Local
@@ -41,8 +41,10 @@ class TestRunFillTransition:
         """FINISHED run with all orders filled → status set to FILLED with correct total."""
         supabase_mocks.runs_chain.execute.return_value = MagicMock(data=[_run_row()])
         supabase_mocks.orders_chain.execute.side_effect = [
-            MagicMock(count=0, data=[]),                                         # _are_all_orders_filled
-            MagicMock(data=[{"filled_total_czk": 4950.0}], count=1),            # _sum_orders_filled_czk
+            MagicMock(count=0, data=[]),  # _are_all_orders_filled
+            MagicMock(
+                data=[{"filled_total_czk": 4950.0}], count=1
+            ),  # _sum_orders_filled_czk
         ]
 
         Run.update_runs()
@@ -76,8 +78,10 @@ class TestRunExpiryTransition:
         row = _run_row(finished_at=old_finished_at)
 
         supabase_mocks.runs_chain.execute.side_effect = [
-            MagicMock(data=[row]),                      # _get_finished_runs
-            MagicMock(data=[{"status": "FAILED"}]),     # update_in_db (sets in-memory status)
+            MagicMock(data=[row]),  # _get_finished_runs
+            MagicMock(
+                data=[{"status": "FAILED"}]
+            ),  # update_in_db (sets in-memory status)
         ]
         # After in-memory status becomes FAILED, _try_mark_run_filled still runs;
         # make _are_all_orders_filled return count=2 so it exits early.

@@ -80,8 +80,6 @@ class TestValidateCashDistribution:
         assert "B" not in result
         assert "A" in result
 
-    def test_sum_not_equal_invest_amount_raises(
-        self, instruments: Instruments
-    ) -> None:
+    def test_sum_not_equal_invest_amount_raises(self, instruments: Instruments) -> None:
         with pytest.raises(ValueError):
             instruments._validate_cash_distribution({"A": 2000.0, "B": 2000.0})

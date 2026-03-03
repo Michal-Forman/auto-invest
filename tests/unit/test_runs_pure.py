@@ -19,7 +19,9 @@ class TestProcessNewRunData:
         update = Run.process_new_run_data(orders)
         assert update.total_orders == 3
 
-    def test_successful_and_failed_counts(self, make_order: Callable[..., Order]) -> None:
+    def test_successful_and_failed_counts(
+        self, make_order: Callable[..., Order]
+    ) -> None:
         orders = [
             make_order(t212_ticker="VWCEd_EQ", status="SUBMITTED"),
             make_order(t212_ticker="BTC", status="FILLED"),
@@ -54,7 +56,9 @@ class TestProcessNewRunData:
         update = Run.process_new_run_data(orders)
         assert update.multipliers == {"VWCEd_EQ": 1.5, "BTC": 2.0}
 
-    def test_errors_joined_with_semicolon(self, make_order: Callable[..., Order]) -> None:
+    def test_errors_joined_with_semicolon(
+        self, make_order: Callable[..., Order]
+    ) -> None:
         orders = [
             make_order(t212_ticker="VWCEd_EQ", error="timeout"),
             make_order(t212_ticker="BTC", error="rejected"),

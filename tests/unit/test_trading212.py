@@ -4,8 +4,8 @@ from unittest.mock import MagicMock
 
 # Third-party
 import pytest
-import requests
 from pytest_mock import MockerFixture
+import requests
 
 # Local
 from trading212 import Trading212
@@ -220,9 +220,7 @@ class TestGetCurrentPrice:
         result = t212.get_current_price("VWCEd_EQ")
         assert result == pytest.approx(100.5)
 
-    def test_raises_on_api_error(
-        self, t212: Trading212, mocker: MockerFixture
-    ) -> None:
+    def test_raises_on_api_error(self, t212: Trading212, mocker: MockerFixture) -> None:
         mocker.patch.object(
             t212,
             "positions",

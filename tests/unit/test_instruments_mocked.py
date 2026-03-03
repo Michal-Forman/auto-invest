@@ -1,5 +1,5 @@
 # Standard library
-from typing import Any, Dict
+from typing import Any, Dict, cast
 from unittest.mock import MagicMock
 
 # Third-party
@@ -89,7 +89,9 @@ class TestDistributeCash:
             },
         )
         result = instruments.distribute_cash()
-        assert set(result["cash_distribution"].keys()) == set(result["multipliers"].keys())
+        assert set(result["cash_distribution"].keys()) == set(
+            result["multipliers"].keys()
+        )
 
 
 class TestGetFxRateToCzk:
@@ -132,7 +134,7 @@ class TestGetT212Ratios:
     def test_returns_ticker_weight_dict_on_success(
         self, instruments: Instruments
     ) -> None:
-        instruments.t212.pie.return_value = {
+        cast(MagicMock, instruments.t212.pie).return_value = {
             "req": None,
             "res": {
                 "instruments": [
@@ -146,7 +148,7 @@ class TestGetT212Ratios:
         assert result == {"VWCEd_EQ": pytest.approx(0.6), "CSPX_EQ": pytest.approx(0.4)}
 
     def test_raises_on_api_error(self, instruments: Instruments) -> None:
-        instruments.t212.pie.return_value = {
+        cast(MagicMock, instruments.t212.pie).return_value = {
             "req": None,
             "res": None,
             "err": "HTTP 429 Too Many Requests",
@@ -155,7 +157,7 @@ class TestGetT212Ratios:
             instruments.get_t212_ratios()
 
     def test_raises_on_empty_instruments(self, instruments: Instruments) -> None:
-        instruments.t212.pie.return_value = {
+        cast(MagicMock, instruments.t212.pie).return_value = {
             "req": None,
             "res": {"instruments": []},
             "err": None,
@@ -183,9 +185,7 @@ class TestGetDefaultRatios:
 
 
 class TestGetAth:
-    def test_returns_max_close_for_regular_ticker(
-        self, mocker: MockerFixture
-    ) -> None:
+    def test_returns_max_close_for_regular_ticker(self, mocker: MockerFixture) -> None:
         mock_ticker = MagicMock()
         mock_ticker.history.return_value = pd.DataFrame(
             {"Close": [100.0, 200.0, 150.0]}
@@ -241,9 +241,7 @@ class TestGetBtcPrice:
     ) -> None:
         btc_ticker = self._make_ticker({"lastPrice": 85_000.0})
         fx_ticker = self._make_ticker({"lastPrice": 23.5})
-        mocker.patch(
-            "instruments.yf.Ticker", side_effect=[btc_ticker, fx_ticker]
-        )
+        mocker.patch("instruments.yf.Ticker", side_effect=[btc_ticker, fx_ticker])
         result = Instruments.get_btc_price()
         assert result == pytest.approx(85_000.0 * 23.5)
 
@@ -253,18 +251,14 @@ class TestGetBtcPrice:
         btc_hist = pd.DataFrame({"Close": [85_000.0]})
         btc_ticker = self._make_ticker({}, history_data=btc_hist)
         fx_ticker = self._make_ticker({"lastPrice": 23.5})
-        mocker.patch(
-            "instruments.yf.Ticker", side_effect=[btc_ticker, fx_ticker]
-        )
+        mocker.patch("instruments.yf.Ticker", side_effect=[btc_ticker, fx_ticker])
         result = Instruments.get_btc_price()
         assert result == pytest.approx(85_000.0 * 23.5)
 
     def test_converts_using_fx_rate(self, mocker: MockerFixture) -> None:
         btc_ticker = self._make_ticker({"lastPrice": 100_000.0})
         fx_ticker = self._make_ticker({"lastPrice": 22.0})
-        mocker.patch(
-            "instruments.yf.Ticker", side_effect=[btc_ticker, fx_ticker]
-        )
+        mocker.patch("instruments.yf.Ticker", side_effect=[btc_ticker, fx_ticker])
         result = Instruments.get_btc_price()
         assert result == pytest.approx(2_200_000.0)
 

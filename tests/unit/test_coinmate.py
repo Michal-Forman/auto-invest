@@ -5,10 +5,10 @@ from typing import Any, Dict
 from unittest.mock import MagicMock
 
 # Third-party
-import pytest
-import requests
 from freezegun import freeze_time
+import pytest
 from pytest_mock import MockerFixture
+import requests
 
 # Local
 from coinmate import Coinmate
@@ -130,7 +130,10 @@ class TestPost:
     def test_post_error_response_sets_err(
         self, coinmate: Coinmate, mocker: MockerFixture
     ) -> None:
-        json_data: Dict[str, Any] = {"error": True, "errorMessage": "Insufficient funds"}
+        json_data: Dict[str, Any] = {
+            "error": True,
+            "errorMessage": "Insufficient funds",
+        }
         mock_resp = _make_post_response(json_data)
         mocker.patch.object(coinmate.session, "post", return_value=mock_resp)
 
@@ -154,7 +157,9 @@ class TestPublicEndpoints:
     def test_ticker_calls_correct_endpoint(
         self, coinmate: Coinmate, mocker: MockerFixture
     ) -> None:
-        mock_get = mocker.patch.object(coinmate, "_get", return_value={"last": 1_000_000})
+        mock_get = mocker.patch.object(
+            coinmate, "_get", return_value={"last": 1_000_000}
+        )
         coinmate.ticker("BTC_CZK")
         mock_get.assert_called_once_with("/ticker", params={"currencyPair": "BTC_CZK"})
 
@@ -176,7 +181,9 @@ class TestPrivateEndpoints:
         mock_post = mocker.patch.object(
             coinmate, "_post", return_value={"err": None, "res": {}, "req": {}}
         )
-        mocker.patch.object(coinmate, "_private_payload", return_value={"payload": "data"})
+        mocker.patch.object(
+            coinmate, "_private_payload", return_value={"payload": "data"}
+        )
         coinmate.balances()
         mock_post.assert_called_once_with("/balances", data={"payload": "data"})
 

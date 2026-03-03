@@ -62,7 +62,7 @@ class TestT212OrderMatching:
         order_row = _submitted_order_row("12345", "VWCEd_EQ", "T212")
         supabase_mocks.orders_chain.execute.side_effect = [
             MagicMock(data=[order_row]),  # get_submitted_orders
-            MagicMock(data=[]),           # update_in_db
+            MagicMock(data=[]),  # update_in_db
         ]
 
         mocker.patch.object(t212, "orders_page", return_value=[t212_history_item])
@@ -76,7 +76,7 @@ class TestT212OrderMatching:
 
         update_call = supabase_mocks.orders_chain.update.call_args[0][0]
         assert update_call["status"] == "FILLED"
-        assert update_call["fill_fx_rate"] == pytest.approx(25.0)   # 1/0.04
+        assert update_call["fill_fx_rate"] == pytest.approx(25.0)  # 1/0.04
         assert update_call["filled_total_czk"] == pytest.approx(1000.0)
         assert update_call.get("fee_czk") is None  # EUR fee, not CZK
 
@@ -124,7 +124,9 @@ class TestCoinmateOrderMatching:
     ) -> None:
         """SUBMITTED BTC order matched by orderId; filled_total = amount*price - fee."""
         order_row = _submitted_order_row(
-            "987654", "BTC", "COINMATE",
+            "987654",
+            "BTC",
+            "COINMATE",
             instrument_type="CRYPTO",
             yahoo_symbol="BTC-USD",
             currency="CZK",
@@ -132,17 +134,21 @@ class TestCoinmateOrderMatching:
         )
         supabase_mocks.orders_chain.execute.side_effect = [
             MagicMock(data=[order_row]),  # get_submitted_orders
-            MagicMock(data=[]),           # update_in_db
+            MagicMock(data=[]),  # update_in_db
         ]
 
         mocker.patch.object(t212, "orders_page", return_value=[])
-        mocker.patch.object(coinmate, "user_trades", return_value=coinmate_history_response)
+        mocker.patch.object(
+            coinmate, "user_trades", return_value=coinmate_history_response
+        )
 
         Order.update_orders(t212, coinmate)
 
         update_call = supabase_mocks.orders_chain.update.call_args[0][0]
         assert update_call["status"] == "FILLED"
-        assert update_call["filled_total"] == pytest.approx(2475.0)  # 0.001*2_500_000 - 25
+        assert update_call["filled_total"] == pytest.approx(
+            2475.0
+        )  # 0.001*2_500_000 - 25
         assert update_call["fill_fx_rate"] == pytest.approx(1.0)
         assert update_call["fee_czk"] == pytest.approx(25.0)  # CZK fee
 
@@ -160,7 +166,9 @@ class TestMixedOrders:
         """Two SUBMITTED orders (BTC + T212) both get matched; two DB updates fire."""
         t212_row = _submitted_order_row("12345", "VWCEd_EQ", "T212")
         btc_row = _submitted_order_row(
-            "987654", "BTC", "COINMATE",
+            "987654",
+            "BTC",
+            "COINMATE",
             instrument_type="CRYPTO",
             yahoo_symbol="BTC-USD",
             currency="CZK",
@@ -171,12 +179,14 @@ class TestMixedOrders:
 
         supabase_mocks.orders_chain.execute.side_effect = [
             MagicMock(data=[t212_row, btc_row]),  # get_submitted_orders
-            MagicMock(data=[]),                    # update_in_db (T212 order)
-            MagicMock(data=[]),                    # update_in_db (BTC order)
+            MagicMock(data=[]),  # update_in_db (T212 order)
+            MagicMock(data=[]),  # update_in_db (BTC order)
         ]
 
         mocker.patch.object(t212, "orders_page", return_value=[t212_history_item])
-        mocker.patch.object(coinmate, "user_trades", return_value=coinmate_history_response)
+        mocker.patch.object(
+            coinmate, "user_trades", return_value=coinmate_history_response
+        )
 
         Order.update_orders(t212, coinmate)
 

@@ -5,8 +5,8 @@ from unittest.mock import MagicMock
 from uuid import UUID
 
 # Third-party
-import pytest
 from freezegun import freeze_time
+import pytest
 from pytest_mock import MockerFixture
 
 # Local
@@ -18,7 +18,17 @@ def _build_supabase_mock(mocker: MockerFixture) -> tuple:
     mock_sb = mocker.patch("db.runs.supabase")
     mock_chain = MagicMock()
     mock_sb.table.return_value = mock_chain
-    for method in ["select", "insert", "update", "eq", "neq", "gte", "lt", "limit", "order"]:
+    for method in [
+        "select",
+        "insert",
+        "update",
+        "eq",
+        "neq",
+        "gte",
+        "lt",
+        "limit",
+        "order",
+    ]:
         getattr(mock_chain, method).return_value = mock_chain
     return mock_sb, mock_chain
 
@@ -289,9 +299,7 @@ class TestUpdateRuns:
         mock_run2._try_mark_run_failed_if_expired.assert_called_once()
         mock_run2._try_mark_run_filled.assert_called_once()
 
-    def test_logs_error_and_continues_on_exception(
-        self, mocker: MockerFixture
-    ) -> None:
+    def test_logs_error_and_continues_on_exception(self, mocker: MockerFixture) -> None:
         mock_run1 = MagicMock()
         mock_run1._try_mark_run_failed_if_expired.side_effect = RuntimeError("DB error")
         mock_run2 = MagicMock()
@@ -317,9 +325,7 @@ class TestRunExistsToday:
         assert result is False
 
     @freeze_time("2026-03-03 09:00:00")
-    def test_returns_true_when_run_found_in_prod(
-        self, mocker: MockerFixture
-    ) -> None:
+    def test_returns_true_when_run_found_in_prod(self, mocker: MockerFixture) -> None:
         from settings import settings as real_settings
 
         mock_settings = MagicMock()
