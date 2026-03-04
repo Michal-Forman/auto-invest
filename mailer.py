@@ -176,18 +176,24 @@ class Mailer:
 
         self._send("⚠️ [auto-invest] ERROR", "\n".join(plain_lines), html, mail_type="error_alert")
 
-    def send_monthly_summary(self, runs: List[Run], orders: List[Order]) -> None:
-        """Send monthly summary email with investment totals for the previous month."""
-        if not runs:
+    def send_monthly_summary(self, runs: List[Run], orders: List[Order], failed_runs: Optional[List[Run]] = None) -> None:
+        """Send monthly summary email with investment totals and any issues for the previous month."""
+        all_runs = runs + (failed_runs or [])
+        if not all_runs:
             return
 
-        month_label = runs[0].started_at.strftime("%B %Y")
+        anchor_run = min(all_runs, key=lambda r: r.started_at)
+        month_label = anchor_run.started_at.strftime("%B %Y")
         total_czk = sum(r.planned_total_czk or 0.0 for r in runs)
         num_runs = len(runs)
 
         ticker_totals: Dict[str, float] = {}
         for o in orders:
             ticker_totals[o.t212_ticker] = ticker_totals.get(o.t212_ticker, 0.0) + o.total_czk
+
+        # Collect issues
+        error_orders = [o for o in orders if o.status in ("FAILED", "CANCELLED", "UNKNOWN", "PARTIALLY_FILLED")]
+        _failed_runs = failed_runs or []
 
         # Plain text
         plain_lines = [
@@ -202,7 +208,16 @@ class Mailer:
         for ticker, czk in sorted(ticker_totals.items(), key=lambda x: -x[1]):
             plain_lines.append(f"{ticker:<12} {czk:>12.2f}")
 
-        # HTML rows
+        plain_lines += ["", "--- Issues ---"]
+        if not _failed_runs and not error_orders:
+            plain_lines.append("No issues found.")
+        else:
+            for r in _failed_runs:
+                plain_lines.append(f"FAILED run {str(r.id)[:8]}… on {r.started_at.strftime('%Y-%m-%d')}: {r.error or 'no details'}")
+            for o in error_orders:
+                plain_lines.append(f"Order {o.t212_ticker} [{o.status}]: {o.error or 'no details'}")
+
+        # HTML ticker rows
         row_html = []
         for i, (ticker, czk) in enumerate(sorted(ticker_totals.items(), key=lambda x: -x[1])):
             bg = "#f8faff" if i % 2 == 0 else "#ffffff"
@@ -215,14 +230,64 @@ class Mailer:
                 f"</tr>"
             )
 
+        # HTML issues section
+        if not _failed_runs and not error_orders:
+            errors_section = (
+                "<tr><td style='padding:0 40px 28px;'>"
+                "<div style='background-color:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:16px 20px;display:flex;align-items:center;gap:10px;'>"
+                "<span style='font-size:18px;'>&#10003;</span>"
+                "<div>"
+                "<p style='margin:0;font-size:13px;font-weight:700;color:#15803d;'>No issues found</p>"
+                "<p style='margin:4px 0 0;font-size:12px;color:#4ade80;color:#166534;'>All runs and orders completed successfully this month.</p>"
+                "</div>"
+                "</div>"
+                "</td></tr>"
+            )
+        else:
+            issue_rows = []
+            for r in _failed_runs:
+                date_str = r.started_at.strftime("%b %-d")
+                run_id_short = str(r.id)[:8] + "…"
+                detail = r.error or "expired without all orders filling"
+                issue_rows.append(
+                    f'<tr style="background-color:#fff7f7;">'
+                    f'<td style="padding:10px 14px;font-size:12px;color:#991b1b;font-weight:700;">FAILED RUN</td>'
+                    f'<td style="padding:10px 14px;font-size:12px;color:#1e293b;">{run_id_short} &middot; {date_str}</td>'
+                    f'<td style="padding:10px 14px;font-size:12px;color:#6b7280;word-break:break-word;">{detail}</td>'
+                    f"</tr>"
+                )
+            for o in error_orders:
+                detail = o.error or "—"
+                issue_rows.append(
+                    f'<tr style="background-color:#fffbeb;">'
+                    f'<td style="padding:10px 14px;font-size:12px;color:#b45309;font-weight:700;">{o.status}</td>'
+                    f'<td style="padding:10px 14px;font-size:12px;color:#1e293b;">{o.t212_ticker}</td>'
+                    f'<td style="padding:10px 14px;font-size:12px;color:#6b7280;word-break:break-word;">{detail}</td>'
+                    f"</tr>"
+                )
+            errors_section = (
+                "<tr><td style='padding:0 40px 28px;'>"
+                "<h2 style='margin:0 0 14px;font-size:14px;color:#991b1b;text-transform:uppercase;letter-spacing:1px;font-weight:700;'>Issues</h2>"
+                "<table width='100%' cellpadding='0' cellspacing='0' style='border-collapse:collapse;'>"
+                "<thead><tr style='background-color:#fca5a5;'>"
+                "<th style='padding:10px 14px;text-align:left;font-size:12px;color:#7f1d1d;font-weight:600;'>Type</th>"
+                "<th style='padding:10px 14px;text-align:left;font-size:12px;color:#7f1d1d;font-weight:600;'>Item</th>"
+                "<th style='padding:10px 14px;text-align:left;font-size:12px;color:#7f1d1d;font-weight:600;'>Details</th>"
+                "</tr></thead>"
+                "<tbody>" + "\n".join(issue_rows) + "</tbody>"
+                "</table>"
+                "</td></tr>"
+            )
+
         html = self._load_template("monthly_summary.html").substitute(
             month_label=month_label,
             num_runs=num_runs,
             total_czk=f"{total_czk:,.2f}",
             ticker_rows="\n".join(row_html),
+            errors_section=errors_section,
         )
 
-        period = runs[0].started_at.strftime("%Y-%m")
+        period = anchor_run.started_at.strftime("%Y-%m")
         self._send(f"[auto-invest] Monthly summary – {month_label}", "\n".join(plain_lines), html, mail_type="monthly_summary", period=period)
 
 
@@ -231,11 +296,14 @@ if __name__ == "__main__":
 
     # ── Pick which emails to send ──────────────────────────────────────────
     SEND = {
-        "investment_confirmation": True,
-        "error_no_run": True,
-        "error_with_run": True,
-        "monthly_summary": True,
+        "investment_confirmation": False,
+        "error_no_run": False,
+        "error_with_run": False,
+        "monthly_summary_clean": False,
+        "monthly_summary_with_issues": False,
+        "monthly_summary_real": True,   # fetch real dev DB data for the month below
     }
+    REAL_YEAR, REAL_MONTH = 2026, 3   # ← change to the month you want to test
     # ──────────────────────────────────────────────────────────────────────
 
     mailer = Mailer()
@@ -325,9 +393,44 @@ if __name__ == "__main__":
             mailer.send_error_alert(e, run=dummy_run)
         print("3. send_error_alert (with run) sent — check inbox")
 
-    if SEND["monthly_summary"]:
+    dummy_failed_run = Run(
+        id=uuid4(),
+        started_at=now,
+        finished_at=now,
+        status="FAILED",
+        invest_amount=5000.0,
+        invest_interval="monthly",
+        t212_default_weight=90,
+        btc_default_weight=10.0,
+        error="Order placement timed out after 14 days",
+        test=True,
+    )
+    dummy_failed_order = _make_order("IWDA", 800.0, "T212", 1.0)
+    dummy_failed_order.status = "FAILED"  # type: ignore[assignment]
+    dummy_failed_order.error = "Insufficient funds"
+
+    if SEND["monthly_summary_clean"]:
         mailer.send_monthly_summary(
             runs=[dummy_run, dummy_run2],
             orders=dummy_orders * 2,
         )
-        print("4. send_monthly_summary sent — check inbox")
+        print("4. send_monthly_summary (clean) sent — check inbox")
+
+    if SEND["monthly_summary_with_issues"]:
+        mailer.send_monthly_summary(
+            runs=[dummy_run, dummy_run2],
+            orders=dummy_orders * 2 + [dummy_failed_order],
+            failed_runs=[dummy_failed_run],
+        )
+        print("5. send_monthly_summary (with issues) sent — check inbox")
+
+    if SEND["monthly_summary_real"]:
+        real_runs: List[Run] = Run.get_runs_for_period(REAL_YEAR, REAL_MONTH)
+        real_failed_runs: List[Run] = Run.get_failed_runs_for_period(REAL_YEAR, REAL_MONTH)
+        if not real_runs and not real_failed_runs:
+            print(f"6. No runs found for {REAL_YEAR}-{REAL_MONTH:02d} — nothing to send")
+        else:
+            real_run_ids: List[str] = [str(r.id) for r in real_runs]
+            real_orders: List[Order] = Order.get_orders_for_runs(real_run_ids)
+            mailer.send_monthly_summary(real_runs, real_orders, real_failed_runs)
+            print(f"6. send_monthly_summary (real {REAL_YEAR}-{REAL_MONTH:02d}) sent — check inbox")

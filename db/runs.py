@@ -294,6 +294,30 @@ class Run(BaseModel):
         return [Run.model_validate(row) for row in response.data]
 
     @staticmethod
+    def get_failed_runs_for_period(year: int, month: int) -> List[Run]:
+        """Fetch all FAILED runs that started in the given year/month (UTC)."""
+        start = datetime(year, month, 1, tzinfo=timezone.utc)
+        if month == 12:
+            end = datetime(year + 1, 1, 1, tzinfo=timezone.utc)
+        else:
+            end = datetime(year, month + 1, 1, tzinfo=timezone.utc)
+
+        response: Any = (
+            supabase.table(TABLE)
+            .select("*")
+            .eq("status", "FAILED")
+            .gte("started_at", start.isoformat())
+            .lt("started_at", end.isoformat())
+            .order("started_at", desc=True)
+            .execute()
+        )
+
+        if not response.data:
+            return []
+
+        return [Run.model_validate(row) for row in response.data]
+
+    @staticmethod
     def run_exists_today() -> bool:
         """Check if a run was already created today (UTC). Always returns False in non-prod."""
         now: datetime = datetime.now(timezone.utc)
