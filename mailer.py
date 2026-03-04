@@ -3,7 +3,10 @@ import os
 import smtplib
 import ssl
 import traceback as tb
-from email.message import EmailMessage
+from datetime import datetime, timezone
+from email.mime.image import MIMEImage
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from string import Template
 from typing import Dict, List, Optional
 
@@ -14,10 +17,11 @@ from log import log
 from settings import settings
 
 _TEMPLATE_DIR = os.path.join(os.path.dirname(__file__), "templates", "emails")
+_ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")
 
 
 class Mailer:
-    """Sends plain-text alert emails for investment lifecycle events."""
+    """Sends alert emails for investment lifecycle events."""
 
     my_mail: str = settings.my_mail
     mail_recipient: str = settings.mail_recipient
@@ -36,13 +40,26 @@ class Mailer:
             return Template(f.read())
 
     def _send(self, subject: str, plain: str, html: str) -> None:
-        """Send a multipart email (plain-text + HTML) via SMTP_SSL. Logs and re-raises on failure."""
-        msg = EmailMessage()
+        """Send a multipart email (plain-text + HTML + inline logo) via SMTP_SSL. Logs and re-raises on failure."""
+        # multipart/related wraps HTML + inline image together
+        msg = MIMEMultipart("related")
         msg["From"] = self.my_mail
         msg["To"] = self.mail_recipient
         msg["Subject"] = subject
-        msg.set_content(plain)
-        msg.add_alternative(html, subtype="html")
+
+        # multipart/alternative carries plain-text fallback + HTML
+        alt = MIMEMultipart("alternative")
+        msg.attach(alt)
+        alt.attach(MIMEText(plain, "plain"))
+        alt.attach(MIMEText(html, "html"))
+
+        # Inline logo attached with Content-ID so templates can reference cid:logo
+        logo_path = os.path.join(_ASSETS_DIR, "logo_white.png")
+        with open(logo_path, "rb") as f:
+            logo = MIMEImage(f.read(), "png")
+        logo.add_header("Content-ID", "<logo>")
+        logo.add_header("Content-Disposition", "inline", filename="logo.png")
+        msg.attach(logo)
 
         context = ssl.create_default_context()
         try:
@@ -103,18 +120,20 @@ class Mailer:
         html = self._load_template("investment_confirmation.html").substitute(
             run_id_short=run_id_short,
             timestamp=run.started_at.strftime("%Y-%m-%d %H:%M UTC"),
+            date_label=run.started_at.strftime("%B %-d, %Y"),
             total_czk=f"{total_czk:,.2f}",
             order_rows="\n".join(row_html),
         )
 
-        self._send("[auto-invest] Investment complete", "\n".join(plain_lines), html)
+        self._send("✅ [auto-invest] Investment complete", "\n".join(plain_lines), html)
 
     def send_error_alert(self, error: Exception, run: Optional[Run] = None) -> None:
         """Send error alert email when an investment run fails."""
         traceback_str = tb.format_exc()
+        banner_message = "An error occurred during the investment run." if run else "An unexpected error occurred."
 
         # Plain text
-        plain_lines = ["An error occurred during the investment run.", ""]
+        plain_lines = [banner_message, ""]
         if run:
             plain_lines += [
                 f"Run ID:  {run.id}",
@@ -143,13 +162,16 @@ class Mailer:
         else:
             run_context_block = ""
 
+        alert_dt = run.started_at if run else datetime.now(timezone.utc)
         html = self._load_template("error_alert.html").substitute(
+            banner_message=banner_message,
+            date_label=alert_dt.strftime("%B %-d, %Y"),
             run_context_block=run_context_block,
             error_repr=repr(error),
             traceback=traceback_str,
         )
 
-        self._send("[auto-invest] ERROR", "\n".join(plain_lines), html)
+        self._send("⚠️ [auto-invest] ERROR", "\n".join(plain_lines), html)
 
     def send_monthly_summary(self, runs: List[Run], orders: List[Order]) -> None:
         """Send monthly summary email with investment totals for the previous month."""
@@ -201,8 +223,16 @@ class Mailer:
 
 
 if __name__ == "__main__":
-    from datetime import datetime, timezone
     from uuid import uuid4
+
+    # ── Pick which emails to send ──────────────────────────────────────────
+    SEND = {
+        "investment_confirmation": True,
+        "error_no_run": True,
+        "error_with_run": True,
+        "monthly_summary": True,
+    }
+    # ──────────────────────────────────────────────────────────────────────
 
     mailer = Mailer()
     run_id = uuid4()
@@ -255,30 +285,6 @@ if __name__ == "__main__":
     dummy_distribution: Dict[str, float] = {o.t212_ticker: o.total_czk for o in dummy_orders}
     dummy_multipliers: Dict[str, float] = {o.t212_ticker: o.multiplier for o in dummy_orders}
 
-    # --- 1. Investment confirmation ---
-    mailer.send_investment_confirmation(
-        run=dummy_run,
-        orders=dummy_orders,
-        cash_distribution=dummy_distribution,
-        multipliers=dummy_multipliers,
-    )
-    print("1. send_investment_confirmation sent — check inbox")
-
-    # --- 2. Error alert (no run) ---
-    try:
-        raise ValueError("Something went badly wrong (no run context)")
-    except Exception as e:
-        mailer.send_error_alert(e)
-    print("2. send_error_alert (no run) sent — check inbox")
-
-    # --- 3. Error alert (with run) ---
-    try:
-        raise RuntimeError("DB insert failed unexpectedly")
-    except Exception as e:
-        mailer.send_error_alert(e, run=dummy_run)
-    print("3. send_error_alert (with run) sent — check inbox")
-
-    # --- 4. Monthly summary ---
     dummy_run2 = Run(
         id=uuid4(),
         started_at=now,
@@ -291,8 +297,33 @@ if __name__ == "__main__":
         planned_total_czk=5000.0,
         test=True,
     )
-    mailer.send_monthly_summary(
-        runs=[dummy_run, dummy_run2],
-        orders=dummy_orders * 2,
-    )
-    print("4. send_monthly_summary sent — check inbox")
+
+    if SEND["investment_confirmation"]:
+        mailer.send_investment_confirmation(
+            run=dummy_run,
+            orders=dummy_orders,
+            cash_distribution=dummy_distribution,
+            multipliers=dummy_multipliers,
+        )
+        print("1. send_investment_confirmation sent — check inbox")
+
+    if SEND["error_no_run"]:
+        try:
+            raise ValueError("Something went badly wrong (no run context)")
+        except Exception as e:
+            mailer.send_error_alert(e)
+        print("2. send_error_alert (no run) sent — check inbox")
+
+    if SEND["error_with_run"]:
+        try:
+            raise RuntimeError("DB insert failed unexpectedly")
+        except Exception as e:
+            mailer.send_error_alert(e, run=dummy_run)
+        print("3. send_error_alert (with run) sent — check inbox")
+
+    if SEND["monthly_summary"]:
+        mailer.send_monthly_summary(
+            runs=[dummy_run, dummy_run2],
+            orders=dummy_orders * 2,
+        )
+        print("4. send_monthly_summary sent — check inbox")

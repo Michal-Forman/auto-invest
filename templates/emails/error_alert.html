@@ -13,9 +13,19 @@
 
           <!-- Header -->
           <tr>
-            <td style="background-color:#1e3a8a;padding:32px 40px;">
-              <p style="margin:0;font-size:11px;letter-spacing:2px;color:#93c5fd;text-transform:uppercase;font-weight:600;">auto-invest</p>
-              <h1 style="margin:8px 0 0;font-size:24px;color:#ffffff;font-weight:700;">&#9888;&#65039; Error Alert</h1>
+            <td style="background-color:#1e3a8a;padding:0;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="padding:28px 16px 28px 40px;vertical-align:middle;">
+                    <p style="margin:0;font-size:11px;letter-spacing:2px;color:#93c5fd;text-transform:uppercase;font-weight:600;">auto-invest</p>
+                    <h1 style="margin:6px 0 0;font-size:24px;color:#ffffff;font-weight:700;">Error Alert</h1>
+                    <p style="margin:4px 0 0;font-size:15px;color:#93c5fd;font-weight:400;">${date_label}</p>
+                  </td>
+                  <td width="73" align="center" style="padding:20px 40px 20px 12px;vertical-align:middle;">
+                    <img src="cid:logo" alt="auto-invest" width="68" height="68" style="display:block;margin:0 auto;" />
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
 
@@ -23,7 +33,7 @@
           <tr>
             <td style="padding:24px 40px 0;">
               <div style="background-color:#fef2f2;border-left:4px solid #dc2626;border-radius:4px;padding:16px 20px;">
-                <p style="margin:0;font-size:13px;font-weight:700;color:#b91c1c;">An error occurred during the investment run.</p>
+                <p style="margin:0;font-size:13px;font-weight:700;color:#b91c1c;">${banner_message}</p>
               </div>
             </td>
           </tr>
