@@ -3,7 +3,7 @@ from __future__ import annotations
 
 # Standard library
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
 from uuid import UUID
 
 # Third-party
@@ -49,7 +49,7 @@ class Mail(BaseModel):
         data: Dict[str, Any] = self.model_dump(mode="json", exclude_none=True)
         try:
             res = supabase.table(TABLE).insert(data).execute()
-            row: Dict[str, Any] = res.data[0]
+            row: Dict[str, Any] = cast(Dict[str, Any], res.data[0])
             log.info(f"Mail persisted to DB: type={self.type} subject={self.subject!r}")
             return row
         except Exception as e:

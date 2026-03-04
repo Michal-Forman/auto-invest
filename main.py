@@ -88,9 +88,12 @@ prev_month = run_start.month - 1 if run_start.month > 1 else 12
 period = f"{prev_year}-{prev_month:02d}"
 if not Mail.summary_sent_for_period(period):
     last_month_runs: List[Run] = Run.get_runs_for_period(prev_year, prev_month)
-    last_month_failed_runs: List[Run] = Run.get_failed_runs_for_period(prev_year, prev_month)
+    last_month_failed_runs: List[Run] = Run.get_failed_runs_for_period(
+        prev_year, prev_month
+    )
     if last_month_runs or last_month_failed_runs:
         run_ids: List[str] = [str(r.id) for r in last_month_runs]
         last_month_orders: List[Order] = Order.get_orders_for_runs(run_ids)
-        mailer.send_monthly_summary(last_month_runs, last_month_orders, last_month_failed_runs)
-
+        mailer.send_monthly_summary(
+            last_month_runs, last_month_orders, last_month_failed_runs
+        )

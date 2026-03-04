@@ -1,13 +1,13 @@
 # Standard library
-import os
-import smtplib
-import ssl
-import traceback as tb
 from datetime import datetime, timezone
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+import os
+import smtplib
+import ssl
 from string import Template
+import traceback as tb
 from typing import Dict, List, Optional
 
 # Local
@@ -40,7 +40,14 @@ class Mailer:
         with open(path, "r", encoding="utf-8") as f:
             return Template(f.read())
 
-    def _send(self, subject: str, plain: str, html: str, mail_type: str, period: Optional[str] = None) -> None:
+    def _send(
+        self,
+        subject: str,
+        plain: str,
+        html: str,
+        mail_type: str,
+        period: Optional[str] = None,
+    ) -> None:
         """Send a multipart email (plain-text + HTML + inline logo) via SMTP_SSL, then persist to DB. Logs and re-raises on failure."""
         # multipart/related wraps HTML + inline image together
         msg = MIMEMultipart("related")
@@ -101,11 +108,15 @@ class Mailer:
         for ticker, czk in sorted(cash_distribution.items(), key=lambda x: -x[1]):
             mult = multipliers.get(ticker, 1.0)
             exchange = exchange_map.get(ticker, "")
-            plain_lines.append(f"{ticker:<12} {czk:>10.2f} {mult:>12.2f} {exchange:>10}")
+            plain_lines.append(
+                f"{ticker:<12} {czk:>10.2f} {mult:>12.2f} {exchange:>10}"
+            )
 
         # HTML rows
         row_html = []
-        for i, (ticker, czk) in enumerate(sorted(cash_distribution.items(), key=lambda x: -x[1])):
+        for i, (ticker, czk) in enumerate(
+            sorted(cash_distribution.items(), key=lambda x: -x[1])
+        ):
             mult = multipliers.get(ticker, 1.0)
             exchange = exchange_map.get(ticker, "—")
             bg = "#f8faff" if i % 2 == 0 else "#ffffff"
@@ -128,12 +139,21 @@ class Mailer:
             order_rows="\n".join(row_html),
         )
 
-        self._send("✅ [auto-invest] Investment complete", "\n".join(plain_lines), html, mail_type="investment_confirmation")
+        self._send(
+            "✅ [auto-invest] Investment complete",
+            "\n".join(plain_lines),
+            html,
+            mail_type="investment_confirmation",
+        )
 
     def send_error_alert(self, error: Exception, run: Optional[Run] = None) -> None:
         """Send error alert email when an investment run fails."""
         traceback_str = tb.format_exc()
-        banner_message = "An error occurred during the investment run." if run else "An unexpected error occurred."
+        banner_message = (
+            "An error occurred during the investment run."
+            if run
+            else "An unexpected error occurred."
+        )
 
         # Plain text
         plain_lines = [banner_message, ""]
@@ -174,9 +194,19 @@ class Mailer:
             traceback=traceback_str,
         )
 
-        self._send("⚠️ [auto-invest] ERROR", "\n".join(plain_lines), html, mail_type="error_alert")
+        self._send(
+            "⚠️ [auto-invest] ERROR",
+            "\n".join(plain_lines),
+            html,
+            mail_type="error_alert",
+        )
 
-    def send_monthly_summary(self, runs: List[Run], orders: List[Order], failed_runs: Optional[List[Run]] = None) -> None:
+    def send_monthly_summary(
+        self,
+        runs: List[Run],
+        orders: List[Order],
+        failed_runs: Optional[List[Run]] = None,
+    ) -> None:
         """Send monthly summary email with investment totals and any issues for the previous month."""
         all_runs = runs + (failed_runs or [])
         if not all_runs:
@@ -186,14 +216,22 @@ class Mailer:
         month_label = anchor_run.started_at.strftime("%B %Y")
         num_runs = len(runs)
 
-        successful_orders = [o for o in orders if o.status not in ("FAILED", "CANCELLED", "UNKNOWN")]
+        successful_orders = [
+            o for o in orders if o.status not in ("FAILED", "CANCELLED", "UNKNOWN")
+        ]
         ticker_totals: Dict[str, float] = {}
         for o in successful_orders:
-            ticker_totals[o.t212_ticker] = ticker_totals.get(o.t212_ticker, 0.0) + o.total_czk
+            ticker_totals[o.t212_ticker] = (
+                ticker_totals.get(o.t212_ticker, 0.0) + o.total_czk
+            )
         total_czk = sum(ticker_totals.values())
 
         # Collect issues
-        error_orders = [o for o in orders if o.status in ("FAILED", "CANCELLED", "UNKNOWN", "PARTIALLY_FILLED")]
+        error_orders = [
+            o
+            for o in orders
+            if o.status in ("FAILED", "CANCELLED", "UNKNOWN", "PARTIALLY_FILLED")
+        ]
         _failed_runs = failed_runs or []
 
         # Plain text
@@ -214,13 +252,19 @@ class Mailer:
             plain_lines.append("No issues found.")
         else:
             for r in _failed_runs:
-                plain_lines.append(f"FAILED run {str(r.id)[:8]}… on {r.started_at.strftime('%Y-%m-%d')}: {r.error or 'no details'}")
+                plain_lines.append(
+                    f"FAILED run {str(r.id)[:8]}… on {r.started_at.strftime('%Y-%m-%d')}: {r.error or 'no details'}"
+                )
             for o in error_orders:
-                plain_lines.append(f"Order {o.t212_ticker} [{o.status}]: {o.error or 'no details'}")
+                plain_lines.append(
+                    f"Order {o.t212_ticker} [{o.status}]: {o.error or 'no details'}"
+                )
 
         # HTML ticker rows
         row_html = []
-        for i, (ticker, czk) in enumerate(sorted(ticker_totals.items(), key=lambda x: -x[1])):
+        for i, (ticker, czk) in enumerate(
+            sorted(ticker_totals.items(), key=lambda x: -x[1])
+        ):
             bg = "#f8faff" if i % 2 == 0 else "#ffffff"
             share = (czk / total_czk * 100) if total_czk else 0.0
             row_html.append(
@@ -289,7 +333,13 @@ class Mailer:
         )
 
         period = anchor_run.started_at.strftime("%Y-%m")
-        self._send(f"[auto-invest] Monthly summary – {month_label}", "\n".join(plain_lines), html, mail_type="monthly_summary", period=period)
+        self._send(
+            f"[auto-invest] Monthly summary – {month_label}",
+            "\n".join(plain_lines),
+            html,
+            mail_type="monthly_summary",
+            period=period,
+        )
 
 
 if __name__ == "__main__":
@@ -302,9 +352,9 @@ if __name__ == "__main__":
         "error_with_run": False,
         "monthly_summary_clean": False,
         "monthly_summary_with_issues": False,
-        "monthly_summary_real": True,   # fetch real dev DB data for the month below
+        "monthly_summary_real": True,  # fetch real dev DB data for the month below
     }
-    REAL_YEAR, REAL_MONTH = 2026, 3   # ← change to the month you want to test
+    REAL_YEAR, REAL_MONTH = 2026, 3  # ← change to the month you want to test
     # ──────────────────────────────────────────────────────────────────────
 
     mailer = Mailer()
@@ -327,7 +377,9 @@ if __name__ == "__main__":
         test=True,
     )
 
-    def _make_order(ticker: str, total_czk: float, exchange: str, multiplier: float) -> Order:
+    def _make_order(
+        ticker: str, total_czk: float, exchange: str, multiplier: float
+    ) -> Order:
         """Build a minimal dummy Order for manual testing."""
         return Order(
             run_id=run_id,
@@ -355,8 +407,12 @@ if __name__ == "__main__":
         _make_order("CSPX", 1500.0, "T212", 1.2),
         _make_order("BTC", 500.0, "COINMATE", 1.5),
     ]
-    dummy_distribution: Dict[str, float] = {o.t212_ticker: o.total_czk for o in dummy_orders}
-    dummy_multipliers: Dict[str, float] = {o.t212_ticker: o.multiplier for o in dummy_orders}
+    dummy_distribution: Dict[str, float] = {
+        o.t212_ticker: o.total_czk for o in dummy_orders
+    }
+    dummy_multipliers: Dict[str, float] = {
+        o.t212_ticker: o.multiplier for o in dummy_orders
+    }
 
     dummy_run2 = Run(
         id=uuid4(),
@@ -427,11 +483,17 @@ if __name__ == "__main__":
 
     if SEND["monthly_summary_real"]:
         real_runs: List[Run] = Run.get_runs_for_period(REAL_YEAR, REAL_MONTH)
-        real_failed_runs: List[Run] = Run.get_failed_runs_for_period(REAL_YEAR, REAL_MONTH)
+        real_failed_runs: List[Run] = Run.get_failed_runs_for_period(
+            REAL_YEAR, REAL_MONTH
+        )
         if not real_runs and not real_failed_runs:
-            print(f"6. No runs found for {REAL_YEAR}-{REAL_MONTH:02d} — nothing to send")
+            print(
+                f"6. No runs found for {REAL_YEAR}-{REAL_MONTH:02d} — nothing to send"
+            )
         else:
             real_run_ids: List[str] = [str(r.id) for r in real_runs]
             real_orders: List[Order] = Order.get_orders_for_runs(real_run_ids)
             mailer.send_monthly_summary(real_runs, real_orders, real_failed_runs)
-            print(f"6. send_monthly_summary (real {REAL_YEAR}-{REAL_MONTH:02d}) sent — check inbox")
+            print(
+                f"6. send_monthly_summary (real {REAL_YEAR}-{REAL_MONTH:02d}) sent — check inbox"
+            )

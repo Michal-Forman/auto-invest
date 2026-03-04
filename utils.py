@@ -24,6 +24,7 @@ def is_now_cron_time(cron_expr: str) -> bool:
 
     return next_run == now
 
+
 if __name__ == "__main__":
     print(settings.portfolio.invest_interval)
     print(is_now_cron_time(settings.portfolio.invest_interval))
