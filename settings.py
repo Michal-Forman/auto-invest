@@ -44,6 +44,11 @@ class Settings:
     supabase_key: str
     portfolio: PortfolioSettings
     env: str
+    my_mail: str
+    mail_recipient: str
+    mail_host: str
+    mail_port: int
+    mail_password: str
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -58,6 +63,11 @@ class Settings:
             supabase_url=os.environ["SUPABASE_URL"],
             supabase_key=os.environ["SUPABASE_SERVICE_ROLE_KEY"],
             env=os.getenv("ENV", "dev"),
+            mail_host=os.environ["MAIL_HOST"],
+            mail_port=int(os.environ["MAIL_PORT"]),
+            mail_password=os.environ["MAIL_PASSWORD"],
+            my_mail=os.environ["MY_MAIL"],
+            mail_recipient=os.environ["MAIL_RECIPIENT"],
         )
 
 

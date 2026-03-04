@@ -9,6 +9,7 @@ from db.runs import Run, RunUpdate
 from executor import Executor
 from instruments import Instruments
 from log import log
+from mailer import Mailer
 from settings import settings
 from trading212 import Trading212
 from utils import is_now_cron_time
@@ -32,6 +33,7 @@ coinmate: Coinmate = Coinmate(
 )
 instruments: Instruments = Instruments(t212=t212, portfolio_settings=settings.portfolio)
 executor: Executor = Executor(t212, coinmate, settings.portfolio)
+mailer: Mailer = Mailer()
 
 # ----- Main program logic -----
 
@@ -66,11 +68,34 @@ if is_now_cron_time(settings.portfolio.invest_interval) and not Run.run_exists_t
         run.update_in_db(run_data_for_update)
         log.info("Run data updated successfully")
 
+        # Send investment confirmation email
+        mailer.send_investment_confirmation(run, orders, cash_distribution, multipliers)
+
     except Exception as e:
         log.error(f"Investment run failed: {e}")
+        mailer.send_error_alert(e, run)
         try:
             run.update_in_db(RunUpdate(status="FAILED", error=str(e)))
         except Exception as db_err:
             log.error(f"Also failed to mark run as FAILED in DB: {db_err}")
 else:
     log.info("No investments / orders were supposed to be made in this run")
+
+# Send monthly summary if the most recent run is from a previous month
+recent_runs: List[Run] = Run.get_recent_runs(50)
+if recent_runs:
+    most_recent = recent_runs[0]
+    if (
+        most_recent.started_at.month != run_start.month
+        or most_recent.started_at.year != run_start.year
+    ):
+        prev_month = most_recent.started_at.month
+        prev_year = most_recent.started_at.year
+        last_month_runs: List[Run] = [
+            r
+            for r in recent_runs
+            if r.started_at.month == prev_month and r.started_at.year == prev_year
+        ]
+        run_ids: List[str] = [str(r.id) for r in last_month_runs]
+        last_month_orders: List[Order] = Order.get_orders_for_runs(run_ids)
+        mailer.send_monthly_summary(last_month_runs, last_month_orders)

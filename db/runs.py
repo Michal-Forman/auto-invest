@@ -253,6 +253,23 @@ class Run(BaseModel):
         )
 
     @staticmethod
+    def get_recent_runs(limit: int = 50) -> List[Run]:
+        """Fetch the N most recent FINISHED or FILLED runs, ordered by most recent first."""
+        response: Any = (
+            supabase.table(TABLE)
+            .select("*")
+            .in_("status", ["FINISHED", "FILLED"])
+            .order("started_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+
+        if not response.data:
+            return []
+
+        return [Run.model_validate(row) for row in response.data]
+
+    @staticmethod
     def run_exists_today() -> bool:
         """Check if a run was already created today (UTC). Always returns False in non-prod."""
         now: datetime = datetime.now(timezone.utc)
