@@ -4,6 +4,7 @@ from typing import Dict, List
 
 # Local
 from coinmate import Coinmate
+from db.mails import Mail
 from db.orders import Order
 from db.runs import Run, RunUpdate
 from executor import Executor
@@ -81,21 +82,13 @@ if is_now_cron_time(settings.portfolio.invest_interval) and not Run.run_exists_t
 else:
     log.info("No investments / orders were supposed to be made in this run")
 
-# Send monthly summary if the most recent run is from a previous month
-recent_runs: List[Run] = Run.get_recent_runs(50)
-if recent_runs:
-    most_recent = recent_runs[0]
-    if (
-        most_recent.started_at.month != run_start.month
-        or most_recent.started_at.year != run_start.year
-    ):
-        prev_month = most_recent.started_at.month
-        prev_year = most_recent.started_at.year
-        last_month_runs: List[Run] = [
-            r
-            for r in recent_runs
-            if r.started_at.month == prev_month and r.started_at.year == prev_year
-        ]
+# Send monthly summary for the previous month if not yet sent
+prev_year = run_start.year if run_start.month > 1 else run_start.year - 1
+prev_month = run_start.month - 1 if run_start.month > 1 else 12
+period = f"{prev_year}-{prev_month:02d}"
+if not Mail.summary_sent_for_period(period):
+    last_month_runs: List[Run] = Run.get_runs_for_period(prev_year, prev_month)
+    if last_month_runs:
         run_ids: List[str] = [str(r.id) for r in last_month_runs]
         last_month_orders: List[Order] = Order.get_orders_for_runs(run_ids)
         mailer.send_monthly_summary(last_month_runs, last_month_orders)

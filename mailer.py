@@ -11,6 +11,7 @@ from string import Template
 from typing import Dict, List, Optional
 
 # Local
+from db.mails import Mail
 from db.orders import Order
 from db.runs import Run
 from log import log
@@ -39,8 +40,8 @@ class Mailer:
         with open(path, "r", encoding="utf-8") as f:
             return Template(f.read())
 
-    def _send(self, subject: str, plain: str, html: str) -> None:
-        """Send a multipart email (plain-text + HTML + inline logo) via SMTP_SSL. Logs and re-raises on failure."""
+    def _send(self, subject: str, plain: str, html: str, mail_type: str, period: Optional[str] = None) -> None:
+        """Send a multipart email (plain-text + HTML + inline logo) via SMTP_SSL, then persist to DB. Logs and re-raises on failure."""
         # multipart/related wraps HTML + inline image together
         msg = MIMEMultipart("related")
         msg["From"] = self.my_mail
@@ -72,6 +73,8 @@ class Mailer:
         except Exception as e:
             log.error(f"SMTP error: {repr(e)}")
             raise
+
+        Mail(type=mail_type, subject=subject, period=period).post_to_db()
 
     def send_investment_confirmation(
         self,
@@ -125,7 +128,7 @@ class Mailer:
             order_rows="\n".join(row_html),
         )
 
-        self._send("✅ [auto-invest] Investment complete", "\n".join(plain_lines), html)
+        self._send("✅ [auto-invest] Investment complete", "\n".join(plain_lines), html, mail_type="investment_confirmation")
 
     def send_error_alert(self, error: Exception, run: Optional[Run] = None) -> None:
         """Send error alert email when an investment run fails."""
@@ -171,7 +174,7 @@ class Mailer:
             traceback=traceback_str,
         )
 
-        self._send("⚠️ [auto-invest] ERROR", "\n".join(plain_lines), html)
+        self._send("⚠️ [auto-invest] ERROR", "\n".join(plain_lines), html, mail_type="error_alert")
 
     def send_monthly_summary(self, runs: List[Run], orders: List[Order]) -> None:
         """Send monthly summary email with investment totals for the previous month."""
@@ -219,7 +222,8 @@ class Mailer:
             ticker_rows="\n".join(row_html),
         )
 
-        self._send(f"[auto-invest] Monthly summary – {month_label}", "\n".join(plain_lines), html)
+        period = runs[0].started_at.strftime("%Y-%m")
+        self._send(f"[auto-invest] Monthly summary – {month_label}", "\n".join(plain_lines), html, mail_type="monthly_summary", period=period)
 
 
 if __name__ == "__main__":
