@@ -1,8 +1,10 @@
 # Standard library
+import os
 import smtplib
 import ssl
-import traceback
+import traceback as tb
 from email.message import EmailMessage
+from string import Template
 from typing import Dict, List, Optional
 
 # Local
@@ -10,6 +12,8 @@ from db.orders import Order
 from db.runs import Run
 from log import log
 from settings import settings
+
+_TEMPLATE_DIR = os.path.join(os.path.dirname(__file__), "templates", "emails")
 
 
 class Mailer:
@@ -24,13 +28,21 @@ class Mailer:
     def __init__(self) -> None:
         pass
 
-    def _send(self, subject: str, body: str) -> None:
-        """Send a plain-text email via SMTP_SSL. Logs and re-raises on failure."""
+    @staticmethod
+    def _load_template(name: str) -> Template:
+        """Load an HTML email template by filename from the templates/emails directory."""
+        path = os.path.join(_TEMPLATE_DIR, name)
+        with open(path, "r", encoding="utf-8") as f:
+            return Template(f.read())
+
+    def _send(self, subject: str, plain: str, html: str) -> None:
+        """Send a multipart email (plain-text + HTML) via SMTP_SSL. Logs and re-raises on failure."""
         msg = EmailMessage()
         msg["From"] = self.my_mail
         msg["To"] = self.mail_recipient
         msg["Subject"] = subject
-        msg.set_content(body)
+        msg.set_content(plain)
+        msg.add_alternative(html, subtype="html")
 
         context = ssl.create_default_context()
         try:
@@ -55,7 +67,8 @@ class Mailer:
         total_czk = sum(cash_distribution.values())
         exchange_map: Dict[str, str] = {o.t212_ticker: o.exchange for o in orders}
 
-        lines = [
+        # Plain text
+        plain_lines = [
             "Investment run complete.",
             "",
             f"Run ID:    {run.id}",
@@ -68,30 +81,75 @@ class Mailer:
         for ticker, czk in sorted(cash_distribution.items(), key=lambda x: -x[1]):
             mult = multipliers.get(ticker, 1.0)
             exchange = exchange_map.get(ticker, "")
-            lines.append(f"{ticker:<12} {czk:>10.2f} {mult:>12.2f} {exchange:>10}")
+            plain_lines.append(f"{ticker:<12} {czk:>10.2f} {mult:>12.2f} {exchange:>10}")
 
-        self._send("[auto-invest] Investment complete", "\n".join(lines))
+        # HTML rows
+        row_html = []
+        for i, (ticker, czk) in enumerate(sorted(cash_distribution.items(), key=lambda x: -x[1])):
+            mult = multipliers.get(ticker, 1.0)
+            exchange = exchange_map.get(ticker, "—")
+            bg = "#f8faff" if i % 2 == 0 else "#ffffff"
+            mult_color = "#16a34a" if mult > 1.0 else "#1e293b"
+            row_html.append(
+                f'<tr style="background-color:{bg};">'
+                f'<td style="padding:10px 14px;font-size:13px;color:#1e293b;font-weight:600;">{ticker}</td>'
+                f'<td style="padding:10px 14px;font-size:13px;color:#1e293b;text-align:right;">{czk:,.2f}</td>'
+                f'<td style="padding:10px 14px;font-size:13px;color:{mult_color};text-align:right;font-weight:600;">{mult:.2f}×</td>'
+                f'<td style="padding:10px 14px;font-size:12px;color:#6b7280;text-align:right;">{exchange}</td>'
+                f"</tr>"
+            )
+
+        run_id_short = str(run.id)[:8] + "…" if run.id else "—"
+        html = self._load_template("investment_confirmation.html").substitute(
+            run_id_short=run_id_short,
+            timestamp=run.started_at.strftime("%Y-%m-%d %H:%M UTC"),
+            total_czk=f"{total_czk:,.2f}",
+            order_rows="\n".join(row_html),
+        )
+
+        self._send("[auto-invest] Investment complete", "\n".join(plain_lines), html)
 
     def send_error_alert(self, error: Exception, run: Optional[Run] = None) -> None:
         """Send error alert email when an investment run fails."""
-        lines = [
-            "An error occurred during the investment run.",
-            "",
-        ]
+        traceback_str = tb.format_exc()
+
+        # Plain text
+        plain_lines = ["An error occurred during the investment run.", ""]
         if run:
-            lines += [
+            plain_lines += [
                 f"Run ID:  {run.id}",
                 f"Started: {run.started_at.strftime('%Y-%m-%d %H:%M UTC')}",
                 "",
             ]
-        lines += [
-            f"Error: {repr(error)}",
-            "",
-            "Traceback:",
-            traceback.format_exc(),
-        ]
+        plain_lines += [f"Error: {repr(error)}", "", "Traceback:", traceback_str]
 
-        self._send("[auto-invest] ERROR", "\n".join(lines))
+        # HTML run context block
+        if run:
+            run_context_block = (
+                "<tr><td style='padding:16px 40px 0;'>"
+                "<table width='100%' cellpadding='0' cellspacing='0'><tr>"
+                "<td width='50%' style='padding-right:8px;'>"
+                "<div style='background-color:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:14px 16px;'>"
+                "<p style='margin:0;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;font-weight:600;'>Run ID</p>"
+                f"<p style='margin:6px 0 0;font-size:12px;color:#1e3a8a;font-weight:700;word-break:break-all;'>{str(run.id)[:8]}…</p>"
+                "</div></td>"
+                "<td width='50%'>"
+                "<div style='background-color:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:14px 16px;'>"
+                "<p style='margin:0;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;font-weight:600;'>Started</p>"
+                f"<p style='margin:6px 0 0;font-size:12px;color:#1e3a8a;font-weight:700;'>{run.started_at.strftime('%Y-%m-%d %H:%M UTC')}</p>"
+                "</div></td>"
+                "</tr></table></td></tr>"
+            )
+        else:
+            run_context_block = ""
+
+        html = self._load_template("error_alert.html").substitute(
+            run_context_block=run_context_block,
+            error_repr=repr(error),
+            traceback=traceback_str,
+        )
+
+        self._send("[auto-invest] ERROR", "\n".join(plain_lines), html)
 
     def send_monthly_summary(self, runs: List[Run], orders: List[Order]) -> None:
         """Send monthly summary email with investment totals for the previous month."""
@@ -106,7 +164,8 @@ class Mailer:
         for o in orders:
             ticker_totals[o.t212_ticker] = ticker_totals.get(o.t212_ticker, 0.0) + o.total_czk
 
-        lines = [
+        # Plain text
+        plain_lines = [
             f"Monthly summary for {month_label}",
             "",
             f"Investment runs: {num_runs}",
@@ -116,9 +175,29 @@ class Mailer:
             f"{'-' * 26}",
         ]
         for ticker, czk in sorted(ticker_totals.items(), key=lambda x: -x[1]):
-            lines.append(f"{ticker:<12} {czk:>12.2f}")
+            plain_lines.append(f"{ticker:<12} {czk:>12.2f}")
 
-        self._send(f"[auto-invest] Monthly summary – {month_label}", "\n".join(lines))
+        # HTML rows
+        row_html = []
+        for i, (ticker, czk) in enumerate(sorted(ticker_totals.items(), key=lambda x: -x[1])):
+            bg = "#f8faff" if i % 2 == 0 else "#ffffff"
+            share = (czk / total_czk * 100) if total_czk else 0.0
+            row_html.append(
+                f'<tr style="background-color:{bg};">'
+                f'<td style="padding:10px 14px;font-size:13px;color:#1e293b;font-weight:600;">{ticker}</td>'
+                f'<td style="padding:10px 14px;font-size:13px;color:#1e293b;text-align:right;">{czk:,.2f}</td>'
+                f'<td style="padding:10px 14px;font-size:13px;color:#6b7280;text-align:right;">{share:.1f}%</td>'
+                f"</tr>"
+            )
+
+        html = self._load_template("monthly_summary.html").substitute(
+            month_label=month_label,
+            num_runs=num_runs,
+            total_czk=f"{total_czk:,.2f}",
+            ticker_rows="\n".join(row_html),
+        )
+
+        self._send(f"[auto-invest] Monthly summary – {month_label}", "\n".join(plain_lines), html)
 
 
 if __name__ == "__main__":
