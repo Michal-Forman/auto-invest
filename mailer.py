@@ -184,12 +184,13 @@ class Mailer:
 
         anchor_run = min(all_runs, key=lambda r: r.started_at)
         month_label = anchor_run.started_at.strftime("%B %Y")
-        total_czk = sum(r.planned_total_czk or 0.0 for r in runs)
         num_runs = len(runs)
 
+        successful_orders = [o for o in orders if o.status not in ("FAILED", "CANCELLED", "UNKNOWN")]
         ticker_totals: Dict[str, float] = {}
-        for o in orders:
+        for o in successful_orders:
             ticker_totals[o.t212_ticker] = ticker_totals.get(o.t212_ticker, 0.0) + o.total_czk
+        total_czk = sum(ticker_totals.values())
 
         # Collect issues
         error_orders = [o for o in orders if o.status in ("FAILED", "CANCELLED", "UNKNOWN", "PARTIALLY_FILLED")]
