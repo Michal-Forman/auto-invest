@@ -34,6 +34,7 @@ jobs:
           COINMATE_PRIVATE_KEY: ${{ secrets.COINMATE_PRIVATE_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
 
           # environment variables
           PIE_ID: ${{ vars.PIE_ID }}
@@ -43,4 +44,8 @@ jobs:
           INVEST_INTERVAL: ${{ vars.INVEST_INTERVAL }}
           LOG_LEVEL: ${{ vars.LOG_LEVEL }}
           ENV: ${{ vars.ENV }}
+          MY_MAIL: ${{ vars.MY_MAIL }}
+          MAIL_RECIPIENT: ${{ vars.MAIL_RECIPIENT }}
+          MAIL_HOST: ${{ vars.MAIL_HOST }}
+          MAIL_PORT: ${{ vars.MAIL_PORT }}
         run: python main.py
