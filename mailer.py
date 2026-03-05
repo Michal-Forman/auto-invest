@@ -8,7 +8,7 @@ import smtplib
 import ssl
 from string import Template
 import traceback as tb
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 # Local
 from db.mails import Mail
@@ -19,6 +19,10 @@ from settings import settings
 
 _TEMPLATE_DIR = os.path.join(os.path.dirname(__file__), "templates", "emails")
 _ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")
+
+_SLIPPAGE_THRESHOLD = 0.03  # 3% fill price vs expected price
+_FEE_RATIO_THRESHOLD = 0.005  # 0.5% fee as share of fill value
+_FX_DRIFT_THRESHOLD = 0.02  # 2% fill FX rate vs submission FX rate
 
 
 class Mailer:
@@ -121,10 +125,11 @@ class Mailer:
             exchange = exchange_map.get(ticker, "—")
             bg = "#f8faff" if i % 2 == 0 else "#ffffff"
             mult_color = "#16a34a" if mult > 1.0 else "#1e293b"
+            czk_str = f"{czk:_.2f}".replace("_", "\u00a0")
             row_html.append(
                 f'<tr style="background-color:{bg};">'
                 f'<td style="padding:10px 14px;font-size:13px;color:#1e293b;font-weight:600;">{ticker}</td>'
-                f'<td style="padding:10px 14px;font-size:13px;color:#1e293b;text-align:right;">{czk:,.2f}</td>'
+                f'<td style="padding:10px 14px;font-size:13px;color:#1e293b;text-align:right;">{czk_str}</td>'
                 f'<td style="padding:10px 14px;font-size:13px;color:{mult_color};text-align:right;font-weight:600;">{mult:.2f}×</td>'
                 f'<td style="padding:10px 14px;font-size:12px;color:#6b7280;text-align:right;">{exchange}</td>'
                 f"</tr>"
@@ -201,6 +206,85 @@ class Mailer:
             mail_type="error_alert",
         )
 
+    @staticmethod
+    def _compute_warnings(orders: List[Order]) -> List[Dict[str, str]]:
+        """Scan filled orders for anomalies: price slippage, high fees, and FX rate drift.
+
+        Groups identical ticker+type warnings and reports count + average deviation.
+        fx_rate is stored as foreign/CZK; fill_fx_rate is stored as CZK/foreign,
+        so the comparable baseline is 1/fx_rate.
+        """
+        raw: List[Dict[str, str]] = []
+        for o in orders:
+            if o.status != "FILLED":
+                continue
+
+            # Order was filled for different price than ordered
+            if o.fill_price and o.price and o.price > 0:
+                slippage = abs(o.fill_price - o.price) / o.price
+                if slippage > _SLIPPAGE_THRESHOLD:
+                    direction = "above" if o.fill_price > o.price else "below"
+                    raw.append(
+                        {
+                            "ticker": o.t212_ticker,
+                            "type": "Price slippage",
+                            "detail": f"{slippage * 100:.1f}% {direction}",
+                            "pct": f"{slippage * 100:.1f}",
+                        }
+                    )
+
+            # Fees were too high
+            if o.fee_czk and o.filled_total_czk and o.filled_total_czk > 0:
+                fee_ratio = o.fee_czk / o.filled_total_czk
+                if fee_ratio > _FEE_RATIO_THRESHOLD:
+                    raw.append(
+                        {
+                            "ticker": o.t212_ticker,
+                            "type": "High fee",
+                            "detail": f"{fee_ratio * 100:.2f}% of fill",
+                            "pct": f"{fee_ratio * 100:.2f}",
+                        }
+                    )
+            # Currency rate changed severly between order creation and order fullfillment
+            if o.currency != "CZK" and o.fill_fx_rate and o.fx_rate and o.fx_rate > 0:
+                fx_drift = abs(o.fill_fx_rate - o.fx_rate) / o.fx_rate
+                if fx_drift > _FX_DRIFT_THRESHOLD:
+                    direction = "better" if o.fill_fx_rate > o.fx_rate else "worse"
+                    raw.append(
+                        {
+                            "ticker": o.t212_ticker,
+                            "type": "FX shift",
+                            "detail": f"{fx_drift * 100:.1f}% {direction}",
+                            "pct": f"{fx_drift * 100:.1f}",
+                        }
+                    )
+
+        # Group by ticker+type, accumulate pct values for averaging
+        groups: Dict[str, Dict[str, Any]] = {}
+        for w in raw:
+            key = f"{w['ticker']}|{w['type']}"
+            if key not in groups:
+                groups[key] = {"ticker": w["ticker"], "type": w["type"], "pcts": [], "details": []}
+            groups[key]["pcts"].append(float(w["pct"]))
+            groups[key]["details"].append(w["detail"])
+
+        warnings: List[Dict[str, str]] = []
+        for g in groups.values():
+            count = len(g["pcts"])
+            avg = sum(g["pcts"]) / count
+            occurrences = f"{count}×" if count > 1 else ""
+            # Extract direction from last detail (they should all agree)
+            direction_word = g["details"][-1].split()[-1]  # "above"/"below"/"better"/"worse"
+            warnings.append(
+                {
+                    "ticker": g["ticker"],
+                    "type": g["type"],
+                    "detail": f"{occurrences} avg {avg:.1f}% {direction_word}".strip(),
+                }
+            )
+
+        return warnings
+
     def send_monthly_summary(
         self,
         runs: List[Run],
@@ -234,6 +318,9 @@ class Mailer:
         ]
         _failed_runs = failed_runs or []
 
+        # Collect warnings
+        warnings = self._compute_warnings(successful_orders)
+
         # Plain text
         plain_lines = [
             f"Monthly summary for {month_label}",
@@ -246,6 +333,13 @@ class Mailer:
         ]
         for ticker, czk in sorted(ticker_totals.items(), key=lambda x: -x[1]):
             plain_lines.append(f"{ticker:<12} {czk:>12.2f}")
+
+        plain_lines += ["", "--- Warnings ---"]
+        if not warnings:
+            plain_lines.append("No warnings.")
+        else:
+            for w in warnings:
+                plain_lines.append(f"{w['ticker']} [{w['type']}]: {w['detail']}")
 
         plain_lines += ["", "--- Issues ---"]
         if not _failed_runs and not error_orders:
@@ -267,12 +361,50 @@ class Mailer:
         ):
             bg = "#f8faff" if i % 2 == 0 else "#ffffff"
             share = (czk / total_czk * 100) if total_czk else 0.0
+            czk_str = f"{czk:_.2f}".replace("_", "\u00a0")
             row_html.append(
                 f'<tr style="background-color:{bg};">'
                 f'<td style="padding:10px 14px;font-size:13px;color:#1e293b;font-weight:600;">{ticker}</td>'
-                f'<td style="padding:10px 14px;font-size:13px;color:#1e293b;text-align:right;">{czk:,.2f}</td>'
+                f'<td style="padding:10px 14px;font-size:13px;color:#1e293b;text-align:right;">{czk_str}</td>'
                 f'<td style="padding:10px 14px;font-size:13px;color:#6b7280;text-align:right;">{share:.1f}%</td>'
                 f"</tr>"
+            )
+
+        # HTML warnings section
+        if not warnings:
+            warnings_section = (
+                "<tr><td style='padding:0 40px 28px;'>"
+                "<div style='background-color:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:16px 20px;display:flex;align-items:center;gap:10px;'>"
+                "<span style='font-size:18px;'>&#9728;</span>"
+                "<div>"
+                "<p style='margin:0;font-size:13px;font-weight:700;color:#92400e;'>No warnings</p>"
+                "<p style='margin:4px 0 0;font-size:12px;color:#78350f;'>Prices, fees, and FX rates all looked normal this month.</p>"
+                "</div>"
+                "</div>"
+                "</td></tr>"
+            )
+        else:
+            warn_rows = []
+            for w in warnings:
+                warn_rows.append(
+                    f'<tr style="background-color:#fffbeb;">'
+                    f'<td style="padding:10px 14px;font-size:12px;color:#b45309;font-weight:700;">{w["type"]}</td>'
+                    f'<td style="padding:10px 14px;font-size:12px;color:#1e293b;">{w["ticker"]}</td>'
+                    f'<td style="padding:10px 14px;font-size:12px;color:#6b7280;word-break:break-word;">{w["detail"]}</td>'
+                    f"</tr>"
+                )
+            warnings_section = (
+                "<tr><td style='padding:0 40px 28px;'>"
+                "<h2 style='margin:0 0 14px;font-size:14px;color:#92400e;text-transform:uppercase;letter-spacing:1px;font-weight:700;'>Warnings</h2>"
+                "<table width='100%' cellpadding='0' cellspacing='0' style='border-collapse:collapse;'>"
+                "<thead><tr style='background-color:#fde68a;'>"
+                "<th style='padding:10px 14px;text-align:left;font-size:12px;color:#78350f;font-weight:600;'>Type</th>"
+                "<th style='padding:10px 14px;text-align:left;font-size:12px;color:#78350f;font-weight:600;'>Ticker</th>"
+                "<th style='padding:10px 14px;text-align:left;font-size:12px;color:#78350f;font-weight:600;'>Detail</th>"
+                "</tr></thead>"
+                "<tbody>" + "\n".join(warn_rows) + "</tbody>"
+                "</table>"
+                "</td></tr>"
             )
 
         # HTML issues section
@@ -329,6 +461,7 @@ class Mailer:
             num_runs=num_runs,
             total_czk=f"{round(total_czk):_}".replace("_", "\u00a0"),
             ticker_rows="\n".join(row_html),
+            warnings_section=warnings_section,
             errors_section=errors_section,
         )
 
