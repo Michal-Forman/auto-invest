@@ -1,4 +1,5 @@
 # Standard library
+import binascii
 from datetime import datetime, timedelta, timezone
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
@@ -32,9 +33,31 @@ _FEE_RATIO_THRESHOLD = 0.005  # 0.5% fee as share of fill value
 _FX_DRIFT_THRESHOLD = 0.02  # 2% fill FX rate vs submission FX rate
 
 
+def _czech_account_to_iban(account: str) -> str:
+    """Convert a Czech account number (e.g. '19-123456789/0800') to IBAN (e.g. 'CZ...')."""
+    number_part, bank_code = account.split("/")
+    if "-" in number_part:
+        prefix, base = number_part.split("-")
+    else:
+        prefix, base = "0", number_part
+    bban = f"{bank_code:0>4}{int(prefix):06d}{int(base):010d}"
+    # IBAN check digits: rearrange as BBAN + "CZ00", replace letters, mod-97
+    numeric = int(bban + "123500")  # C=12, Z=35, 00
+    check = 98 - (numeric % 97)
+    return f"CZ{check:02d}{bban}"
+
+
 def _make_spd_qr(account: str, vs: str, amount: float) -> bytes:
     """Return PNG bytes of a Czech SPD QR code for the given account, variable symbol, and amount."""
-    spd = f"SPD*1.0*ACC:{account}*AM:{amount:.2f}*CC:CZK*X-VS:{vs}"
+    iban = _czech_account_to_iban(account)
+    # Build canonical SPAYD (keys sorted alphabetically) for CRC32, then append checksum
+    parts = sorted(
+        [f"ACC:{iban}", f"AM:{amount:.2f}", "CC:CZK", f"X-VS:{vs}"],
+        key=lambda p: p.split(":")[0],
+    )
+    canonical = "SPD*1.0*" + "*".join(parts)
+    crc = binascii.crc32(canonical.encode("utf-8")) & 0xFFFFFFFF
+    spd = f"{canonical}*CRC32:{crc:08X}"
     img = qrcode.make(spd, error_correction=qrcode.constants.ERROR_CORRECT_M)
     buf = io.BytesIO()
     img.save(buf, format="PNG")
@@ -42,17 +65,18 @@ def _make_spd_qr(account: str, vs: str, amount: float) -> bytes:
 
 
 def _runs_in_next_30_days(cron_expr: str) -> int:
-    """Count how many times a cron schedule fires in the next 30 calendar days."""
+    """Count how many times a cron schedule fires in the next 30 calendar days (max once per day)."""
     now = datetime.now(timezone.utc)
     end = now + timedelta(days=30)
     cron = croniter(cron_expr, now)
-    count = 0
+    seen_dates: set = set()
     while True:
         nxt = cron.get_next(datetime)
         if nxt > end:
             break
-        count += 1
-    return count
+        seen_dates.add(nxt.date())
+    print(f"seen dates: {len(seen_dates)}")
+    return len(seen_dates)
 
 
 class Mailer:
@@ -581,17 +605,19 @@ class Mailer:
             extra_images[cid] = _make_spd_qr(account, vs, float(suggested))
             suggested_str = f"{suggested:_.0f}".replace("_", "\u00a0")
             topup_cards.append(
-                f'<div style="display:table;width:100%;margin-bottom:16px;background-color:#f8faff;border:1px solid #bfdbfe;border-radius:6px;padding:16px;">'
-                f'<div style="display:table-cell;vertical-align:middle;width:120px;padding-right:20px;">'
+                f'<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;background-color:#f8faff;border:1px solid #bfdbfe;border-radius:6px;">'
+                f'<tr>'
+                f'<td width="130" style="padding:16px 20px 16px 16px;vertical-align:middle;">'
                 f'<img src="cid:{cid}" alt="QR {exchange}" width="110" height="110" style="display:block;" />'
-                f'</div>'
-                f'<div style="display:table-cell;vertical-align:middle;">'
+                f'</td>'
+                f'<td style="padding:16px 16px 16px 0;vertical-align:middle;">'
                 f'<p style="margin:0;font-size:13px;font-weight:700;color:#1e3a8a;">{exchange}</p>'
                 f'<p style="margin:6px 0 2px;font-size:12px;color:#374151;"><strong>Account:</strong> {account}</p>'
                 f'<p style="margin:2px 0;font-size:12px;color:#374151;"><strong>Variable symbol:</strong> {vs}</p>'
                 f'<p style="margin:6px 0 0;font-size:12px;color:#374151;"><strong>Suggested top-up:</strong> {suggested_str} CZK <span style="color:#6b7280;">(next 30 days)</span></p>'
-                f'</div>'
-                f'</div>'
+                f'</td>'
+                f'</tr>'
+                f'</table>'
             )
 
         if topup_cards:
@@ -780,18 +806,23 @@ if __name__ == "__main__":
     if SEND["balance_alert"]:
         from datetime import timezone as _tz
 
+        _invest = settings.portfolio.invest_amount
+        _t212_weight = settings.portfolio.t212_weight
+        _btc_weight = settings.portfolio.btc_weight
+        _t212_spend = _invest * _t212_weight / (_t212_weight + _btc_weight)
+        _btc_spend = _invest * _btc_weight / (_t212_weight + _btc_weight)
         dummy_alerts: List[Dict[str, Any]] = [
             {
                 "exchange": "T212",
-                "balance": 3200.50,
-                "spend_per_run": 1800.0,
+                "balance": round(_t212_spend * 2, 2),
+                "spend_per_run": _t212_spend,
                 "runs_out_on": datetime(2026, 3, 7, 9, 0, 0, tzinfo=_tz.utc),
                 "days_until_broke": 2,
             },
             {
                 "exchange": "COINMATE",
-                "balance": 4800.0,
-                "spend_per_run": 500.0,
+                "balance": round(_btc_spend * 9, 2),
+                "spend_per_run": _btc_spend,
                 "runs_out_on": datetime(2026, 3, 10, 9, 0, 0, tzinfo=_tz.utc),
                 "days_until_broke": 5,
             },
