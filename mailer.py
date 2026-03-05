@@ -15,8 +15,8 @@ from typing import Any, Dict, List, Optional
 
 # Third-party
 from croniter import croniter
-import qrcode
-import qrcode.constants
+import qrcode  # type: ignore[import-untyped]
+import qrcode.constants  # type: ignore[import-untyped]
 
 # Local
 from db.mails import Mail
