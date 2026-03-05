@@ -200,7 +200,7 @@ class Mailer:
         )
 
         self._send(
-            "⚠️ [auto-invest] ERROR",
+            "🔴 [auto-invest] ERROR",
             "\n".join(plain_lines),
             html,
             mail_type="error_alert",
@@ -474,18 +474,73 @@ class Mailer:
             period=period,
         )
 
+    def send_balance_alert(self, alerts: List[Dict[str, Any]]) -> None:
+        """Send low-balance warning email.
+
+        Each alert dict: {exchange, balance, spend_per_run, runs_out_on, days_until_broke}
+        """
+        now = datetime.now(timezone.utc)
+        date_label = now.strftime("%B %-d, %Y")
+        today_str = now.strftime("%Y-%m-%d")
+
+        # Plain text
+        plain_lines = [
+            "Low balance alert.",
+            "",
+            f"{'Exchange':<12} {'Balance (CZK)':>14} {'Spend/Run':>12} {'Runs Out On':>22} {'Days':>6}",
+            f"{'-' * 68}",
+        ]
+        for a in alerts:
+            plain_lines.append(
+                f"{a['exchange']:<12} {a['balance']:>14.2f} {a['spend_per_run']:>12.2f}"
+                f" {a['runs_out_on'].strftime('%Y-%m-%d %H:%M UTC'):>22} {a['days_until_broke']:>6}"
+            )
+
+        # HTML rows
+        row_html = []
+        for i, a in enumerate(alerts):
+            bg = "#f8faff" if i % 2 == 0 else "#ffffff"
+            bal_str = f"{a['balance']:_.2f}".replace("_", "\u00a0")
+            spend_str = f"{a['spend_per_run']:_.2f}".replace("_", "\u00a0")
+            runs_out_str = a["runs_out_on"].strftime("%Y-%m-%d %H:%M UTC")
+            days = a["days_until_broke"]
+            days_color = "#dc2626" if days <= 2 else "#b45309"
+            row_html.append(
+                f'<tr style="background-color:{bg};">'
+                f'<td style="padding:10px 14px;font-size:13px;color:#1e293b;font-weight:600;">{a["exchange"]}</td>'
+                f'<td style="padding:10px 14px;font-size:13px;color:#1e293b;text-align:right;">{bal_str}</td>'
+                f'<td style="padding:10px 14px;font-size:13px;color:#1e293b;text-align:right;">{spend_str}</td>'
+                f'<td style="padding:10px 14px;font-size:13px;color:#1e293b;text-align:right;">{runs_out_str}</td>'
+                f'<td style="padding:10px 14px;font-size:13px;color:{days_color};text-align:right;font-weight:700;">{days}d</td>'
+                f"</tr>"
+            )
+
+        html = self._load_template("balance_alert.html").substitute(
+            date_label=date_label,
+            alert_rows="\n".join(row_html),
+        )
+
+        self._send(
+            "\u26a0\ufe0f [auto-invest] Low balance alert",
+            "\n".join(plain_lines),
+            html,
+            mail_type="balance_alert",
+            period=today_str,
+        )
+
 
 if __name__ == "__main__":
     from uuid import uuid4
 
     # ── Pick which emails to send ──────────────────────────────────────────
     SEND = {
-        "investment_confirmation": True,
+        "investment_confirmation": False,
         "error_no_run": False,
         "error_with_run": False,
         "monthly_summary_clean": False,
         "monthly_summary_with_issues": False,
-        "monthly_summary_real": True,  # fetch real dev DB data for the month below
+        "monthly_summary_real": False,  # fetch real dev DB data for the month below
+        "balance_alert": True,
     }
     REAL_YEAR, REAL_MONTH = 2026, 3  # ← change to the month you want to test
     # ──────────────────────────────────────────────────────────────────────
@@ -630,3 +685,25 @@ if __name__ == "__main__":
             print(
                 f"6. send_monthly_summary (real {REAL_YEAR}-{REAL_MONTH:02d}) sent — check inbox"
             )
+
+    if SEND["balance_alert"]:
+        from datetime import timezone as _tz
+
+        dummy_alerts: List[Dict[str, Any]] = [
+            {
+                "exchange": "T212",
+                "balance": 3200.50,
+                "spend_per_run": 1800.0,
+                "runs_out_on": datetime(2026, 3, 7, 9, 0, 0, tzinfo=_tz.utc),
+                "days_until_broke": 2,
+            },
+            {
+                "exchange": "COINMATE",
+                "balance": 4800.0,
+                "spend_per_run": 500.0,
+                "runs_out_on": datetime(2026, 3, 10, 9, 0, 0, tzinfo=_tz.utc),
+                "days_until_broke": 5,
+            },
+        ]
+        mailer.send_balance_alert(dummy_alerts)
+        print("7. send_balance_alert sent — check inbox")

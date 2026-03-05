@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 
 # Third-party
 import pytest
+from freezegun import freeze_time
 from pytest_mock import MockerFixture
 
 # Local
@@ -137,3 +138,53 @@ class TestPostToDB:
         Mail(type="error_alert", subject="Test").post_to_db()
 
         mock_chain.execute.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Tests: Mail.balance_alert_sent_today
+# ---------------------------------------------------------------------------
+
+
+class TestBalanceAlertSentToday:
+    @freeze_time("2026-03-05 12:00:00")
+    def test_returns_true_when_record_exists(self, mocker: MockerFixture) -> None:
+        _, mock_chain = _build_supabase_mock(mocker)
+        mock_chain.execute.return_value = MagicMock(data=[{"id": "abc"}])
+
+        assert Mail.balance_alert_sent_today() is True
+
+    @freeze_time("2026-03-05 12:00:00")
+    def test_returns_false_when_no_record(self, mocker: MockerFixture) -> None:
+        _, mock_chain = _build_supabase_mock(mocker)
+        mock_chain.execute.return_value = MagicMock(data=[])
+
+        assert Mail.balance_alert_sent_today() is False
+
+    @freeze_time("2026-03-05 12:00:00")
+    def test_queries_correct_table_and_filters(self, mocker: MockerFixture) -> None:
+        mock_sb, mock_chain = _build_supabase_mock(mocker)
+        mock_chain.execute.return_value = MagicMock(data=[])
+
+        Mail.balance_alert_sent_today()
+
+        mock_sb.table.assert_called_once_with("mails")
+        mock_chain.select.assert_called_once_with("id")
+        mock_chain.eq.assert_any_call("type", "balance_alert")
+        mock_chain.eq.assert_any_call("period", "2026-03-05")
+        mock_chain.limit.assert_called_once_with(1)
+
+    @freeze_time("2026-03-05 12:00:00")
+    def test_returns_false_on_exception(self, mocker: MockerFixture) -> None:
+        _, mock_chain = _build_supabase_mock(mocker)
+        mock_chain.execute.side_effect = Exception("DB down")
+
+        assert Mail.balance_alert_sent_today() is False
+
+    @freeze_time("2026-03-05 23:59:59")
+    def test_uses_utc_date(self, mocker: MockerFixture) -> None:
+        mock_sb, mock_chain = _build_supabase_mock(mocker)
+        mock_chain.execute.return_value = MagicMock(data=[])
+
+        Mail.balance_alert_sent_today()
+
+        mock_chain.eq.assert_any_call("period", "2026-03-05")

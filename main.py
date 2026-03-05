@@ -1,6 +1,6 @@
 # Standard library
 from datetime import datetime, timezone
-from typing import Dict, List
+from typing import Any, Dict, List
 
 # Local
 from coinmate import Coinmate
@@ -13,7 +13,7 @@ from log import log
 from mailer import Mailer
 from settings import settings
 from trading212 import Trading212
-from utils import is_now_cron_time
+from utils import find_balance_exhaustion_date, is_now_cron_time
 
 # ----- Start counting time for a run -----
 log.info("Starting Main script")
@@ -36,13 +36,50 @@ instruments: Instruments = Instruments(t212=t212, portfolio_settings=settings.po
 executor: Executor = Executor(t212, coinmate, settings.portfolio)
 mailer: Mailer = Mailer()
 
-# ----- Main program logic -----
-
-# Update values in db based on current state - Do as often as possible = on every script run
+# --- Upate old investment data in db ---
 log.info("Start updating old Orders and Runs")
 Order.update_orders(t212, coinmate)
 Run.update_runs()
 log.info("Finished updating old Orders and Runs")
+
+# --- Check balances and alert if running low ---
+if not Mail.balance_alert_sent_today():
+    try:
+        adjusted_ratios = instruments.get_adjusted_ratios()
+        total_adj = sum(v["adjusted_value"] for v in adjusted_ratios.values())
+        t212_adj = sum(
+            v["adjusted_value"] for k, v in adjusted_ratios.items() if k != "BTC"
+        )
+        btc_adj = adjusted_ratios.get("BTC", {}).get("adjusted_value", 0.0)
+        invest = settings.portfolio.invest_amount
+        cron = settings.portfolio.invest_interval
+
+        BUFFER: float = settings.portfolio.balance_buffer
+        ALERT_DAYS: int = settings.portfolio.balance_alert_days
+
+        alerts: List[Dict[str, Any]] = []
+        for exchange, adj, get_bal in [
+            ("T212", t212_adj, t212.balance),
+            ("COINMATE", btc_adj, coinmate.balance),
+        ]:
+            spend_per_run = (adj / total_adj) * invest
+            bal = get_bal()
+            runs_out_on = find_balance_exhaustion_date(cron, spend_per_run, bal, BUFFER)
+            if runs_out_on and (runs_out_on - run_start).days <= ALERT_DAYS:
+                alerts.append(
+                    {
+                        "exchange": exchange,
+                        "balance": bal,
+                        "spend_per_run": spend_per_run,
+                        "runs_out_on": runs_out_on,
+                        "days_until_broke": (runs_out_on - run_start).days,
+                    }
+                )
+
+        if alerts:
+            mailer.send_balance_alert(alerts)
+    except Exception as e:
+        log.warning(f"Balance check skipped (non-critical): {e}")
 
 # Create new orders if they should be made today AND they have not yet been
 if is_now_cron_time(settings.portfolio.invest_interval) and not Run.run_exists_today():

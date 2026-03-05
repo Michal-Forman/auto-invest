@@ -20,6 +20,8 @@ class PortfolioSettings:
     btc_weight: float
     invest_amount: float
     invest_interval: str
+    balance_buffer: float
+    balance_alert_days: int
 
     @classmethod
     def from_env(cls) -> "PortfolioSettings":
@@ -30,6 +32,8 @@ class PortfolioSettings:
             btc_weight=float(os.environ["BTC_WEIGHT"]),
             invest_amount=float(os.environ["INVEST_AMOUNT"]),
             invest_interval=os.getenv("INVEST_INTERVAL", "monthly"),
+            balance_buffer=float(os.environ["balance_buffer"]),
+            balance_alert_days=int(os.environ["BALANCE_ALERT_DAYS"]),
         )
 
 

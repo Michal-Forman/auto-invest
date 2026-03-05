@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Low Balance Alert</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f0f4ff;font-family:Arial,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f0f4ff;padding:32px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 12px rgba(30,58,138,0.10);">
+
+          <!-- Header -->
+          <tr>
+            <td style="background-color:#1e3a8a;padding:0;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="padding:28px 16px 28px 40px;vertical-align:middle;">
+                    <p style="margin:0;font-size:11px;letter-spacing:2px;color:#93c5fd;text-transform:uppercase;font-weight:600;">auto-invest</p>
+                    <h1 style="margin:6px 0 0;font-size:24px;color:#ffffff;font-weight:700;">Low Balance Alert</h1>
+                    <p style="margin:4px 0 0;font-size:15px;color:#93c5fd;font-weight:400;">${date_label}</p>
+                  </td>
+                  <td width="73" align="center" style="padding:20px 40px 20px 12px;vertical-align:middle;">
+                    <img src="cid:logo" alt="auto-invest" width="68" height="68" style="display:block;margin:0 auto;" />
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Warning banner -->
+          <tr>
+            <td style="padding:24px 40px 0;">
+              <div style="background-color:#fffbeb;border-left:4px solid #f59e0b;border-radius:4px;padding:16px 20px;">
+                <p style="margin:0;font-size:13px;font-weight:700;color:#92400e;">One or more exchange accounts will run out of funds within 7 days.</p>
+                <p style="margin:6px 0 0;font-size:12px;color:#78350f;">Top up the affected accounts to ensure uninterrupted investing.</p>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Balance table -->
+          <tr>
+            <td style="padding:24px 40px 28px;">
+              <h2 style="margin:0 0 14px;font-size:14px;color:#1e3a8a;text-transform:uppercase;letter-spacing:1px;font-weight:700;">Affected Accounts</h2>
+              <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+                <thead>
+                  <tr style="background-color:#dbeafe;">
+                    <th style="padding:10px 14px;text-align:left;font-size:12px;color:#1e3a8a;font-weight:600;">Exchange</th>
+                    <th style="padding:10px 14px;text-align:right;font-size:12px;color:#1e3a8a;font-weight:600;">Balance (CZK)</th>
+                    <th style="padding:10px 14px;text-align:right;font-size:12px;color:#1e3a8a;font-weight:600;">Spend / Run</th>
+                    <th style="padding:10px 14px;text-align:right;font-size:12px;color:#1e3a8a;font-weight:600;">Runs Out On</th>
+                    <th style="padding:10px 14px;text-align:right;font-size:12px;color:#1e3a8a;font-weight:600;">Days Left</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${alert_rows}
+                </tbody>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:0 40px 32px;">
+              <p style="margin:0;font-size:12px;color:#9ca3af;text-align:center;">
+                This is an automated notification from <strong style="color:#1e3a8a;">auto-invest</strong>.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

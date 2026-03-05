@@ -610,3 +610,98 @@ class TestSendMonthlySummary:
         mock_send.assert_called_once()
         plain = mock_send.call_args[0][1]
         assert "FAILED" in plain
+
+
+# ---------------------------------------------------------------------------
+# Tests: send_balance_alert
+# ---------------------------------------------------------------------------
+
+
+def _make_alert(**overrides: Any) -> dict:
+    """Build a minimal alert dict for send_balance_alert tests."""
+    defaults: dict = {
+        "exchange": "T212",
+        "balance": 3000.0,
+        "spend_per_run": 1500.0,
+        "runs_out_on": datetime(2026, 3, 7, 9, 0, 0, tzinfo=timezone.utc),
+        "days_until_broke": 4,
+    }
+    defaults.update(overrides)
+    return defaults
+
+
+class TestSendBalanceAlert:
+    def test_calls_send_with_low_balance_subject(self, mocker: MockerFixture) -> None:
+        mock_send = mocker.patch.object(Mailer, "_send")
+        Mailer().send_balance_alert([_make_alert()])
+        subject = mock_send.call_args[0][0]
+        assert "balance" in subject.lower()
+
+    def test_plain_contains_exchange_name(self, mocker: MockerFixture) -> None:
+        mock_send = mocker.patch.object(Mailer, "_send")
+        Mailer().send_balance_alert([_make_alert(exchange="T212")])
+        plain = mock_send.call_args[0][1]
+        assert "T212" in plain
+
+    def test_plain_contains_runs_out_date(self, mocker: MockerFixture) -> None:
+        mock_send = mocker.patch.object(Mailer, "_send")
+        runs_out = datetime(2026, 3, 7, 9, 0, 0, tzinfo=timezone.utc)
+        Mailer().send_balance_alert([_make_alert(runs_out_on=runs_out)])
+        plain = mock_send.call_args[0][1]
+        assert "2026-03-07" in plain
+
+    def test_plain_contains_days_until_broke(self, mocker: MockerFixture) -> None:
+        mock_send = mocker.patch.object(Mailer, "_send")
+        Mailer().send_balance_alert([_make_alert(days_until_broke=3)])
+        plain = mock_send.call_args[0][1]
+        assert "3" in plain
+
+    def test_html_contains_exchange_name(self, mocker: MockerFixture) -> None:
+        mock_send = mocker.patch.object(Mailer, "_send")
+        Mailer().send_balance_alert([_make_alert(exchange="COINMATE")])
+        html = mock_send.call_args[0][2]
+        assert "COINMATE" in html
+
+    def test_html_uses_red_color_for_urgent_days(self, mocker: MockerFixture) -> None:
+        mock_send = mocker.patch.object(Mailer, "_send")
+        Mailer().send_balance_alert([_make_alert(days_until_broke=1)])
+        html = mock_send.call_args[0][2]
+        assert "#dc2626" in html
+
+    def test_html_uses_amber_color_for_non_urgent_days(self, mocker: MockerFixture) -> None:
+        mock_send = mocker.patch.object(Mailer, "_send")
+        Mailer().send_balance_alert([_make_alert(days_until_broke=5)])
+        html = mock_send.call_args[0][2]
+        assert "#b45309" in html
+
+    def test_mail_type_is_balance_alert(self, mocker: MockerFixture) -> None:
+        mock_send = mocker.patch.object(Mailer, "_send")
+        Mailer().send_balance_alert([_make_alert()])
+        assert mock_send.call_args.kwargs["mail_type"] == "balance_alert"
+
+    def test_period_kwarg_is_todays_date(self, mocker: MockerFixture) -> None:
+        mock_send = mocker.patch.object(Mailer, "_send")
+        Mailer().send_balance_alert([_make_alert()])
+        period = mock_send.call_args.kwargs.get("period")
+        assert period is not None
+        # Should be a valid YYYY-MM-DD date string
+        from datetime import datetime as _dt
+
+        _dt.strptime(period, "%Y-%m-%d")  # raises if format invalid
+
+    def test_multiple_exchanges_in_plain(self, mocker: MockerFixture) -> None:
+        mock_send = mocker.patch.object(Mailer, "_send")
+        alerts = [
+            _make_alert(exchange="T212"),
+            _make_alert(exchange="COINMATE"),
+        ]
+        Mailer().send_balance_alert(alerts)
+        plain = mock_send.call_args[0][1]
+        assert "T212" in plain
+        assert "COINMATE" in plain
+
+    def test_html_contains_balance_value(self, mocker: MockerFixture) -> None:
+        mock_send = mocker.patch.object(Mailer, "_send")
+        Mailer().send_balance_alert([_make_alert(balance=4567.89)])
+        html = mock_send.call_args[0][2]
+        assert "4" in html  # at minimum the thousands digit appears

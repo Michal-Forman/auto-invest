@@ -44,6 +44,24 @@ class Mail(BaseModel):
             log.error(f"Failed to check mails table for period {period}: {repr(e)}")
             return False
 
+    @staticmethod
+    def balance_alert_sent_today() -> bool:
+        """Return True if a balance_alert email was already sent today (UTC)."""
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        try:
+            res = (
+                supabase.table(TABLE)
+                .select("id")
+                .eq("type", "balance_alert")
+                .eq("period", today)
+                .limit(1)
+                .execute()
+            )
+            return len(res.data) > 0
+        except Exception as e:
+            log.error(f"Failed to check mails table for balance_alert: {repr(e)}")
+            return False
+
     def post_to_db(self) -> Optional[Dict[str, Any]]:
         """Insert this mail record into Supabase. Returns inserted row or None on error."""
         data: Dict[str, Any] = self.model_dump(mode="json", exclude_none=True)
