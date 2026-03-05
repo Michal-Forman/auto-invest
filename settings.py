@@ -20,6 +20,8 @@ class PortfolioSettings:
     btc_weight: float
     invest_amount: float
     invest_interval: str
+    balance_buffer: float
+    balance_alert_days: int
 
     @classmethod
     def from_env(cls) -> "PortfolioSettings":
@@ -30,6 +32,8 @@ class PortfolioSettings:
             btc_weight=float(os.environ["BTC_WEIGHT"]),
             invest_amount=float(os.environ["INVEST_AMOUNT"]),
             invest_interval=os.getenv("INVEST_INTERVAL", "monthly"),
+            balance_buffer=float(os.environ["BALANCE_BUFFER"]),
+            balance_alert_days=int(os.environ["BALANCE_ALERT_DAYS"]),
         )
 
 
@@ -44,6 +48,15 @@ class Settings:
     supabase_key: str
     portfolio: PortfolioSettings
     env: str
+    my_mail: str
+    mail_recipient: str
+    mail_host: str
+    mail_port: int
+    mail_password: str
+    t212_deposit_account: str | None
+    t212_deposit_vs: str | None
+    coinmate_deposit_account: str | None
+    coinmate_deposit_vs: str | None
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -58,6 +71,15 @@ class Settings:
             supabase_url=os.environ["SUPABASE_URL"],
             supabase_key=os.environ["SUPABASE_SERVICE_ROLE_KEY"],
             env=os.getenv("ENV", "dev"),
+            mail_host=os.environ["MAIL_HOST"],
+            mail_port=int(os.environ["MAIL_PORT"]),
+            mail_password=os.environ["MAIL_PASSWORD"],
+            my_mail=os.environ["MY_MAIL"],
+            mail_recipient=os.environ["MAIL_RECIPIENT"],
+            t212_deposit_account=os.getenv("T212_DEPOSIT_ACCOUNT"),
+            t212_deposit_vs=os.getenv("T212_DEPOSIT_VS"),
+            coinmate_deposit_account=os.getenv("COINMATE_DEPOSIT_ACCOUNT"),
+            coinmate_deposit_vs=os.getenv("COINMATE_DEPOSIT_VS"),
         )
 
 

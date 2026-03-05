@@ -189,6 +189,21 @@ class Order(BaseModel):
         return None
 
     @staticmethod
+    def get_orders_for_runs(run_ids: List[str]) -> List[Order]:
+        """Fetch all orders belonging to the given run IDs."""
+        if not run_ids:
+            return []
+
+        response: Any = (
+            supabase.table(TABLE).select("*").in_("run_id", run_ids).execute()
+        )
+
+        if not response.data:
+            return []
+
+        return [Order.model_validate(row) for row in response.data]
+
+    @staticmethod
     def get_submitted_orders() -> List[Order]:
         """Fetch all orders with status SUBMITTED from the database."""
         response: Any = (

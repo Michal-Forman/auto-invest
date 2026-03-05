@@ -1,8 +1,11 @@
+# Standard library
+from datetime import datetime, timezone
+
 # Third-party
 from freezegun import freeze_time
 
 # Local
-from utils import is_now_cron_time
+from utils import find_balance_exhaustion_date, is_now_cron_time
 
 
 @freeze_time("2026-03-03 09:00:00")
@@ -18,3 +21,76 @@ def test_cron_one_minute_late() -> None:
 @freeze_time("2026-03-03 08:59:00")
 def test_cron_one_minute_early() -> None:
     assert is_now_cron_time("0 9 * * *") is False
+
+
+# ---------------------------------------------------------------------------
+# Tests: find_balance_exhaustion_date
+# ---------------------------------------------------------------------------
+
+# Daily cron at 09:00 UTC; freeze at midnight so next run is 09:00 same day
+_CRON_DAILY = "0 9 * * *"
+
+
+@freeze_time("2026-03-03 00:00:00")
+def test_exhaustion_on_first_run() -> None:
+    """Balance just below one buffered spend: exhausted on the very first run."""
+    spend = 1000.0
+    balance = spend * 1.1 - 0.01  # just under one buffered spend
+    result = find_balance_exhaustion_date(_CRON_DAILY, spend, balance)
+    assert result is not None
+    assert result == datetime(2026, 3, 3, 9, 0, 0, tzinfo=timezone.utc)
+
+
+@freeze_time("2026-03-03 00:00:00")
+def test_exhaustion_on_third_run() -> None:
+    """Balance covers exactly 2 buffered spends; exhausted on run 3."""
+    spend = 1000.0
+    buffer = 1.1
+    balance = spend * buffer * 2 + 0.01  # survives 2 runs, fails on 3rd
+    result = find_balance_exhaustion_date(_CRON_DAILY, spend, balance, buffer)
+    assert result is not None
+    # 3rd daily run from 2026-03-03 00:00 is 2026-03-05 09:00
+    assert result == datetime(2026, 3, 5, 9, 0, 0, tzinfo=timezone.utc)
+
+
+@freeze_time("2026-03-03 00:00:00")
+def test_returns_none_when_balance_lasts_over_one_year() -> None:
+    """Large balance that won't be exhausted within 365 days returns None."""
+    spend = 1.0
+    balance = 9_999_999.0  # effectively never runs out within a year
+    result = find_balance_exhaustion_date(_CRON_DAILY, spend, balance)
+    assert result is None
+
+
+@freeze_time("2026-03-03 00:00:00")
+def test_custom_buffer_affects_exhaustion_date() -> None:
+    """Higher buffer means earlier exhaustion date."""
+    spend = 1000.0
+    balance = 1500.0
+    # With buffer=1.0: first run depletes 1000, balance=500; second run depletes 1000 → exhausted on run 2
+    result_no_buffer = find_balance_exhaustion_date(
+        _CRON_DAILY, spend, balance, buffer=1.0
+    )
+    # With buffer=1.6: first run depletes 1600 → balance goes negative immediately
+    result_high_buffer = find_balance_exhaustion_date(
+        _CRON_DAILY, spend, balance, buffer=1.6
+    )
+    assert result_high_buffer is not None
+    assert result_no_buffer is not None
+    assert result_high_buffer < result_no_buffer
+
+
+@freeze_time("2026-03-03 00:00:00")
+def test_exhaustion_date_is_tz_aware() -> None:
+    """Returned datetime should be timezone-aware (UTC)."""
+    result = find_balance_exhaustion_date(_CRON_DAILY, 1000.0, 500.0)
+    assert result is not None
+    assert result.tzinfo is not None
+
+
+@freeze_time("2026-03-03 00:00:00")
+def test_zero_balance_exhausted_on_first_run() -> None:
+    """Zero balance is exhausted immediately on the first run."""
+    result = find_balance_exhaustion_date(_CRON_DAILY, 100.0, 0.0)
+    assert result is not None
+    assert result == datetime(2026, 3, 3, 9, 0, 0, tzinfo=timezone.utc)

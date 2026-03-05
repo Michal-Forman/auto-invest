@@ -120,10 +120,6 @@ class Coinmate:
 
     # ---------- Private endpoints ----------
 
-    def balances(self) -> Dict[str, Any]:
-        """Fetch all account balances (available, reserved, total) for the authenticated user."""
-        return self._post("/balances", data=self._private_payload())
-
     def buy_instant(
         self,
         total: float,
@@ -151,3 +147,24 @@ class Coinmate:
             }
         )
         return self._post("/tradeHistory", data=payload)
+
+    def balance(self) -> float:
+        """Fetch the available CZK balance for the authenticated account."""
+        wrapped: Dict[str, Any] = self._post("/balances", data=self._private_payload())
+        if wrapped.get("err"):
+            raise RuntimeError(f"Could not fetch balance: {wrapped['err']}")
+        try:
+            return float(wrapped["res"]["data"]["CZK"]["balance"])
+        except (KeyError, TypeError) as e:
+            raise RuntimeError(f"Unexpected balance response structure: {e}")
+
+
+if __name__ == "__main__":
+    from settings import settings
+
+    coinmate = Coinmate(
+        settings.coinmate_client_id,
+        settings.coinmate_public_key,
+        settings.coinmate_private_key,
+    )
+    print(coinmate.balance())
