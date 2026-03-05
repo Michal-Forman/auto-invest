@@ -17,6 +17,7 @@ for _key, _val in _env_test.items():
     if _val is not None:
         os.environ.setdefault(_key, _val)
 
+# Third-party
 import pytest
 
 # Local
