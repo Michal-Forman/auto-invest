@@ -100,7 +100,7 @@ class Mailer:
             "",
             f"Run ID:    {run.id}",
             f"Timestamp: {run.started_at.strftime('%Y-%m-%d %H:%M UTC')}",
-            f"Total CZK: {total_czk:.2f}",
+            f"Total CZK: {round(total_czk)}",
             "",
             f"{'Ticker':<12} {'CZK':>10} {'Multiplier':>12} {'Exchange':>10}",
             f"{'-' * 46}",
@@ -135,7 +135,7 @@ class Mailer:
             run_id_short=run_id_short,
             timestamp=run.started_at.strftime("%Y-%m-%d %H:%M UTC"),
             date_label=run.started_at.strftime("%B %-d, %Y"),
-            total_czk=f"{total_czk:,.2f}",
+            total_czk=f"{round(total_czk):_}".replace("_", "\u00a0"),
             order_rows="\n".join(row_html),
         )
 
@@ -239,7 +239,7 @@ class Mailer:
             f"Monthly summary for {month_label}",
             "",
             f"Investment runs: {num_runs}",
-            f"Total CZK deployed: {total_czk:.2f}",
+            f"Total CZK deployed: {round(total_czk)}",
             "",
             f"{'Ticker':<12} {'Total CZK':>12}",
             f"{'-' * 26}",
@@ -327,7 +327,7 @@ class Mailer:
         html = self._load_template("monthly_summary.html").substitute(
             month_label=month_label,
             num_runs=num_runs,
-            total_czk=f"{total_czk:,.2f}",
+            total_czk=f"{round(total_czk):_}".replace("_", "\u00a0"),
             ticker_rows="\n".join(row_html),
             errors_section=errors_section,
         )
@@ -347,7 +347,7 @@ if __name__ == "__main__":
 
     # ── Pick which emails to send ──────────────────────────────────────────
     SEND = {
-        "investment_confirmation": False,
+        "investment_confirmation": True,
         "error_no_run": False,
         "error_with_run": False,
         "monthly_summary_clean": False,
