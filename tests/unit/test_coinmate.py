@@ -181,7 +181,11 @@ class TestPrivateEndpoints:
         mock_post = mocker.patch.object(
             coinmate,
             "_post",
-            return_value={"err": None, "res": {"data": {"CZK": {"balance": "1000.0"}}}, "req": {}},
+            return_value={
+                "err": None,
+                "res": {"data": {"CZK": {"balance": "1000.0"}}},
+                "req": {},
+            },
         )
         mocker.patch.object(
             coinmate, "_private_payload", return_value={"payload": "data"}

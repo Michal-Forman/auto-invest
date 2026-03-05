@@ -326,7 +326,12 @@ class Mailer:
         for w in raw:
             key = f"{w['ticker']}|{w['type']}"
             if key not in groups:
-                groups[key] = {"ticker": w["ticker"], "type": w["type"], "pcts": [], "details": []}
+                groups[key] = {
+                    "ticker": w["ticker"],
+                    "type": w["type"],
+                    "pcts": [],
+                    "details": [],
+                }
             groups[key]["pcts"].append(float(w["pct"]))
             groups[key]["details"].append(w["detail"])
 
@@ -336,7 +341,9 @@ class Mailer:
             avg = sum(g["pcts"]) / count
             occurrences = f"{count}×" if count > 1 else ""
             # Extract direction from last detail (they should all agree)
-            direction_word = g["details"][-1].split()[-1]  # "above"/"below"/"better"/"worse"
+            direction_word = g["details"][-1].split()[
+                -1
+            ]  # "above"/"below"/"better"/"worse"
             warnings.append(
                 {
                     "ticker": g["ticker"],
@@ -606,18 +613,18 @@ class Mailer:
             suggested_str = f"{suggested:_.0f}".replace("_", "\u00a0")
             topup_cards.append(
                 f'<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;background-color:#f8faff;border:1px solid #bfdbfe;border-radius:6px;">'
-                f'<tr>'
+                f"<tr>"
                 f'<td width="130" style="padding:16px 20px 16px 16px;vertical-align:middle;">'
                 f'<img src="cid:{cid}" alt="QR {exchange}" width="110" height="110" style="display:block;" />'
-                f'</td>'
+                f"</td>"
                 f'<td style="padding:16px 16px 16px 0;vertical-align:middle;">'
                 f'<p style="margin:0;font-size:13px;font-weight:700;color:#1e3a8a;">{exchange}</p>'
                 f'<p style="margin:6px 0 2px;font-size:12px;color:#374151;"><strong>Account:</strong> {account}</p>'
                 f'<p style="margin:2px 0;font-size:12px;color:#374151;"><strong>Variable symbol:</strong> {vs}</p>'
                 f'<p style="margin:6px 0 0;font-size:12px;color:#374151;"><strong>Suggested top-up:</strong> {suggested_str} CZK <span style="color:#6b7280;">(next 30 days)</span></p>'
-                f'</td>'
-                f'</tr>'
-                f'</table>'
+                f"</td>"
+                f"</tr>"
+                f"</table>"
             )
 
         if topup_cards:

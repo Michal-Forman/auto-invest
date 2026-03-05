@@ -3,13 +3,12 @@ from typing import Any
 from unittest.mock import MagicMock
 
 # Third-party
-import pytest
 from freezegun import freeze_time
+import pytest
 from pytest_mock import MockerFixture
 
 # Local
 from db.mails import Mail
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -21,7 +20,17 @@ def _build_supabase_mock(mocker: MockerFixture) -> tuple:
     mock_sb = mocker.patch("db.mails.supabase")
     mock_chain = MagicMock()
     mock_sb.table.return_value = mock_chain
-    for method in ["select", "insert", "update", "eq", "neq", "gte", "lt", "limit", "order"]:
+    for method in [
+        "select",
+        "insert",
+        "update",
+        "eq",
+        "neq",
+        "gte",
+        "lt",
+        "limit",
+        "order",
+    ]:
         getattr(mock_chain, method).return_value = mock_chain
     return mock_sb, mock_chain
 

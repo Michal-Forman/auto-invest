@@ -15,7 +15,6 @@ from db.orders import Order
 from db.runs import Run
 from mailer import Mailer
 
-
 # ---------------------------------------------------------------------------
 # Shared fixtures / helpers
 # ---------------------------------------------------------------------------
@@ -95,7 +94,9 @@ class TestInvestmentConfirmationIntegration:
 
         assert mock_send.call_count == 1
 
-    def test_total_czk_in_email_matches_distribution_sum(self, mocker: MockerFixture) -> None:
+    def test_total_czk_in_email_matches_distribution_sum(
+        self, mocker: MockerFixture
+    ) -> None:
         mock_send = _patch_mailer_send(mocker)
         run = _make_run()
         dist = {"VWCE": 3500.0, "BTC": 1500.0}
@@ -129,7 +130,9 @@ class TestInvestmentConfirmationIntegration:
         def _open_selective(path: str, *args: Any, **kwargs: Any) -> Any:
             if "logo_white.png" in str(path):
                 m = MagicMock()
-                m.__enter__ = MagicMock(return_value=MagicMock(read=MagicMock(return_value=b"PNG")))
+                m.__enter__ = MagicMock(
+                    return_value=MagicMock(read=MagicMock(return_value=b"PNG"))
+                )
                 m.__exit__ = MagicMock(return_value=False)
                 return m
             return real_open(path, *args, **kwargs)
@@ -170,7 +173,9 @@ class TestErrorAlertIntegration:
             Mailer().send_error_alert(e)
         mock_send.assert_called_once()
 
-    def test_error_with_run_sends_run_context_in_html(self, mocker: MockerFixture) -> None:
+    def test_error_with_run_sends_run_context_in_html(
+        self, mocker: MockerFixture
+    ) -> None:
         mock_send = _patch_mailer_send(mocker)
         run = _make_run()
         try:
@@ -206,7 +211,9 @@ class TestErrorAlertIntegration:
 
 
 class TestMonthlySummaryIntegration:
-    def test_summary_includes_all_tickers_with_totals(self, mocker: MockerFixture) -> None:
+    def test_summary_includes_all_tickers_with_totals(
+        self, mocker: MockerFixture
+    ) -> None:
         mock_send = _patch_mailer_send(mocker)
         run = _make_run()
         orders = [
@@ -226,7 +233,9 @@ class TestMonthlySummaryIntegration:
         Mailer().send_monthly_summary([run], [])
         assert mock_send.call_args[1].get("period") == "2026-01"
 
-    def test_summary_sent_for_period_gates_main_flow(self, mocker: MockerFixture) -> None:
+    def test_summary_sent_for_period_gates_main_flow(
+        self, mocker: MockerFixture
+    ) -> None:
         """Mail.summary_sent_for_period returning True should prevent another summary being sent."""
         mock_send = _patch_mailer_send(mocker)
         mocker.patch.object(Mail, "summary_sent_for_period", return_value=True)
@@ -238,7 +247,9 @@ class TestMonthlySummaryIntegration:
 
         mock_send.assert_not_called()
 
-    def test_summary_sends_when_not_yet_sent_for_period(self, mocker: MockerFixture) -> None:
+    def test_summary_sends_when_not_yet_sent_for_period(
+        self, mocker: MockerFixture
+    ) -> None:
         mock_send = _patch_mailer_send(mocker)
         mocker.patch.object(Mail, "summary_sent_for_period", return_value=False)
 
@@ -249,7 +260,9 @@ class TestMonthlySummaryIntegration:
 
         mock_send.assert_called_once()
 
-    def test_warnings_from_orders_appear_in_summary_html(self, mocker: MockerFixture) -> None:
+    def test_warnings_from_orders_appear_in_summary_html(
+        self, mocker: MockerFixture
+    ) -> None:
         mock_send = _patch_mailer_send(mocker)
         run = _make_run()
         # Large slippage order
@@ -271,7 +284,9 @@ class TestMonthlySummaryIntegration:
         assert "FAILED RUN" in html
         assert "expired without all orders filling" in html
 
-    def test_partially_filled_order_appears_in_issues(self, mocker: MockerFixture) -> None:
+    def test_partially_filled_order_appears_in_issues(
+        self, mocker: MockerFixture
+    ) -> None:
         mock_send = _patch_mailer_send(mocker)
         run = _make_run()
         partial = _make_order(status="PARTIALLY_FILLED", error="Only 50% filled")  # type: ignore[arg-type]
@@ -279,14 +294,18 @@ class TestMonthlySummaryIntegration:
         html = mock_send.call_args[0][2]
         assert "PARTIALLY_FILLED" in html
 
-    def test_num_runs_matches_successful_runs_count(self, mocker: MockerFixture) -> None:
+    def test_num_runs_matches_successful_runs_count(
+        self, mocker: MockerFixture
+    ) -> None:
         mock_send = _patch_mailer_send(mocker)
         runs = [_make_run() for _ in range(4)]
         Mailer().send_monthly_summary(runs, [])
         plain = mock_send.call_args[0][1]
         assert "4" in plain
 
-    def test_summary_not_sent_when_both_run_lists_empty(self, mocker: MockerFixture) -> None:
+    def test_summary_not_sent_when_both_run_lists_empty(
+        self, mocker: MockerFixture
+    ) -> None:
         mock_send = _patch_mailer_send(mocker)
         Mailer().send_monthly_summary([], [], failed_runs=[])
         mock_send.assert_not_called()
@@ -349,11 +368,15 @@ def _make_balance_alert(**overrides: Any) -> Dict[str, Any]:
 
 
 class TestBalanceAlertIntegration:
-    def test_sends_one_email_for_multiple_exchanges(self, mocker: MockerFixture) -> None:
+    def test_sends_one_email_for_multiple_exchanges(
+        self, mocker: MockerFixture
+    ) -> None:
         mock_send = _patch_mailer_send(mocker)
         alerts = [
             _make_balance_alert(exchange="T212"),
-            _make_balance_alert(exchange="COINMATE", spend_per_run=250.0, days_until_broke=2),
+            _make_balance_alert(
+                exchange="COINMATE", spend_per_run=250.0, days_until_broke=2
+            ),
         ]
         Mailer().send_balance_alert(alerts)
         assert mock_send.call_count == 1
@@ -361,7 +384,10 @@ class TestBalanceAlertIntegration:
     def test_both_exchanges_appear_in_plain_text(self, mocker: MockerFixture) -> None:
         mock_send = _patch_mailer_send(mocker)
         Mailer().send_balance_alert(
-            [_make_balance_alert(exchange="T212"), _make_balance_alert(exchange="COINMATE")]
+            [
+                _make_balance_alert(exchange="T212"),
+                _make_balance_alert(exchange="COINMATE"),
+            ]
         )
         plain = mock_send.call_args[0][1]
         assert "T212" in plain
@@ -396,7 +422,9 @@ class TestBalanceAlertIntegration:
         html = mock_send.call_args[0][2]
         assert "#dc2626" in html
 
-    def test_non_urgent_days_uses_amber_color_in_html(self, mocker: MockerFixture) -> None:
+    def test_non_urgent_days_uses_amber_color_in_html(
+        self, mocker: MockerFixture
+    ) -> None:
         mock_send = _patch_mailer_send(mocker)
         Mailer().send_balance_alert([_make_balance_alert(days_until_broke=5)])
         html = mock_send.call_args[0][2]
@@ -408,6 +436,7 @@ class TestBalanceAlertIntegration:
         kwargs = mock_send.call_args.kwargs
         assert kwargs["mail_type"] == "balance_alert"
         from datetime import datetime as _dt
+
         _dt.strptime(kwargs["period"], "%Y-%m-%d")  # raises if invalid format
 
     def test_qr_topup_section_present_when_deposit_config_set(
@@ -449,7 +478,9 @@ class TestBalanceAlertIntegration:
         # "Suggested top-up:" only appears inside an actual topup card
         assert "Suggested top-up:" not in html
 
-    def test_mail_is_persisted_to_db_after_smtp_send(self, mocker: MockerFixture) -> None:
+    def test_mail_is_persisted_to_db_after_smtp_send(
+        self, mocker: MockerFixture
+    ) -> None:
         """After successful SMTP send, Mail record is written to DB."""
         import builtins
 
@@ -458,7 +489,9 @@ class TestBalanceAlertIntegration:
         def _open_selective(path: str, *args: Any, **kwargs: Any) -> Any:
             if "logo_white.png" in str(path):
                 m = MagicMock()
-                m.__enter__ = MagicMock(return_value=MagicMock(read=MagicMock(return_value=b"PNG")))
+                m.__enter__ = MagicMock(
+                    return_value=MagicMock(read=MagicMock(return_value=b"PNG"))
+                )
                 m.__exit__ = MagicMock(return_value=False)
                 return m
             return real_open(path, *args, **kwargs)

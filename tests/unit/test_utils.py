@@ -68,9 +68,13 @@ def test_custom_buffer_affects_exhaustion_date() -> None:
     spend = 1000.0
     balance = 1500.0
     # With buffer=1.0: first run depletes 1000, balance=500; second run depletes 1000 → exhausted on run 2
-    result_no_buffer = find_balance_exhaustion_date(_CRON_DAILY, spend, balance, buffer=1.0)
+    result_no_buffer = find_balance_exhaustion_date(
+        _CRON_DAILY, spend, balance, buffer=1.0
+    )
     # With buffer=1.6: first run depletes 1600 → balance goes negative immediately
-    result_high_buffer = find_balance_exhaustion_date(_CRON_DAILY, spend, balance, buffer=1.6)
+    result_high_buffer = find_balance_exhaustion_date(
+        _CRON_DAILY, spend, balance, buffer=1.6
+    )
     assert result_high_buffer is not None
     assert result_no_buffer is not None
     assert result_high_buffer < result_no_buffer

@@ -5,23 +5,22 @@ from unittest.mock import MagicMock, patch
 from uuid import UUID
 
 # Third-party
-import pytest
 from freezegun import freeze_time
+import pytest
 from pytest_mock import MockerFixture
 
 # Local
 from db.orders import Order
 from db.runs import Run
 from mailer import (
-    Mailer,
     _FEE_RATIO_THRESHOLD,
     _FX_DRIFT_THRESHOLD,
     _SLIPPAGE_THRESHOLD,
+    Mailer,
     _czech_account_to_iban,
     _make_spd_qr,
     _runs_in_next_30_days,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -85,7 +84,9 @@ def _patch_smtp_and_logo(mocker: MockerFixture) -> MagicMock:
     def _selective_open(path: str, *args: Any, **kwargs: Any) -> Any:
         if "logo_white.png" in str(path):
             m = MagicMock()
-            m.__enter__ = MagicMock(return_value=MagicMock(read=MagicMock(return_value=b"PNG")))
+            m.__enter__ = MagicMock(
+                return_value=MagicMock(read=MagicMock(return_value=b"PNG"))
+            )
             m.__exit__ = MagicMock(return_value=False)
             return m
         return real_open(path, *args, **kwargs)
@@ -128,7 +129,9 @@ class TestLoadTemplate:
 
 
 class TestSend:
-    def test_send_calls_smtp_login_and_send_message(self, mocker: MockerFixture) -> None:
+    def test_send_calls_smtp_login_and_send_message(
+        self, mocker: MockerFixture
+    ) -> None:
         mock_server = _patch_smtp_and_logo(mocker)
         mocker.patch("mailer.Mail.post_to_db")
 
@@ -143,11 +146,15 @@ class TestSend:
         mock_post = mocker.patch("mailer.Mail.post_to_db")
 
         mailer = Mailer()
-        mailer._send("Subject", "plain", "<html/>", "investment_confirmation", period="2026-03")
+        mailer._send(
+            "Subject", "plain", "<html/>", "investment_confirmation", period="2026-03"
+        )
 
         mock_post.assert_called_once()
 
-    def test_send_does_not_persist_to_db_on_smtp_failure(self, mocker: MockerFixture) -> None:
+    def test_send_does_not_persist_to_db_on_smtp_failure(
+        self, mocker: MockerFixture
+    ) -> None:
         _patch_smtp_and_logo(mocker)
         mock_post = mocker.patch("mailer.Mail.post_to_db")
         # Make SMTP_SSL context manager raise on send_message
@@ -261,7 +268,9 @@ class TestSendInvestmentConfirmation:
         assert "VWCEd_EQ" in html
         assert "BTC" in html
 
-    def test_html_shows_boosted_multiplier_in_green(self, mocker: MockerFixture) -> None:
+    def test_html_shows_boosted_multiplier_in_green(
+        self, mocker: MockerFixture
+    ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
         run = _make_run()
         dist = {"VWCE": 5000.0}
@@ -320,7 +329,9 @@ class TestSendErrorAlert:
         assert "ValueError" in plain
         assert "boom" in plain
 
-    def test_plain_contains_run_info_when_run_provided(self, mocker: MockerFixture) -> None:
+    def test_plain_contains_run_info_when_run_provided(
+        self, mocker: MockerFixture
+    ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
         run = _make_run()
         try:
@@ -330,7 +341,9 @@ class TestSendErrorAlert:
         plain = mock_send.call_args[0][1]
         assert str(_RUN_ID) in plain
 
-    def test_plain_contains_generic_message_without_run(self, mocker: MockerFixture) -> None:
+    def test_plain_contains_generic_message_without_run(
+        self, mocker: MockerFixture
+    ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
         try:
             raise RuntimeError("unexpected")
@@ -339,7 +352,9 @@ class TestSendErrorAlert:
         plain = mock_send.call_args[0][1]
         assert "unexpected error" in plain.lower()
 
-    def test_html_contains_run_id_block_when_run_provided(self, mocker: MockerFixture) -> None:
+    def test_html_contains_run_id_block_when_run_provided(
+        self, mocker: MockerFixture
+    ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
         run = _make_run()
         try:
@@ -413,7 +428,9 @@ class TestComputeWarnings:
             fill_price=90.0,  # 10% below
         )
         warnings = Mailer._compute_warnings([o])
-        assert any(w["type"] == "Price slippage" and "below" in w["detail"] for w in warnings)
+        assert any(
+            w["type"] == "Price slippage" and "below" in w["detail"] for w in warnings
+        )
 
     def test_high_fee_warning(self) -> None:
         o = _make_order(
@@ -453,16 +470,28 @@ class TestComputeWarnings:
         assert Mailer._compute_warnings([o]) == []
 
     def test_groups_repeated_warnings_for_same_ticker(self) -> None:
-        o1 = _make_order(status="FILLED", t212_ticker="VWCE", price=100.0, fill_price=110.0)
-        o2 = _make_order(status="FILLED", t212_ticker="VWCE", price=100.0, fill_price=115.0)
+        o1 = _make_order(
+            status="FILLED", t212_ticker="VWCE", price=100.0, fill_price=110.0
+        )
+        o2 = _make_order(
+            status="FILLED", t212_ticker="VWCE", price=100.0, fill_price=115.0
+        )
         warnings = Mailer._compute_warnings([o1, o2])
-        vwce_slip = [w for w in warnings if w["ticker"] == "VWCE" and w["type"] == "Price slippage"]
+        vwce_slip = [
+            w
+            for w in warnings
+            if w["ticker"] == "VWCE" and w["type"] == "Price slippage"
+        ]
         assert len(vwce_slip) == 1
         assert "2×" in vwce_slip[0]["detail"]
 
     def test_groups_averages_pct_correctly(self) -> None:
-        o1 = _make_order(status="FILLED", t212_ticker="BTC", price=100.0, fill_price=110.0)
-        o2 = _make_order(status="FILLED", t212_ticker="BTC", price=100.0, fill_price=120.0)
+        o1 = _make_order(
+            status="FILLED", t212_ticker="BTC", price=100.0, fill_price=110.0
+        )
+        o2 = _make_order(
+            status="FILLED", t212_ticker="BTC", price=100.0, fill_price=120.0
+        )
         warnings = Mailer._compute_warnings([o1, o2])
         btc = [w for w in warnings if w["ticker"] == "BTC"][0]
         # avg slippage = (10 + 20) / 2 = 15%
@@ -539,7 +568,11 @@ class TestSendMonthlySummary:
     def test_plain_shows_failed_run_info(self, mocker: MockerFixture) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
         run = _make_run()
-        failed = _make_run(status="FAILED", error="Timed out", id=UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"))
+        failed = _make_run(
+            status="FAILED",
+            error="Timed out",
+            id=UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
+        )
         Mailer().send_monthly_summary([run], [], failed_runs=[failed])
         plain = mock_send.call_args[0][1]
         assert "FAILED" in plain
@@ -553,14 +586,18 @@ class TestSendMonthlySummary:
         plain = mock_send.call_args[0][1]
         assert "Insufficient funds" in plain
 
-    def test_html_contains_no_warnings_block_when_clean(self, mocker: MockerFixture) -> None:
+    def test_html_contains_no_warnings_block_when_clean(
+        self, mocker: MockerFixture
+    ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
         run = _make_run()
         Mailer().send_monthly_summary([run], [])
         html = mock_send.call_args[0][2]
         assert "No warnings" in html
 
-    def test_html_contains_warnings_table_when_warnings_present(self, mocker: MockerFixture) -> None:
+    def test_html_contains_warnings_table_when_warnings_present(
+        self, mocker: MockerFixture
+    ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
         run = _make_run()
         # Order with large slippage
@@ -569,14 +606,18 @@ class TestSendMonthlySummary:
         html = mock_send.call_args[0][2]
         assert "Price slippage" in html
 
-    def test_html_contains_no_issues_block_when_clean(self, mocker: MockerFixture) -> None:
+    def test_html_contains_no_issues_block_when_clean(
+        self, mocker: MockerFixture
+    ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
         run = _make_run()
         Mailer().send_monthly_summary([run], [])
         html = mock_send.call_args[0][2]
         assert "No issues found" in html
 
-    def test_html_contains_issues_table_with_failed_run(self, mocker: MockerFixture) -> None:
+    def test_html_contains_issues_table_with_failed_run(
+        self, mocker: MockerFixture
+    ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
         run = _make_run()
         failed = _make_run(status="FAILED", error="Order expired")
@@ -598,7 +639,9 @@ class TestSendMonthlySummary:
         # period passed as keyword
         assert mock_send.call_args[1].get("period") == "2026-02"
 
-    def test_excludes_failed_orders_from_ticker_totals(self, mocker: MockerFixture) -> None:
+    def test_excludes_failed_orders_from_ticker_totals(
+        self, mocker: MockerFixture
+    ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
         run = _make_run()
         good = _make_order(t212_ticker="VWCE", total_czk=3000.0, status="FILLED")
@@ -681,7 +724,9 @@ class TestSendBalanceAlert:
         html = mock_send.call_args[0][2]
         assert "#dc2626" in html
 
-    def test_html_uses_amber_color_for_non_urgent_days(self, mocker: MockerFixture) -> None:
+    def test_html_uses_amber_color_for_non_urgent_days(
+        self, mocker: MockerFixture
+    ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
         Mailer().send_balance_alert([_make_alert(days_until_broke=5)])
         html = mock_send.call_args[0][2]
@@ -955,9 +1000,7 @@ class TestSendBalanceAlertTopupSection:
         assert "qr_COINMATE" in extra_images
         assert mock_qr.call_count == 2
 
-    def test_unknown_exchange_skips_qr_generation(
-        self, mocker: MockerFixture
-    ) -> None:
+    def test_unknown_exchange_skips_qr_generation(self, mocker: MockerFixture) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
         self._patch_settings(mocker)  # all None
         mock_qr = mocker.patch("mailer._make_spd_qr", return_value=b"PNG")
