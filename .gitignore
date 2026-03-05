@@ -2,6 +2,7 @@
 .env.prod
 .env.dev
 .env*
+!.env.test
 
 __pycache__/
 .mypy_cache/
