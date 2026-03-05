@@ -243,3 +243,20 @@ class Trading212:
     def equity_order(self, order_id: int) -> Dict[str, Any]:
         """Fetch a single equity order by its ID."""
         return self._get(f"equity/orders/{order_id}")
+
+    def balance(self) -> float:
+        """Fetch the available-to-trade cash balance from the account summary."""
+        wrapped: Dict[str, Any] = self._get("equity/account/summary")
+        if wrapped.get("err"):
+            raise RequestException(f"Could not fetch balance: {wrapped['err']}")
+        try:
+            return float(wrapped["res"]["cash"]["availableToTrade"])
+        except (KeyError, TypeError) as e:
+            raise RequestException(f"Unexpected balance response structure: {e}")
+
+
+if __name__ == "__main__":
+    from settings import settings
+
+    t212 = Trading212(settings.t212_id_key, settings.t212_private_key, env=settings.env)
+    print(t212.balance())
