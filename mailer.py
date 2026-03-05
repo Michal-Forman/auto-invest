@@ -1,14 +1,21 @@
 # Standard library
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+import io
+import math
 import os
 import smtplib
 import ssl
 from string import Template
 import traceback as tb
 from typing import Any, Dict, List, Optional
+
+# Third-party
+from croniter import croniter
+import qrcode
+import qrcode.constants
 
 # Local
 from db.mails import Mail
@@ -23,6 +30,29 @@ _ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")
 _SLIPPAGE_THRESHOLD = 0.03  # 3% fill price vs expected price
 _FEE_RATIO_THRESHOLD = 0.005  # 0.5% fee as share of fill value
 _FX_DRIFT_THRESHOLD = 0.02  # 2% fill FX rate vs submission FX rate
+
+
+def _make_spd_qr(account: str, vs: str, amount: float) -> bytes:
+    """Return PNG bytes of a Czech SPD QR code for the given account, variable symbol, and amount."""
+    spd = f"SPD*1.0*ACC:{account}*AM:{amount:.2f}*CC:CZK*X-VS:{vs}"
+    img = qrcode.make(spd, error_correction=qrcode.constants.ERROR_CORRECT_M)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def _runs_in_next_30_days(cron_expr: str) -> int:
+    """Count how many times a cron schedule fires in the next 30 calendar days."""
+    now = datetime.now(timezone.utc)
+    end = now + timedelta(days=30)
+    cron = croniter(cron_expr, now)
+    count = 0
+    while True:
+        nxt = cron.get_next(datetime)
+        if nxt > end:
+            break
+        count += 1
+    return count
 
 
 class Mailer:
@@ -51,6 +81,7 @@ class Mailer:
         html: str,
         mail_type: str,
         period: Optional[str] = None,
+        extra_images: Optional[Dict[str, bytes]] = None,
     ) -> None:
         """Send a multipart email (plain-text + HTML + inline logo) via SMTP_SSL, then persist to DB. Logs and re-raises on failure."""
         # multipart/related wraps HTML + inline image together
@@ -72,6 +103,13 @@ class Mailer:
         logo.add_header("Content-ID", "<logo>")
         logo.add_header("Content-Disposition", "inline", filename="logo.png")
         msg.attach(logo)
+
+        # Optional extra inline images (e.g. QR codes) keyed by Content-ID
+        for cid, data in (extra_images or {}).items():
+            img = MIMEImage(data, "png")
+            img.add_header("Content-ID", f"<{cid}>")
+            img.add_header("Content-Disposition", "inline", filename=f"{cid}.png")
+            msg.attach(img)
 
         context = ssl.create_default_context()
         try:
@@ -515,9 +553,61 @@ class Mailer:
                 f"</tr>"
             )
 
+        # Build QR codes and topup section
+        deposit_config: Dict[str, Dict[str, Optional[str]]] = {
+            "T212": {
+                "account": settings.t212_deposit_account,
+                "vs": settings.t212_deposit_vs,
+            },
+            "COINMATE": {
+                "account": settings.coinmate_deposit_account,
+                "vs": settings.coinmate_deposit_vs,
+            },
+        }
+        runs_30 = _runs_in_next_30_days(settings.portfolio.invest_interval)
+        extra_images: Dict[str, bytes] = {}
+        topup_cards: List[str] = []
+
+        for a in alerts:
+            exchange: str = a["exchange"]
+            cfg = deposit_config.get(exchange, {})
+            account = cfg.get("account")
+            vs = cfg.get("vs")
+            if not account or not vs:
+                continue
+            spend_per_run: float = a["spend_per_run"]
+            suggested = math.ceil(runs_30 * spend_per_run / 100) * 100
+            cid = f"qr_{exchange}"
+            extra_images[cid] = _make_spd_qr(account, vs, float(suggested))
+            suggested_str = f"{suggested:_.0f}".replace("_", "\u00a0")
+            topup_cards.append(
+                f'<div style="display:table;width:100%;margin-bottom:16px;background-color:#f8faff;border:1px solid #bfdbfe;border-radius:6px;padding:16px;">'
+                f'<div style="display:table-cell;vertical-align:middle;width:120px;padding-right:20px;">'
+                f'<img src="cid:{cid}" alt="QR {exchange}" width="110" height="110" style="display:block;" />'
+                f'</div>'
+                f'<div style="display:table-cell;vertical-align:middle;">'
+                f'<p style="margin:0;font-size:13px;font-weight:700;color:#1e3a8a;">{exchange}</p>'
+                f'<p style="margin:6px 0 2px;font-size:12px;color:#374151;"><strong>Account:</strong> {account}</p>'
+                f'<p style="margin:2px 0;font-size:12px;color:#374151;"><strong>Variable symbol:</strong> {vs}</p>'
+                f'<p style="margin:6px 0 0;font-size:12px;color:#374151;"><strong>Suggested top-up:</strong> {suggested_str} CZK <span style="color:#6b7280;">(next 30 days)</span></p>'
+                f'</div>'
+                f'</div>'
+            )
+
+        if topup_cards:
+            topup_section = (
+                "<tr><td style='padding:0 40px 28px;'>"
+                "<h2 style='margin:0 0 14px;font-size:14px;color:#1e3a8a;text-transform:uppercase;letter-spacing:1px;font-weight:700;'>Top Up</h2>"
+                + "\n".join(topup_cards)
+                + "</td></tr>"
+            )
+        else:
+            topup_section = ""
+
         html = self._load_template("balance_alert.html").substitute(
             date_label=date_label,
             alert_rows="\n".join(row_html),
+            topup_section=topup_section,
         )
 
         self._send(
@@ -526,6 +616,7 @@ class Mailer:
             html,
             mail_type="balance_alert",
             period=today_str,
+            extra_images=extra_images or None,
         )
 
 
