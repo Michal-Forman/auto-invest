@@ -48,4 +48,10 @@ jobs:
           MAIL_RECIPIENT: ${{ vars.MAIL_RECIPIENT }}
           MAIL_HOST: ${{ vars.MAIL_HOST }}
           MAIL_PORT: ${{ vars.MAIL_PORT }}
+          BALANCE_BUFFER: ${{ vars.BALANCE_BUFFER }}
+          BALANCE_ALERT_DAYS: ${{ vars.BALANCE_ALERT_DAYS }}
+          T212_DEPOSIT_ACCOUNT: ${{ vars.T212_DEPOSIT_ACCOUNT }}
+          COINMATE_DEPOSIT_ACCOUNT: ${{ vars.COINMATE_DEPOSIT_ACCOUNT }}
+          T212_DEPOSIT_VS: ${{ vars.T212_DEPOSIT_VS }}
+          COINMATE_DEPOSIT_VS: ${{ vars.COINMATE_DEPOSIT_VS }}
         run: python main.py

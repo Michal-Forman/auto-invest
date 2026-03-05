@@ -179,12 +179,14 @@ class TestPrivateEndpoints:
         self, coinmate: Coinmate, mocker: MockerFixture
     ) -> None:
         mock_post = mocker.patch.object(
-            coinmate, "_post", return_value={"err": None, "res": {}, "req": {}}
+            coinmate,
+            "_post",
+            return_value={"err": None, "res": {"data": {"CZK": {"balance": "1000.0"}}}, "req": {}},
         )
         mocker.patch.object(
             coinmate, "_private_payload", return_value={"payload": "data"}
         )
-        coinmate.balances()
+        coinmate.balance()
         mock_post.assert_called_once_with("/balances", data={"payload": "data"})
 
     def test_buy_instant_includes_total_and_pair(

@@ -329,3 +329,146 @@ class TestMailSummaryGuard:
         mock_sb.table.side_effect = RuntimeError("supabase unavailable")
 
         assert Mail.summary_sent_for_period("2026-02") is False
+
+
+# ---------------------------------------------------------------------------
+# Test: send_balance_alert integrates with Mail guard and QR topup section
+# ---------------------------------------------------------------------------
+
+
+def _make_balance_alert(**overrides: Any) -> Dict[str, Any]:
+    defaults: Dict[str, Any] = {
+        "exchange": "T212",
+        "balance": 3000.0,
+        "spend_per_run": 1500.0,
+        "runs_out_on": datetime(2026, 3, 7, 9, 0, 0, tzinfo=timezone.utc),
+        "days_until_broke": 4,
+    }
+    defaults.update(overrides)
+    return defaults
+
+
+class TestBalanceAlertIntegration:
+    def test_sends_one_email_for_multiple_exchanges(self, mocker: MockerFixture) -> None:
+        mock_send = _patch_mailer_send(mocker)
+        alerts = [
+            _make_balance_alert(exchange="T212"),
+            _make_balance_alert(exchange="COINMATE", spend_per_run=250.0, days_until_broke=2),
+        ]
+        Mailer().send_balance_alert(alerts)
+        assert mock_send.call_count == 1
+
+    def test_both_exchanges_appear_in_plain_text(self, mocker: MockerFixture) -> None:
+        mock_send = _patch_mailer_send(mocker)
+        Mailer().send_balance_alert(
+            [_make_balance_alert(exchange="T212"), _make_balance_alert(exchange="COINMATE")]
+        )
+        plain = mock_send.call_args[0][1]
+        assert "T212" in plain
+        assert "COINMATE" in plain
+
+    def test_balance_alert_sent_today_guard_prevents_duplicate(
+        self, mocker: MockerFixture
+    ) -> None:
+        """Simulates the main.py guard: if already sent today, skip."""
+        mock_send = _patch_mailer_send(mocker)
+        mocker.patch.object(Mail, "balance_alert_sent_today", return_value=True)
+
+        if not Mail.balance_alert_sent_today():
+            Mailer().send_balance_alert([_make_balance_alert()])
+
+        mock_send.assert_not_called()
+
+    def test_balance_alert_sends_when_not_yet_sent_today(
+        self, mocker: MockerFixture
+    ) -> None:
+        mock_send = _patch_mailer_send(mocker)
+        mocker.patch.object(Mail, "balance_alert_sent_today", return_value=False)
+
+        if not Mail.balance_alert_sent_today():
+            Mailer().send_balance_alert([_make_balance_alert()])
+
+        mock_send.assert_called_once()
+
+    def test_urgent_days_uses_red_color_in_html(self, mocker: MockerFixture) -> None:
+        mock_send = _patch_mailer_send(mocker)
+        Mailer().send_balance_alert([_make_balance_alert(days_until_broke=1)])
+        html = mock_send.call_args[0][2]
+        assert "#dc2626" in html
+
+    def test_non_urgent_days_uses_amber_color_in_html(self, mocker: MockerFixture) -> None:
+        mock_send = _patch_mailer_send(mocker)
+        Mailer().send_balance_alert([_make_balance_alert(days_until_broke=5)])
+        html = mock_send.call_args[0][2]
+        assert "#b45309" in html
+
+    def test_mail_type_and_period_are_correct(self, mocker: MockerFixture) -> None:
+        mock_send = _patch_mailer_send(mocker)
+        Mailer().send_balance_alert([_make_balance_alert()])
+        kwargs = mock_send.call_args.kwargs
+        assert kwargs["mail_type"] == "balance_alert"
+        from datetime import datetime as _dt
+        _dt.strptime(kwargs["period"], "%Y-%m-%d")  # raises if invalid format
+
+    def test_qr_topup_section_present_when_deposit_config_set(
+        self, mocker: MockerFixture
+    ) -> None:
+        mock_send = _patch_mailer_send(mocker)
+        mock_settings = MagicMock()
+        mock_settings.t212_deposit_account = "19-123456789/0800"
+        mock_settings.t212_deposit_vs = "12345"
+        mock_settings.coinmate_deposit_account = None
+        mock_settings.coinmate_deposit_vs = None
+        mock_settings.portfolio.invest_interval = "0 9 * * *"
+        mocker.patch("mailer.settings", mock_settings)
+        mocker.patch("mailer._make_spd_qr", return_value=b"PNG")
+        mocker.patch("mailer._runs_in_next_30_days", return_value=4)
+
+        Mailer().send_balance_alert([_make_balance_alert(exchange="T212")])
+
+        html = mock_send.call_args[0][2]
+        assert "Suggested top-up:" in html
+        assert "19-123456789/0800" in html
+
+    def test_qr_topup_section_absent_when_no_deposit_config(
+        self, mocker: MockerFixture
+    ) -> None:
+        mock_send = _patch_mailer_send(mocker)
+        mock_settings = MagicMock()
+        mock_settings.t212_deposit_account = None
+        mock_settings.t212_deposit_vs = None
+        mock_settings.coinmate_deposit_account = None
+        mock_settings.coinmate_deposit_vs = None
+        mock_settings.portfolio.invest_interval = "0 9 * * *"
+        mocker.patch("mailer.settings", mock_settings)
+        mocker.patch("mailer._runs_in_next_30_days", return_value=4)
+
+        Mailer().send_balance_alert([_make_balance_alert(exchange="T212")])
+
+        html = mock_send.call_args[0][2]
+        # "Suggested top-up:" only appears inside an actual topup card
+        assert "Suggested top-up:" not in html
+
+    def test_mail_is_persisted_to_db_after_smtp_send(self, mocker: MockerFixture) -> None:
+        """After successful SMTP send, Mail record is written to DB."""
+        import builtins
+
+        real_open = builtins.open
+
+        def _open_selective(path: str, *args: Any, **kwargs: Any) -> Any:
+            if "logo_white.png" in str(path):
+                m = MagicMock()
+                m.__enter__ = MagicMock(return_value=MagicMock(read=MagicMock(return_value=b"PNG")))
+                m.__exit__ = MagicMock(return_value=False)
+                return m
+            return real_open(path, *args, **kwargs)
+
+        mocker.patch("builtins.open", side_effect=_open_selective)
+        mock_server = MagicMock()
+        mock_smtp = mocker.patch("mailer.smtplib.SMTP_SSL")
+        mock_smtp.return_value.__enter__.return_value = mock_server
+        mock_post = _patch_mail_db(mocker)
+
+        Mailer().send_balance_alert([_make_balance_alert()])
+
+        mock_post.assert_called_once()

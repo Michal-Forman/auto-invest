@@ -60,7 +60,7 @@ def _make_spd_qr(account: str, vs: str, amount: float) -> bytes:
     spd = f"{canonical}*CRC32:{crc:08X}"
     img = qrcode.make(spd, error_correction=qrcode.constants.ERROR_CORRECT_M)
     buf = io.BytesIO()
-    img.save(buf, format="PNG")
+    img.save(buf, format="PNG")  # type: ignore[call-arg]
     return buf.getvalue()
 
 

@@ -6,12 +6,21 @@ from uuid import UUID
 
 # Third-party
 import pytest
+from freezegun import freeze_time
 from pytest_mock import MockerFixture
 
 # Local
 from db.orders import Order
 from db.runs import Run
-from mailer import Mailer, _SLIPPAGE_THRESHOLD, _FEE_RATIO_THRESHOLD, _FX_DRIFT_THRESHOLD
+from mailer import (
+    Mailer,
+    _FEE_RATIO_THRESHOLD,
+    _FX_DRIFT_THRESHOLD,
+    _SLIPPAGE_THRESHOLD,
+    _czech_account_to_iban,
+    _make_spd_qr,
+    _runs_in_next_30_days,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -103,6 +112,10 @@ class TestLoadTemplate:
     def test_returns_template_object_for_monthly_summary(self) -> None:
         tmpl = Mailer._load_template("monthly_summary.html")
         assert "month_label" in tmpl.template
+
+    def test_returns_template_object_for_balance_alert(self) -> None:
+        tmpl = Mailer._load_template("balance_alert.html")
+        assert "date_label" in tmpl.template
 
     def test_raises_for_nonexistent_template(self) -> None:
         with pytest.raises(FileNotFoundError):
@@ -705,3 +718,272 @@ class TestSendBalanceAlert:
         Mailer().send_balance_alert([_make_alert(balance=4567.89)])
         html = mock_send.call_args[0][2]
         assert "4" in html  # at minimum the thousands digit appears
+
+
+# ---------------------------------------------------------------------------
+# Tests: _czech_account_to_iban (pure function)
+# ---------------------------------------------------------------------------
+
+
+class TestCzechAccountToIban:
+    def test_returns_string_starting_with_cz(self) -> None:
+        assert _czech_account_to_iban("19-123456789/0800").startswith("CZ")
+
+    def test_iban_has_correct_length(self) -> None:
+        # CZ IBAN: "CZ" + 2 check digits + 20 BBAN = 24 chars
+        assert len(_czech_account_to_iban("19-123456789/0800")) == 24
+
+    def test_account_without_prefix(self) -> None:
+        iban = _czech_account_to_iban("123456789/0800")
+        assert iban.startswith("CZ")
+        assert len(iban) == 24
+
+    def test_different_base_numbers_give_different_ibans(self) -> None:
+        iban1 = _czech_account_to_iban("123456789/0800")
+        iban2 = _czech_account_to_iban("987654321/0800")
+        assert iban1 != iban2
+
+    def test_check_digits_are_valid_numerals(self) -> None:
+        iban = _czech_account_to_iban("19-123456789/0800")
+        assert iban[2:4].isdigit()
+
+    def test_deterministic_for_same_input(self) -> None:
+        assert _czech_account_to_iban("19-2000145399/0800") == _czech_account_to_iban(
+            "19-2000145399/0800"
+        )
+
+    def test_different_bank_codes_produce_different_ibans(self) -> None:
+        iban1 = _czech_account_to_iban("123456789/0800")
+        iban2 = _czech_account_to_iban("123456789/2010")
+        assert iban1 != iban2
+
+
+# ---------------------------------------------------------------------------
+# Tests: _make_spd_qr (pure function)
+# ---------------------------------------------------------------------------
+
+
+class TestMakeSpdQr:
+    def test_returns_bytes(self) -> None:
+        result = _make_spd_qr("19-123456789/0800", "12345", 1000.0)
+        assert isinstance(result, bytes)
+
+    def test_returns_png_magic_bytes(self) -> None:
+        result = _make_spd_qr("19-123456789/0800", "12345", 1000.0)
+        assert result[:4] == b"\x89PNG"
+
+    def test_different_amounts_produce_different_qrs(self) -> None:
+        qr1 = _make_spd_qr("19-123456789/0800", "12345", 1000.0)
+        qr2 = _make_spd_qr("19-123456789/0800", "12345", 2000.0)
+        assert qr1 != qr2
+
+    def test_different_accounts_produce_different_qrs(self) -> None:
+        qr1 = _make_spd_qr("19-123456789/0800", "12345", 1000.0)
+        qr2 = _make_spd_qr("987654321/0800", "12345", 1000.0)
+        assert qr1 != qr2
+
+    def test_different_variable_symbols_produce_different_qrs(self) -> None:
+        qr1 = _make_spd_qr("19-123456789/0800", "11111", 1000.0)
+        qr2 = _make_spd_qr("19-123456789/0800", "99999", 1000.0)
+        assert qr1 != qr2
+
+
+# ---------------------------------------------------------------------------
+# Tests: _runs_in_next_30_days (pure function)
+# ---------------------------------------------------------------------------
+
+
+class TestRunsInNext30Days:
+    @freeze_time("2026-03-03 00:00:00")
+    def test_daily_cron_returns_30(self) -> None:
+        count = _runs_in_next_30_days("0 9 * * *")
+        assert count == 30
+
+    @freeze_time("2026-03-03 00:00:00")
+    def test_weekly_cron_returns_4_or_5(self) -> None:
+        count = _runs_in_next_30_days("0 9 * * 1")  # every Monday
+        assert 4 <= count <= 5
+
+    @freeze_time("2026-03-03 00:00:00")
+    def test_biweekly_cron_fires_twice_per_week(self) -> None:
+        count = _runs_in_next_30_days("0 9 * * 1,4")  # Mon + Thu
+        assert 8 <= count <= 10
+
+    @freeze_time("2026-03-03 00:00:00")
+    def test_monthly_cron_returns_1(self) -> None:
+        # 1st of each month: only 2026-04-01 falls within 30 days
+        count = _runs_in_next_30_days("0 9 1 * *")
+        assert count == 1
+
+    @freeze_time("2026-03-03 00:00:00")
+    def test_twice_daily_cron_still_counts_once_per_day(self) -> None:
+        # max-once-per-day deduplication
+        once_daily = _runs_in_next_30_days("0 9 * * *")
+        twice_daily = _runs_in_next_30_days("0 9,21 * * *")
+        assert once_daily == twice_daily == 30
+
+
+# ---------------------------------------------------------------------------
+# Tests: send_balance_alert – QR / top-up section
+# ---------------------------------------------------------------------------
+
+
+class TestSendBalanceAlertTopupSection:
+    """Tests for the deposit QR code and top-up section of send_balance_alert."""
+
+    def _patch_settings(
+        self,
+        mocker: MockerFixture,
+        *,
+        t212_account: str | None = None,
+        t212_vs: str | None = None,
+        coinmate_account: str | None = None,
+        coinmate_vs: str | None = None,
+    ) -> MagicMock:
+        mock_settings = MagicMock()
+        mock_settings.t212_deposit_account = t212_account
+        mock_settings.t212_deposit_vs = t212_vs
+        mock_settings.coinmate_deposit_account = coinmate_account
+        mock_settings.coinmate_deposit_vs = coinmate_vs
+        mock_settings.portfolio.invest_interval = "0 9 * * *"
+        mocker.patch("mailer.settings", mock_settings)
+        return mock_settings
+
+    def test_extra_images_contains_qr_when_deposit_config_present(
+        self, mocker: MockerFixture
+    ) -> None:
+        mock_send = mocker.patch.object(Mailer, "_send")
+        self._patch_settings(mocker, t212_account="19-123456789/0800", t212_vs="12345")
+        mocker.patch("mailer._make_spd_qr", return_value=b"PNG")
+        mocker.patch("mailer._runs_in_next_30_days", return_value=4)
+
+        Mailer().send_balance_alert([_make_alert(exchange="T212")])
+
+        extra_images = mock_send.call_args.kwargs.get("extra_images")
+        assert extra_images is not None
+        assert "qr_T212" in extra_images
+
+    def test_extra_images_is_none_when_no_deposit_config(
+        self, mocker: MockerFixture
+    ) -> None:
+        mock_send = mocker.patch.object(Mailer, "_send")
+        self._patch_settings(mocker)  # all None
+        mocker.patch("mailer._runs_in_next_30_days", return_value=4)
+
+        Mailer().send_balance_alert([_make_alert(exchange="T212")])
+
+        extra_images = mock_send.call_args.kwargs.get("extra_images")
+        assert extra_images is None
+
+    def test_topup_section_in_html_when_deposit_config_present(
+        self, mocker: MockerFixture
+    ) -> None:
+        mock_send = mocker.patch.object(Mailer, "_send")
+        self._patch_settings(mocker, t212_account="19-123456789/0800", t212_vs="12345")
+        mocker.patch("mailer._make_spd_qr", return_value=b"PNG")
+        mocker.patch("mailer._runs_in_next_30_days", return_value=4)
+
+        Mailer().send_balance_alert([_make_alert(exchange="T212")])
+
+        html = mock_send.call_args[0][2]
+        assert "Suggested top-up:" in html
+        assert "19-123456789/0800" in html
+        assert "12345" in html
+
+    def test_topup_section_absent_when_no_deposit_config(
+        self, mocker: MockerFixture
+    ) -> None:
+        mock_send = mocker.patch.object(Mailer, "_send")
+        self._patch_settings(mocker)  # all None
+        mocker.patch("mailer._runs_in_next_30_days", return_value=4)
+
+        Mailer().send_balance_alert([_make_alert(exchange="T212")])
+
+        html = mock_send.call_args[0][2]
+        # "Suggested top-up:" only appears inside an actual topup card
+        assert "Suggested top-up:" not in html
+
+    def test_suggested_amount_rounds_up_to_nearest_100(
+        self, mocker: MockerFixture
+    ) -> None:
+        mock_send = mocker.patch.object(Mailer, "_send")
+        self._patch_settings(mocker, t212_account="19-123456789/0800", t212_vs="12345")
+        mock_qr = mocker.patch("mailer._make_spd_qr", return_value=b"PNG")
+        mocker.patch("mailer._runs_in_next_30_days", return_value=4)
+
+        # ceil(4 * 333.0 / 100) * 100 = ceil(13.32) * 100 = 1400
+        Mailer().send_balance_alert([_make_alert(exchange="T212", spend_per_run=333.0)])
+
+        _, _, amount = mock_qr.call_args[0]
+        assert amount == 1400.0
+
+    def test_suggested_amount_exact_multiple_of_100_not_bumped(
+        self, mocker: MockerFixture
+    ) -> None:
+        mock_send = mocker.patch.object(Mailer, "_send")
+        self._patch_settings(mocker, t212_account="19-123456789/0800", t212_vs="12345")
+        mock_qr = mocker.patch("mailer._make_spd_qr", return_value=b"PNG")
+        mocker.patch("mailer._runs_in_next_30_days", return_value=4)
+
+        # ceil(4 * 250.0 / 100) * 100 = ceil(10.0) * 100 = 1000
+        Mailer().send_balance_alert([_make_alert(exchange="T212", spend_per_run=250.0)])
+
+        _, _, amount = mock_qr.call_args[0]
+        assert amount == 1000.0
+
+    def test_both_exchanges_generate_separate_qr_codes(
+        self, mocker: MockerFixture
+    ) -> None:
+        mock_send = mocker.patch.object(Mailer, "_send")
+        self._patch_settings(
+            mocker,
+            t212_account="19-123456789/0800",
+            t212_vs="12345",
+            coinmate_account="987654321/2060",
+            coinmate_vs="99999",
+        )
+        mock_qr = mocker.patch("mailer._make_spd_qr", return_value=b"PNG")
+        mocker.patch("mailer._runs_in_next_30_days", return_value=4)
+
+        Mailer().send_balance_alert(
+            [_make_alert(exchange="T212"), _make_alert(exchange="COINMATE")]
+        )
+
+        extra_images = mock_send.call_args.kwargs.get("extra_images")
+        assert extra_images is not None
+        assert "qr_T212" in extra_images
+        assert "qr_COINMATE" in extra_images
+        assert mock_qr.call_count == 2
+
+    def test_unknown_exchange_skips_qr_generation(
+        self, mocker: MockerFixture
+    ) -> None:
+        mock_send = mocker.patch.object(Mailer, "_send")
+        self._patch_settings(mocker)  # all None
+        mock_qr = mocker.patch("mailer._make_spd_qr", return_value=b"PNG")
+        mocker.patch("mailer._runs_in_next_30_days", return_value=4)
+
+        Mailer().send_balance_alert([_make_alert(exchange="KRAKEN")])
+
+        mock_qr.assert_not_called()
+        extra_images = mock_send.call_args.kwargs.get("extra_images")
+        assert extra_images is None
+
+    def test_partial_deposit_config_only_generates_qr_for_configured_exchange(
+        self, mocker: MockerFixture
+    ) -> None:
+        mock_send = mocker.patch.object(Mailer, "_send")
+        # Only T212 has deposit config; COINMATE does not
+        self._patch_settings(mocker, t212_account="19-123456789/0800", t212_vs="12345")
+        mock_qr = mocker.patch("mailer._make_spd_qr", return_value=b"PNG")
+        mocker.patch("mailer._runs_in_next_30_days", return_value=4)
+
+        Mailer().send_balance_alert(
+            [_make_alert(exchange="T212"), _make_alert(exchange="COINMATE")]
+        )
+
+        assert mock_qr.call_count == 1
+        extra_images = mock_send.call_args.kwargs.get("extra_images")
+        assert extra_images is not None
+        assert "qr_T212" in extra_images
+        assert "qr_COINMATE" not in extra_images

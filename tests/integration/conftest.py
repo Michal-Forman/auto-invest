@@ -69,6 +69,8 @@ def portfolio_settings() -> PortfolioSettings:
         btc_weight=1,
         invest_amount=5000.0,
         invest_interval="0 9 * * *",
+        balance_buffer=1.5,
+        balance_alert_days=7,
     )
 
 
