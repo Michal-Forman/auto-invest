@@ -1,5 +1,4 @@
 # Standard library
-import binascii
 from datetime import datetime, timedelta, timezone
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
@@ -50,14 +49,7 @@ def _czech_account_to_iban(account: str) -> str:
 def _make_spd_qr(account: str, vs: str, amount: float) -> bytes:
     """Return PNG bytes of a Czech SPD QR code for the given account, variable symbol, and amount."""
     iban = _czech_account_to_iban(account)
-    # Build canonical SPAYD (keys sorted alphabetically) for CRC32, then append checksum
-    parts = sorted(
-        [f"ACC:{iban}", f"AM:{amount:.2f}", "CC:CZK", f"X-VS:{vs}"],
-        key=lambda p: p.split(":")[0],
-    )
-    canonical = "SPD*1.0*" + "*".join(parts)
-    crc = binascii.crc32(canonical.encode("utf-8")) & 0xFFFFFFFF
-    spd = f"{canonical}*CRC32:{crc:08X}"
+    spd = f"SPD*1.0*ACC:{iban}*AM:{amount:.2f}*CC:CZK*X-VS:{vs}*PT:IP"
     img = qrcode.make(spd, error_correction=qrcode.constants.ERROR_CORRECT_M)
     buf = io.BytesIO()
     img.save(buf, format="PNG")  # type: ignore[call-arg]
