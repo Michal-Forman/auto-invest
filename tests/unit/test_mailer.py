@@ -762,7 +762,13 @@ class TestSendBalanceAlert:
         mock_send = mocker.patch.object(Mailer, "_send")
         Mailer().send_balance_alert([_make_alert(balance=4567.89)])
         html = mock_send.call_args[0][2]
-        assert "4" in html  # at minimum the thousands digit appears
+        assert "4\u00a0567.89" in html  # formatted with non-breaking space thousands sep
+
+    def test_html_contains_spend_per_run_value(self, mocker: MockerFixture) -> None:
+        mock_send = mocker.patch.object(Mailer, "_send")
+        Mailer().send_balance_alert([_make_alert(spend_per_run=1234.56)])
+        html = mock_send.call_args[0][2]
+        assert "1\u00a0234.56" in html
 
 
 # ---------------------------------------------------------------------------

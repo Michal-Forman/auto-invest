@@ -94,3 +94,48 @@ def test_zero_balance_exhausted_on_first_run() -> None:
     result = find_balance_exhaustion_date(_CRON_DAILY, 100.0, 0.0)
     assert result is not None
     assert result == datetime(2026, 3, 3, 9, 0, 0, tzinfo=timezone.utc)
+
+
+# ---------------------------------------------------------------------------
+# Tests: find_balance_exhaustion_date – once-per-day deduplication
+# ---------------------------------------------------------------------------
+
+
+@freeze_time("2026-03-06 00:00:00")  # Friday; next Monday is March 9
+def test_minute_cron_deduplicates_to_once_per_day() -> None:
+    """Minute-granularity cron (e.g. '* * * * 1') should only count once per day."""
+    spend = 500.0
+    balance = 5000.0
+    # "* * * * 1" fires every minute on Mondays, but should count as 1 run per Monday
+    result_minute = find_balance_exhaustion_date("* * * * 1", spend, balance)
+    result_daily = find_balance_exhaustion_date("0 9 * * 1", spend, balance)
+    assert result_minute is not None
+    assert result_daily is not None
+    # Both should exhaust on the same DATE (time may differ)
+    assert result_minute.date() == result_daily.date()
+
+
+@freeze_time("2026-03-03 00:00:00")
+def test_weekly_cron_exhaustion_spans_multiple_weeks() -> None:
+    """Weekly cron should advance week by week, not minute by minute."""
+    spend = 1000.0
+    balance = 3500.0  # covers 3 weeks at buffer=1.0, exhausted on week 4
+    result = find_balance_exhaustion_date("0 9 * * 1", spend, balance, buffer=1.0)
+    assert result is not None
+    # 2026-03-03 is Tuesday; next Mondays: Mar 9, 16, 23, 30
+    # Run 1 (Mar 9): 3500-1000=2500, Run 2 (Mar 16): 1500, Run 3 (Mar 23): 500, Run 4 (Mar 30): -500
+    assert result == datetime(2026, 3, 30, 9, 0, 0, tzinfo=timezone.utc)
+
+
+@freeze_time("2026-03-03 00:00:00")
+def test_twice_daily_cron_counts_once_per_day() -> None:
+    """Cron firing at 09:00 and 21:00 should still count once per day."""
+    spend = 1000.0
+    balance = 2500.0  # covers 2 days at buffer=1.0
+    result_once = find_balance_exhaustion_date("0 9 * * *", spend, balance, buffer=1.0)
+    result_twice = find_balance_exhaustion_date(
+        "0 9,21 * * *", spend, balance, buffer=1.0
+    )
+    assert result_once is not None
+    assert result_twice is not None
+    assert result_once.date() == result_twice.date()
