@@ -20,14 +20,17 @@ def find_balance_exhaustion_date(
     end = now + timedelta(days=365)
     itr: croniter = croniter(cron_expr, now)
     balance = current_balance
+    seen_dates: set = set()
     while True:
         nxt: datetime = itr.get_next(datetime)
         if nxt > end:
             return None
+        if nxt.date() in seen_dates:
+            continue
+        seen_dates.add(nxt.date())
         balance -= spend_per_run * buffer
         if balance < 0:
             return nxt
-
 
 def is_now_cron_time(cron_expr: str) -> bool:
     """
@@ -47,5 +50,4 @@ def is_now_cron_time(cron_expr: str) -> bool:
 
 
 if __name__ == "__main__":
-    print(settings.portfolio.invest_interval)
-    print(is_now_cron_time(settings.portfolio.invest_interval))
+    print(find_balance_exhaustion_date("* * * * 1", 500, 15000))

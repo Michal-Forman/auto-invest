@@ -67,7 +67,6 @@ def _runs_in_next_30_days(cron_expr: str) -> int:
         if nxt > end:
             break
         seen_dates.add(nxt.date())
-    print(f"seen dates: {len(seen_dates)}")
     return len(seen_dates)
 
 
