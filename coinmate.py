@@ -158,6 +158,31 @@ class Coinmate:
         except (KeyError, TypeError) as e:
             raise RuntimeError(f"Unexpected balance response structure: {e}")
 
+    def btc_balance(self) -> float:
+        """Fetch the available BTC balance for the authenticated account."""
+        wrapped: Dict[str, Any] = self._post("/balances", data=self._private_payload())
+        if wrapped.get("err"):
+            raise RuntimeError(f"Could not fetch balance: {wrapped['err']}")
+        try:
+            return float(wrapped["res"]["data"]["BTC"]["balance"])
+        except (KeyError, TypeError) as e:
+            raise RuntimeError(f"Unexpected balance response structure: {e}")
+
+    def btc_withdraw(self, btc_adress: str, amount: float, fee_priority: str = "LOW") -> str:
+        """Withdraw amount of BTC (units are btc) to external wallet and return order id as a string"""
+        extra: Dict[str, Any] = {
+                "amount": amount,
+                "address": btc_adress,
+                "feePriority": fee_priority,
+                }
+        wrapped: Dict[str, Any] = self._post("/bitcoinWithdrawal", data=self._private_payload(extra))
+        if wrapped.get("err"):
+            raise requests.RequestException(f"Could not withdraw BTC: {wrapped['err']}")
+        
+        return str(wrapped["res"]["data"])
+            
+
+
 
 if __name__ == "__main__":
     from settings import settings
@@ -167,4 +192,5 @@ if __name__ == "__main__":
         settings.coinmate_public_key,
         settings.coinmate_private_key,
     )
-    print(coinmate.balance())
+    # print(coinmate.btc_balance())
+    print(coinmate.btc_withdraw(settings.btc_external_adress, 0.00004))

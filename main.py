@@ -32,9 +32,17 @@ coinmate: Coinmate = Coinmate(
     settings.coinmate_public_key,
     settings.coinmate_private_key,
 )
-instruments: Instruments = Instruments(t212=t212, portfolio_settings=settings.portfolio)
+instruments: Instruments = Instruments(t212=t212, coinmate=coinmate, portfolio_settings=settings.portfolio)
 executor: Executor = Executor(t212, coinmate, settings.portfolio)
 mailer: Mailer = Mailer()
+
+try:
+    if instruments.is_btc_withdrawal_treshold_exceeded():
+        print("it is exceeded")
+    else:
+        print("it is not")
+except Exception as e:
+    log.error(f"Failed to get the state of BTC balance on coinmate: {e}")
 
 # --- Upate old investment data in db ---
 log.info("Start updating old Orders and Runs")

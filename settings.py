@@ -22,6 +22,7 @@ class PortfolioSettings:
     invest_interval: str
     balance_buffer: float
     balance_alert_days: int
+    btc_withdrawal_treshold: int
 
     @classmethod
     def from_env(cls) -> "PortfolioSettings":
@@ -34,6 +35,7 @@ class PortfolioSettings:
             invest_interval=os.getenv("INVEST_INTERVAL", "monthly"),
             balance_buffer=float(os.environ["BALANCE_BUFFER"]),
             balance_alert_days=int(os.environ["BALANCE_ALERT_DAYS"]),
+            btc_withdrawal_treshold=int(os.environ["BTC_WITHDRAWAL_TRESHOLD"])
         )
 
 
@@ -57,6 +59,7 @@ class Settings:
     t212_deposit_vs: str | None
     coinmate_deposit_account: str | None
     coinmate_deposit_vs: str | None
+    btc_external_adress: str
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -80,6 +83,7 @@ class Settings:
             t212_deposit_vs=os.getenv("T212_DEPOSIT_VS"),
             coinmate_deposit_account=os.getenv("COINMATE_DEPOSIT_ACCOUNT"),
             coinmate_deposit_vs=os.getenv("COINMATE_DEPOSIT_VS"),
+            btc_external_adress=os.environ["BTC_EXTERNAL_ADRESS"]
         )
 
 
