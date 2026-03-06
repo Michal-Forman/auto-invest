@@ -7,9 +7,11 @@ import hashlib
 import hmac
 import time
 from typing import Any, Dict, Optional
+from decimal import Decimal
 
 # Third-party
 import requests
+from requests.exceptions import RequestException
 
 # Local
 from log import log
@@ -168,7 +170,7 @@ class Coinmate:
         except (KeyError, TypeError) as e:
             raise RuntimeError(f"Unexpected balance response structure: {e}")
 
-    def btc_withdraw(self, btc_adress: str, amount: float, fee_priority: str = "LOW") -> str:
+    def btc_withdraw(self, btc_adress: str, amount: float, fee_priority: str = "LOW") -> Dict[str, Any]:
         """Withdraw amount of BTC (units are btc) to external wallet and return order id as a string"""
         extra: Dict[str, Any] = {
                 "amount": amount,
@@ -177,11 +179,38 @@ class Coinmate:
                 }
         wrapped: Dict[str, Any] = self._post("/bitcoinWithdrawal", data=self._private_payload(extra))
         if wrapped.get("err"):
-            raise requests.RequestException(f"Could not withdraw BTC: {wrapped['err']}")
-        
-        return str(wrapped["res"]["data"])
-            
+            raise RequestException(f"Could not withdraw BTC: {wrapped['err']}")
 
+        transaction_id = str(wrapped["res"]["data"])
+        transaction_data: Dict[str, Any] = coinmate.btc_withdrawal_data(transaction_id)
+        
+        return transaction_data
+
+    def btc_withdrawal_data(self, transactionId: str) -> Dict[str, Any]:
+        extra: Dict[str, Any] = {
+                "transactionId": transactionId,
+                }
+        wrapped: Dict[str, Any] = self._post("/transfer", data=self._private_payload(extra))
+        if wrapped.get("error"):
+            raise RequestException(f"could not get transaction details: {wrapped['err']}")
+
+        id: str = str(wrapped["res"]["data"]["id"])
+        fee: Decimal = Decimal(str(wrapped["res"]["data"]["fee"]))
+        currency: str = wrapped["res"]["data"]["amountCurrency"]
+        amount: Decimal = Decimal(str(wrapped["res"]["data"]["amount"]))
+        status: str = wrapped["res"]["data"]["transferStatus"]
+        timestamp: int = wrapped["res"]["data"]["timestamp"]
+        transfer_type: str = wrapped["res"]["data"]["transferType"]
+            
+        return {
+                "id": id,
+                "fee": fee,
+                "currency": currency,
+                "amount": amount,
+                "status": status,
+                "timestamp": timestamp,
+                "transfer_type": transfer_type,
+                }
 
 
 if __name__ == "__main__":
@@ -193,4 +222,6 @@ if __name__ == "__main__":
         settings.coinmate_private_key,
     )
     # print(coinmate.btc_balance())
-    print(coinmate.btc_withdraw(settings.btc_external_adress, 0.00004))
+    # print(coinmate.btc_withdraw(settings.btc_external_adress, 0.00005))
+    # 17751147
+    print(coinmate.btc_withdrawal_data("17751183"))
