@@ -32,6 +32,7 @@ def find_balance_exhaustion_date(
         if balance < 0:
             return nxt
 
+
 def is_now_cron_time(cron_expr: str) -> bool:
     """
     Returns True if current UTC minute matches the cron expression.
