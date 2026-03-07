@@ -36,11 +36,15 @@ instruments: Instruments = Instruments(t212=t212, coinmate=coinmate, portfolio_s
 executor: Executor = Executor(t212, coinmate, settings.portfolio)
 mailer: Mailer = Mailer()
 
+# --- Check if BTC-Withdrawal should be made and if so, make one
+
 try:
     if instruments.is_btc_withdrawal_treshold_exceeded():
         print("it is exceeded")
+        pass
     else:
         print("it is not")
+        pass
 except Exception as e:
     log.error(f"Failed to get the state of BTC balance on coinmate: {e}")
 

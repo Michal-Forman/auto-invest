@@ -36,7 +36,7 @@ class BtcWithdrawal(BaseDBModel):
     # -------------------------
 
     @staticmethod
-    def create_withdrawal(withdrawal_data: Dict[str, Any]) -> "BtcWithdrawal":
+    def create_withdrawal(withdrawal_data: Dict[str, Any]) -> BtcWithdrawal:
         """Build a BtcWithdrawal from btc_withdrawal_data() response, insert it into DB, and return the persisted row."""
         exchange_timestamp = datetime.fromtimestamp(
             withdrawal_data["timestamp"] / 1000, tz=timezone.utc
@@ -64,7 +64,7 @@ class BtcWithdrawal(BaseDBModel):
 
         log.info(f"BTC withdrawal {withdrawal.exchange_withdrawal_id} recorded in database")
 
-        return BtcWithdrawal.model_validate(inserted)
+        return withdrawal
 
 
 if __name__ == "__main__":
