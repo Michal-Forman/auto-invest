@@ -4,10 +4,12 @@ from __future__ import annotations
 # Standard library
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Any, ClassVar, Dict, Optional
+from typing import Any, ClassVar, Dict, Literal, Optional
 
 # Local
 from db.base import BaseDBModel
+
+Status = Literal["CREATED", "FILLED", "FAILED"]
 from log import log
 
 class BtcWithdrawal(BaseDBModel):
@@ -23,7 +25,7 @@ class BtcWithdrawal(BaseDBModel):
 
     # --- Metadata ---
     currency: str = "BTC"
-    status: str
+    status: Status
     transfer_type: str
     destination_address: str
 
@@ -47,7 +49,7 @@ class BtcWithdrawal(BaseDBModel):
             amount=Decimal(str(withdrawal_data["amount"])),
             fee=Decimal(str(withdrawal_data["fee"])),
             currency=withdrawal_data["currency"],
-            status=withdrawal_data["status"],
+            status="CREATED",
             transfer_type=withdrawal_data["transfer_type"],
             destination_address=withdrawal_data["destination_adress"],
             exchange_timestamp=exchange_timestamp,
@@ -73,7 +75,7 @@ if __name__ == "__main__":
         "fee": Decimal("0.0001"),
         "currency": "BTC",
         "amount": Decimal("0.00005"),
-        "status": "COMPLETED",
+        "status": "CREATED",
         "timestamp": 1740000000000,
         "transfer_type": "WITHDRAWAL",
         "destination_adress": "bc1qexampleaddress",
