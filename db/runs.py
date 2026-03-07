@@ -3,19 +3,19 @@ from __future__ import annotations
 
 # Standard library
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Literal, Optional, cast
+from typing import Any, ClassVar, Dict, List, Literal, Optional, cast
 from uuid import UUID, uuid4
 
 # Third-party
 from pydantic import BaseModel
 
 # Local
+from db.base import BaseDBModel
 from db.client import supabase
 from db.orders import Order
 from log import log
 from settings import settings
 
-TABLE = "runs"
 RUN_EXPIRY_DAYS = 14
 
 Status = Literal["CREATED", "FINISHED", "FILLED", "FAILED", "UNKNOWN"]
@@ -34,8 +34,9 @@ class RunUpdate(BaseModel):
     error: Optional[str] = None
 
 
-class Run(BaseModel):
+class Run(BaseDBModel):
     # --- Identity ---
+    TABLE: ClassVar[str] = "runs"
     id: Optional[UUID] = None
 
     # --- Timing ---
@@ -70,21 +71,6 @@ class Run(BaseModel):
     # Helper methods for DB
     # -------------------------
 
-    def _to_insert_dict(self) -> Dict[str, Any]:
-        """Convert the run to a dict for Supabase insert, excluding None fields."""
-        return self.model_dump(mode="json", exclude_none=True)
-
-    def _post_to_db(self) -> Optional[Dict[str, Any]]:
-        """Insert this run into Supabase. Returns the inserted row dict or None."""
-        run_data: Dict[str, Any] = self._to_insert_dict()
-
-        response: Any = supabase.table(TABLE).insert(run_data).execute()
-
-        if response.data:
-            return cast(Dict[str, Any], response.data[0])
-
-        return None
-
     def update_in_db(self, update_data: RunUpdate) -> Optional[Dict[str, Any]]:
         """Apply a RunUpdate to this run's row in Supabase. Returns the updated row dict or None."""
         if not self.id:
@@ -95,7 +81,7 @@ class Run(BaseModel):
         )
 
         response: Any = (
-            supabase.table(TABLE).update(update_fields).eq("id", str(self.id)).execute()
+            supabase.table(self.TABLE).update(update_fields).eq("id", str(self.id)).execute()
         )
 
         if response.data:
@@ -124,7 +110,7 @@ class Run(BaseModel):
         )
 
         try:
-            inserted: Optional[Dict[str, Any]] = run._post_to_db()
+            inserted: Optional[Dict[str, Any]] = run.post_to_db()
         except Exception as e:
             log.error(f"Failed to insert run into database: {e}")
             raise RuntimeError("Run creation failed during DB insert") from e
@@ -134,7 +120,7 @@ class Run(BaseModel):
 
         log.info("Run successfully placed and recorded in database")
 
-        return Run.model_validate(inserted)
+        return run
 
     def _are_all_orders_filled(self) -> bool:
         """Check whether every order in this run has status FILLED."""
@@ -256,7 +242,7 @@ class Run(BaseModel):
     def get_recent_runs(limit: int = 50) -> List[Run]:
         """Fetch the N most recent FINISHED or FILLED runs, ordered by most recent first."""
         response: Any = (
-            supabase.table(TABLE)
+            supabase.table(Run.TABLE)
             .select("*")
             .in_("status", ["FINISHED", "FILLED"])
             .order("started_at", desc=True)
@@ -279,7 +265,7 @@ class Run(BaseModel):
             end = datetime(year, month + 1, 1, tzinfo=timezone.utc)
 
         response: Any = (
-            supabase.table(TABLE)
+            supabase.table(Run.TABLE)
             .select("*")
             .in_("status", ["FINISHED", "FILLED"])
             .gte("started_at", start.isoformat())
@@ -303,7 +289,7 @@ class Run(BaseModel):
             end = datetime(year, month + 1, 1, tzinfo=timezone.utc)
 
         response: Any = (
-            supabase.table(TABLE)
+            supabase.table(Run.TABLE)
             .select("*")
             .eq("status", "FAILED")
             .gte("started_at", start.isoformat())
@@ -326,7 +312,7 @@ class Run(BaseModel):
         end_of_day: datetime = start_of_day + timedelta(days=1)
 
         response: Any = (
-            supabase.table(TABLE)
+            supabase.table(Run.TABLE)
             .select("id")
             .gte("started_at", start_of_day.isoformat())
             .lt("started_at", end_of_day.isoformat())
