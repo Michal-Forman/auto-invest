@@ -101,7 +101,7 @@ if not Mail.balance_alert_sent_today():
     except Exception as e:
         log.warning(f"Balance check skipped (non-critical): {e}")
 
-# Create new orders if they should be made today AND they have not yet been
+# --- Create new orders if they should be made today AND they have not yet been ---
 if is_now_cron_time(settings.portfolio.invest_interval) and not Run.run_exists_today():
     log.info("Starting investment process")
 
@@ -139,7 +139,7 @@ if is_now_cron_time(settings.portfolio.invest_interval) and not Run.run_exists_t
 else:
     log.info("No investments / orders were supposed to be made in this run")
 
-# Send monthly summary for the previous month if not yet sent
+# --- Send monthly summary for the previous month if not yet sent ---
 prev_year = run_start.year if run_start.month > 1 else run_start.year - 1
 prev_month = run_start.month - 1 if run_start.month > 1 else 12
 period = f"{prev_year}-{prev_month:02d}"
