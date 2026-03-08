@@ -210,15 +210,16 @@ class Mailer:
         addr = withdrawal.destination_address
         destination_short = addr[:8] + "…" + addr[-8:] if len(addr) > 20 else addr
 
+        threshold_fmt = f"{settings.portfolio.btc_withdrawal_treshold:_}".replace("_", "\u00a0")
+
         plain_lines = [
-            "BTC withdrawal complete.",
+            f"BTC balance exceeded {threshold_fmt} CZK threshold — auto-withdrawn to your wallet.",
             "",
             f"Amount:      {withdrawal.amount} BTC",
             f"Fee:         {withdrawal.fee} BTC",
-            f"CZK Value:   {withdrawal.amount_czk} CZK",
+            f"CZK Value:   {round(float(withdrawal.amount_czk))} CZK",
             f"Exchange ID: {withdrawal.exchange_withdrawal_id}",
             f"Timestamp:   {withdrawal.exchange_timestamp.strftime('%Y-%m-%d %H:%M UTC')}",
-            f"Type:        {withdrawal.transfer_type}",
             f"Destination: {destination_short}",
         ]
 
@@ -227,12 +228,12 @@ class Mailer:
             date_label=now.strftime("%B %-d, %Y"),
             amount_btc=str(withdrawal.amount),
             fee_btc=str(withdrawal.fee),
-            amount_czk=f"{float(withdrawal.amount_czk):_.2f}".replace("_", "\u00a0"),
+            amount_czk=f"{round(float(withdrawal.amount_czk)):_}".replace("_", "\u00a0"),
             exchange_id=str(withdrawal.exchange_withdrawal_id),
             timestamp=now.strftime("%Y-%m-%d %H:%M UTC"),
-            transfer_type=withdrawal.transfer_type,
             destination_short=destination_short,
             destination_full=addr,
+            threshold_czk=threshold_fmt,
         )
 
         self._send(
