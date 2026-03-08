@@ -182,7 +182,7 @@ class Coinmate:
             raise RequestException(f"Could not withdraw BTC: {wrapped['err']}")
 
         transaction_id = str(wrapped["res"]["data"])
-        transaction_data: Dict[str, Any] = coinmate.btc_withdrawal_data(transaction_id)
+        transaction_data: Dict[str, Any] = self.btc_withdrawal_data(transaction_id)
         transaction_data.update({"destination_adress": btc_adress})
         
         return transaction_data
