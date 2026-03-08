@@ -29,7 +29,9 @@ Every order, fill, fee, exchange rate, and run summary is recorded in a Supabase
 
 ---
 
-## Portfolio
+## Supported instruments
+
+The engine currently supports the following instruments. You don't need to use all of them — pick any subset that fits your strategy. Add or remove instruments in `instrument_data.py`.
 
 | Ticker | Name | Type | Currency | Cap |
 |--------|------|------|----------|-----|
@@ -44,7 +46,7 @@ Every order, fill, fee, exchange rate, and run summary is recorded in a Supabase
 | `RBOTl_EQ` | iShares Automation & Robotics (Acc) | ETF | USD | `none` |
 | `BTC` | Bitcoin | Crypto | CZK | `hard` |
 
-Instruments are defined in `instrument_data.py`. Each entry maps a T212 ticker to its Yahoo Finance symbol, currency, type, display name, and cap mode.
+Each entry in `instrument_data.py` maps a T212 ticker to its Yahoo Finance symbol, currency, type, display name, and cap mode.
 
 ---
 
