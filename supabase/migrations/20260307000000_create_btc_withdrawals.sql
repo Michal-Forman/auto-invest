@@ -1,10 +1,11 @@
 CREATE TABLE btc_withdrawals (
-    id                     SERIAL PRIMARY KEY,
+    id                     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
     exchange_withdrawal_id BIGINT UNIQUE NOT NULL,
 
     amount                 NUMERIC NOT NULL,
     fee                    NUMERIC NOT NULL,
+    amount_czk             NUMERIC NOT NULL,
 
     currency               TEXT NOT NULL DEFAULT 'BTC',
 

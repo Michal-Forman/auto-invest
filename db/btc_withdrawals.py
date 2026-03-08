@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, ClassVar, Dict, Literal, Optional
+from uuid import UUID
 
 # Local
 from db.base import BaseDBModel
@@ -15,13 +16,14 @@ from log import log
 class BtcWithdrawal(BaseDBModel):
     # --- Identity ---
     TABLE: ClassVar[str] = "btc_withdrawals"
-    id: Optional[int] = None
+    id: Optional[UUID] = None
 
     exchange_withdrawal_id: int
 
     # --- Amounts ---
     amount: Decimal
     fee: Decimal
+    amount_czk: Decimal
 
     # --- Metadata ---
     currency: str = "BTC"
@@ -38,7 +40,7 @@ class BtcWithdrawal(BaseDBModel):
     # -------------------------
 
     @staticmethod
-    def create_withdrawal(withdrawal_data: Dict[str, Any]) -> BtcWithdrawal:
+    def create_withdrawal(withdrawal_data: Dict[str, Any], amount_czk: Decimal) -> BtcWithdrawal:
         """Build a BtcWithdrawal from btc_withdrawal_data() response, insert it into DB, and return the persisted row."""
         exchange_timestamp = datetime.fromtimestamp(
             withdrawal_data["timestamp"] / 1000, tz=timezone.utc
@@ -48,6 +50,7 @@ class BtcWithdrawal(BaseDBModel):
             exchange_withdrawal_id=int(withdrawal_data["id"]),
             amount=Decimal(str(withdrawal_data["amount"])),
             fee=Decimal(str(withdrawal_data["fee"])),
+            amount_czk=amount_czk,
             currency=withdrawal_data["currency"],
             status="CREATED",
             transfer_type=withdrawal_data["transfer_type"],
@@ -81,5 +84,5 @@ if __name__ == "__main__":
         "destination_adress": "bc1qexampleaddress",
     }
 
-    result = BtcWithdrawal.create_withdrawal(sample)
+    result = BtcWithdrawal.create_withdrawal(sample, amount_czk=Decimal("1000.00"))
     print(result)

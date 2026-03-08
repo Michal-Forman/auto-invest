@@ -1,5 +1,6 @@
 # Standard library
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
@@ -193,7 +194,10 @@ class Executor:
             transaction_data: Dict[str, Any] = self.coinmate.btc_withdraw(
                 btc_adress=settings.btc_external_adress, amount=btc_balance
             )
-            return BtcWithdrawal.create_withdrawal(withdrawal_data=transaction_data)
+            btc_price = Instruments.get_btc_price()
+            actual_amount = float(transaction_data["amount"])
+            amount_czk = Decimal(str(round(actual_amount * btc_price, 2)))
+            return BtcWithdrawal.create_withdrawal(withdrawal_data=transaction_data, amount_czk=amount_czk)
         except Exception as e:
             log.error(f"Failed to withdraw BTC: {e}")
             return None
