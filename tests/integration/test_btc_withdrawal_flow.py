@@ -114,7 +114,7 @@ class TestBtcWithdrawalExecution:
         assert isinstance(result, BtcWithdrawal)
         assert result.exchange_withdrawal_id == 17751183
 
-    def test_withdrawal_coinmate_failure_returns_none(
+    def test_withdrawal_coinmate_failure_raises(
         self,
         coinmate: Coinmate,
         t212: Trading212,
@@ -127,9 +127,10 @@ class TestBtcWithdrawalExecution:
         mocker.patch.object(Instruments, "get_btc_price", return_value=2_000_000.0)
 
         executor = Executor(t212, coinmate)
-        assert executor.withdraw_btc() is None
+        with pytest.raises(RequestException):
+            executor.withdraw_btc()
 
-    def test_withdrawal_db_failure_returns_none(
+    def test_withdrawal_db_failure_raises(
         self,
         coinmate: Coinmate,
         t212: Trading212,
@@ -145,7 +146,8 @@ class TestBtcWithdrawalExecution:
         )
 
         executor = Executor(t212, coinmate)
-        assert executor.withdraw_btc() is None
+        with pytest.raises(Exception):
+            executor.withdraw_btc()
 
     def test_withdrawal_amount_czk_calculation(
         self,
