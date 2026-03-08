@@ -28,7 +28,7 @@ _TEMPLATE_DIR = os.path.join(os.path.dirname(__file__), "templates", "emails")
 _ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")
 
 _SLIPPAGE_THRESHOLD = 0.03  # 3% fill price vs expected price
-_FEE_RATIO_THRESHOLD = 0.005  # 0.5% fee as share of fill value
+_FEE_RATIO_THRESHOLD = 0.006  # 6% fee as share of fill value
 _FX_DRIFT_THRESHOLD = 0.02  # 2% fill FX rate vs submission FX rate
 
 
