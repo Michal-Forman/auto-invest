@@ -14,8 +14,9 @@ from db.runs import Run, RunUpdate
 
 
 def _build_supabase_mock(mocker: MockerFixture) -> tuple:
-    """Patch db.runs.supabase with a fluent mock chain. Returns (mock_sb, mock_chain)."""
-    mock_sb = mocker.patch("db.runs.supabase")
+    """Patch db.base.supabase and db.runs.supabase with a fluent mock chain. Returns (mock_sb, mock_chain)."""
+    mock_sb = mocker.patch("db.base.supabase")
+    mocker.patch("db.runs.supabase", mock_sb)
     mock_chain = MagicMock()
     mock_sb.table.return_value = mock_chain
     for method in [
@@ -47,7 +48,7 @@ class TestPostToDB:
         row = _run_row(run)
         mock_chain.execute.return_value = MagicMock(data=[row])
 
-        result = run._post_to_db()
+        result = run.post_to_db()
 
         assert result == row
 
@@ -58,7 +59,7 @@ class TestPostToDB:
         _, mock_chain = _build_supabase_mock(mocker)
         mock_chain.execute.return_value = MagicMock(data=[])
 
-        result = run._post_to_db()
+        result = run.post_to_db()
 
         assert result is None
 

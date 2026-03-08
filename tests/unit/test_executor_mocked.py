@@ -11,7 +11,6 @@ from pytest_mock import MockerFixture
 from db.orders import Order
 from executor import Executor
 from instruments import Instruments
-from settings import PortfolioSettings
 
 
 @pytest.fixture
@@ -23,9 +22,8 @@ def mock_coinmate() -> MagicMock:
 def executor(
     mock_t212: MagicMock,
     mock_coinmate: MagicMock,
-    portfolio_settings: PortfolioSettings,
 ) -> Executor:
-    return Executor(mock_t212, mock_coinmate, portfolio_settings)
+    return Executor(mock_t212, mock_coinmate)
 
 
 @pytest.fixture
