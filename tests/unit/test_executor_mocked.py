@@ -312,27 +312,21 @@ class TestWithdrawBtc:
         result = executor.withdraw_btc()
         assert isinstance(result, BtcWithdrawal)
 
-    def test_returns_none_on_coinmate_error(
+    def test_raises_on_coinmate_error(
         self, executor: Executor, mock_coinmate: MagicMock
     ) -> None:
         mock_coinmate.btc_balance.side_effect = Exception("network error")
-        assert executor.withdraw_btc() is None
+        with pytest.raises(Exception):
+            executor.withdraw_btc()
 
-    def test_returns_none_on_db_error(
+    def test_raises_on_db_error(
         self, executor: Executor, mocker: MockerFixture
     ) -> None:
         mocker.patch.object(
             BtcWithdrawal, "create_withdrawal", side_effect=RuntimeError("DB failed")
         )
-        assert executor.withdraw_btc() is None
-
-    def test_logs_error_on_failure(
-        self, executor: Executor, mock_coinmate: MagicMock, mocker: MockerFixture
-    ) -> None:
-        mock_coinmate.btc_balance.side_effect = Exception("fail")
-        mock_log_error = mocker.patch("executor.log.error")
-        executor.withdraw_btc()
-        mock_log_error.assert_called_once()
+        with pytest.raises(RuntimeError):
+            executor.withdraw_btc()
 
     def test_uses_full_balance_for_amount(
         self, executor: Executor, mock_coinmate: MagicMock
