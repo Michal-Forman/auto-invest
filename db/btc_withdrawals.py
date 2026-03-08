@@ -23,6 +23,7 @@ class BtcWithdrawal(BaseDBModel):
     # --- Amounts ---
     amount: Decimal
     fee: Decimal
+    fee_czk: Decimal
     amount_czk: Decimal
 
     # --- Metadata ---
@@ -40,7 +41,7 @@ class BtcWithdrawal(BaseDBModel):
     # -------------------------
 
     @staticmethod
-    def create_withdrawal(withdrawal_data: Dict[str, Any], amount_czk: Decimal) -> BtcWithdrawal:
+    def create_withdrawal(withdrawal_data: Dict[str, Any], amount_czk: Decimal, fee_czk: Decimal) -> BtcWithdrawal:
         """Build a BtcWithdrawal from btc_withdrawal_data() response, insert it into DB, and return the persisted row."""
         exchange_timestamp = datetime.fromtimestamp(
             withdrawal_data["timestamp"] / 1000, tz=timezone.utc
@@ -50,6 +51,7 @@ class BtcWithdrawal(BaseDBModel):
             exchange_withdrawal_id=int(withdrawal_data["id"]),
             amount=Decimal(str(withdrawal_data["amount"])),
             fee=Decimal(str(withdrawal_data["fee"])),
+            fee_czk=fee_czk,
             amount_czk=amount_czk,
             currency=withdrawal_data["currency"],
             status="CREATED",
@@ -84,5 +86,5 @@ if __name__ == "__main__":
         "destination_adress": "bc1qexampleaddress",
     }
 
-    result = BtcWithdrawal.create_withdrawal(sample, amount_czk=Decimal("1000.00"))
+    result = BtcWithdrawal.create_withdrawal(sample, amount_czk=Decimal("1000.00"), fee_czk=Decimal("63.50"))
     print(result)
