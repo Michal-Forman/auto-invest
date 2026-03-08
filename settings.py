@@ -35,7 +35,7 @@ class PortfolioSettings:
             invest_interval=os.getenv("INVEST_INTERVAL", "monthly"),
             balance_buffer=float(os.environ["BALANCE_BUFFER"]),
             balance_alert_days=int(os.environ["BALANCE_ALERT_DAYS"]),
-            btc_withdrawal_treshold=int(os.environ["BTC_WITHDRAWAL_TRESHOLD"])
+            btc_withdrawal_treshold=int(os.environ["BTC_WITHDRAWAL_TRESHOLD"]),
         )
 
 
@@ -83,7 +83,7 @@ class Settings:
             t212_deposit_vs=os.getenv("T212_DEPOSIT_VS"),
             coinmate_deposit_account=os.getenv("COINMATE_DEPOSIT_ACCOUNT"),
             coinmate_deposit_vs=os.getenv("COINMATE_DEPOSIT_VS"),
-            btc_external_adress=os.environ["BTC_EXTERNAL_ADRESS"]
+            btc_external_adress=os.environ["BTC_EXTERNAL_ADRESS"],
         )
 
 

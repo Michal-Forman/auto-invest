@@ -7,8 +7,8 @@ import pandas as pd  # type: ignore[import-untyped]
 import yfinance as yf  # type: ignore[import-untyped]
 
 # Local
-from coinmate import Coinmate
 import coinmate
+from coinmate import Coinmate
 from instrument_data import INSTRUMENT_CAPS, T212_TO_YF
 from log import log
 from settings import PortfolioSettings
@@ -20,7 +20,12 @@ MIN_ORDER_CZK = 25
 
 
 class Instruments:
-    def __init__(self, t212: Trading212, coinmate: Coinmate, portfolio_settings: PortfolioSettings) -> None:
+    def __init__(
+        self,
+        t212: Trading212,
+        coinmate: Coinmate,
+        portfolio_settings: PortfolioSettings,
+    ) -> None:
         """Initialize with a Trading212 client and portfolio configuration."""
         self.t212 = t212
         self.portfolio_settings = portfolio_settings
@@ -299,7 +304,7 @@ class Instruments:
 
     def is_btc_withdrawal_treshold_exceeded(self) -> bool:
         treshold = self.portfolio_settings.btc_withdrawal_treshold
-        btc_price: float = self.get_btc_price() 
+        btc_price: float = self.get_btc_price()
         btc_held: float = self.coinmate.btc_balance()
         btc_held_czk: float = btc_held * btc_price
         if btc_held_czk >= treshold:

@@ -81,7 +81,10 @@ class Run(BaseDBModel):
         )
 
         response: Any = (
-            supabase.table(self.TABLE).update(update_fields).eq("id", str(self.id)).execute()
+            supabase.table(self.TABLE)
+            .update(update_fields)
+            .eq("id", str(self.id))
+            .execute()
         )
 
         if response.data:

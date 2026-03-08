@@ -11,7 +11,9 @@ from uuid import UUID
 from db.base import BaseDBModel
 
 Status = Literal["CREATED", "FILLED", "FAILED"]
+# Local
 from log import log
+
 
 class BtcWithdrawal(BaseDBModel):
     # --- Identity ---
@@ -41,7 +43,9 @@ class BtcWithdrawal(BaseDBModel):
     # -------------------------
 
     @staticmethod
-    def create_withdrawal(withdrawal_data: Dict[str, Any], amount_czk: Decimal, fee_czk: Decimal) -> BtcWithdrawal:
+    def create_withdrawal(
+        withdrawal_data: Dict[str, Any], amount_czk: Decimal, fee_czk: Decimal
+    ) -> BtcWithdrawal:
         """Build a BtcWithdrawal from btc_withdrawal_data() response, insert it into DB, and return the persisted row."""
         exchange_timestamp = datetime.fromtimestamp(
             withdrawal_data["timestamp"] / 1000, tz=timezone.utc
@@ -67,9 +71,13 @@ class BtcWithdrawal(BaseDBModel):
             raise RuntimeError("BTC withdrawal creation failed during DB insert") from e
 
         if not inserted:
-            raise RuntimeError("BTC withdrawal creation failed: no row returned from DB")
+            raise RuntimeError(
+                "BTC withdrawal creation failed: no row returned from DB"
+            )
 
-        log.info(f"BTC withdrawal {withdrawal.exchange_withdrawal_id} recorded in database")
+        log.info(
+            f"BTC withdrawal {withdrawal.exchange_withdrawal_id} recorded in database"
+        )
 
         return withdrawal
 
@@ -86,5 +94,7 @@ if __name__ == "__main__":
         "destination_adress": "bc1qexampleaddress",
     }
 
-    result = BtcWithdrawal.create_withdrawal(sample, amount_czk=Decimal("1000.00"), fee_czk=Decimal("63.50"))
+    result = BtcWithdrawal.create_withdrawal(
+        sample, amount_czk=Decimal("1000.00"), fee_czk=Decimal("63.50")
+    )
     print(result)

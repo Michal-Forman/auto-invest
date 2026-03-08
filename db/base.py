@@ -23,7 +23,9 @@ class BaseDBModel(BaseModel):
 
     def post_to_db(self) -> Optional[Dict[str, Any]]:
         """Insert into Supabase and backfill DB-assigned fields (id, created_at). Returns the inserted row dict or None."""
-        response: Any = supabase.table(self.TABLE).insert(self._to_insert_dict()).execute()
+        response: Any = (
+            supabase.table(self.TABLE).insert(self._to_insert_dict()).execute()
+        )
 
         if response.data:
             row = cast(Dict[str, Any], response.data[0])

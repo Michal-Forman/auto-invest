@@ -3,11 +3,11 @@ from __future__ import annotations
 
 # Standard library
 from dataclasses import dataclass
+from decimal import Decimal
 import hashlib
 import hmac
 import time
 from typing import Any, Dict, Optional
-from decimal import Decimal
 
 # Third-party
 import requests
@@ -170,30 +170,38 @@ class Coinmate:
         except (KeyError, TypeError) as e:
             raise RuntimeError(f"Unexpected balance response structure: {e}")
 
-    def btc_withdraw(self, btc_adress: str, amount: float, fee_priority: str = "LOW") -> Dict[str, Any]:
+    def btc_withdraw(
+        self, btc_adress: str, amount: float, fee_priority: str = "LOW"
+    ) -> Dict[str, Any]:
         """Withdraw amount of BTC (units are btc) to external wallet and return order id as a string"""
         extra: Dict[str, Any] = {
-                "amount": amount,
-                "address": btc_adress,
-                "feePriority": fee_priority,
-                }
-        wrapped: Dict[str, Any] = self._post("/bitcoinWithdrawal", data=self._private_payload(extra))
+            "amount": amount,
+            "address": btc_adress,
+            "feePriority": fee_priority,
+        }
+        wrapped: Dict[str, Any] = self._post(
+            "/bitcoinWithdrawal", data=self._private_payload(extra)
+        )
         if wrapped.get("err"):
             raise RequestException(f"Could not withdraw BTC: {wrapped['err']}")
 
         transaction_id = str(wrapped["res"]["data"])
         transaction_data: Dict[str, Any] = self.btc_withdrawal_data(transaction_id)
         transaction_data.update({"destination_adress": btc_adress})
-        
+
         return transaction_data
 
     def btc_withdrawal_data(self, transactionId: str) -> Dict[str, Any]:
         extra: Dict[str, Any] = {
-                "transactionId": transactionId,
-                }
-        wrapped: Dict[str, Any] = self._post("/transfer", data=self._private_payload(extra))
-        if wrapped.get("error"):
-            raise RequestException(f"could not get transaction details: {wrapped['err']}")
+            "transactionId": transactionId,
+        }
+        wrapped: Dict[str, Any] = self._post(
+            "/transfer", data=self._private_payload(extra)
+        )
+        if wrapped.get("err"):
+            raise RequestException(
+                f"could not get transaction details: {wrapped['err']}"
+            )
 
         id: str = str(wrapped["res"]["data"]["id"])
         fee: Decimal = Decimal(str(wrapped["res"]["data"]["fee"]))
@@ -202,16 +210,16 @@ class Coinmate:
         status: str = wrapped["res"]["data"]["transferStatus"]
         timestamp: int = wrapped["res"]["data"]["timestamp"]
         transfer_type: str = wrapped["res"]["data"]["transferType"]
-            
+
         return {
-                "id": id,
-                "fee": fee,
-                "currency": currency,
-                "amount": amount,
-                "status": status,
-                "timestamp": timestamp,
-                "transfer_type": transfer_type,
-                }
+            "id": id,
+            "fee": fee,
+            "currency": currency,
+            "amount": amount,
+            "status": status,
+            "timestamp": timestamp,
+            "transfer_type": transfer_type,
+        }
 
 
 if __name__ == "__main__":

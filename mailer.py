@@ -210,7 +210,9 @@ class Mailer:
         addr = withdrawal.destination_address
         destination_short = addr[:8] + "…" + addr[-8:] if len(addr) > 20 else addr
 
-        threshold_fmt = f"{settings.portfolio.btc_withdrawal_treshold:_}".replace("_", "\u00a0")
+        threshold_fmt = f"{settings.portfolio.btc_withdrawal_treshold:_}".replace(
+            "_", "\u00a0"
+        )
 
         plain_lines = [
             f"BTC balance exceeded {threshold_fmt} CZK threshold — auto-withdrawn to your wallet.",
@@ -230,7 +232,9 @@ class Mailer:
             amount_btc=str(withdrawal.amount),
             fee_btc=str(withdrawal.fee),
             fee_czk=f"{round(float(withdrawal.fee_czk)):_}".replace("_", "\u00a0"),
-            amount_czk=f"{round(float(withdrawal.amount_czk)):_}".replace("_", "\u00a0"),
+            amount_czk=f"{round(float(withdrawal.amount_czk)):_}".replace(
+                "_", "\u00a0"
+            ),
             exchange_id=str(withdrawal.exchange_withdrawal_id),
             timestamp=now.strftime("%Y-%m-%d %H:%M UTC"),
             destination_short=destination_short,

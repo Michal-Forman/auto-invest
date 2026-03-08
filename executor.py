@@ -6,8 +6,8 @@ from uuid import UUID
 
 # Local
 from coinmate import Coinmate
-from db.orders import Currency, Order, Status
 from db.btc_withdrawals import BtcWithdrawal
+from db.orders import Currency, Order, Status
 from instrument_data import (
     INSTRUMENT_CURRENCIES,
     INSTRUMENT_NAMES,
@@ -198,7 +198,9 @@ class Executor:
             actual_amount = float(transaction_data["amount"])
             amount_czk = Decimal(str(round(actual_amount * btc_price, 2)))
             fee_czk = Decimal(str(round(float(transaction_data["fee"]) * btc_price, 2)))
-            return BtcWithdrawal.create_withdrawal(withdrawal_data=transaction_data, amount_czk=amount_czk, fee_czk=fee_czk)
+            return BtcWithdrawal.create_withdrawal(
+                withdrawal_data=transaction_data, amount_czk=amount_czk, fee_czk=fee_czk
+            )
         except Exception as e:
             log.error(f"Failed to withdraw BTC: {e}")
             return None

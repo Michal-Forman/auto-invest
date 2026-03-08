@@ -32,7 +32,9 @@ coinmate: Coinmate = Coinmate(
     settings.coinmate_public_key,
     settings.coinmate_private_key,
 )
-instruments: Instruments = Instruments(t212=t212, coinmate=coinmate, portfolio_settings=settings.portfolio)
+instruments: Instruments = Instruments(
+    t212=t212, coinmate=coinmate, portfolio_settings=settings.portfolio
+)
 executor: Executor = Executor(t212, coinmate)
 mailer: Mailer = Mailer()
 

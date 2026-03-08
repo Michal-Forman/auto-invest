@@ -53,7 +53,9 @@ def mock_coinmate() -> MagicMock:
 
 @pytest.fixture
 def instruments(
-    mock_t212: MagicMock, mock_coinmate: MagicMock, portfolio_settings: PortfolioSettings
+    mock_t212: MagicMock,
+    mock_coinmate: MagicMock,
+    portfolio_settings: PortfolioSettings,
 ) -> Instruments:
     return Instruments(mock_t212, mock_coinmate, portfolio_settings)
 

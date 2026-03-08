@@ -1,4 +1,5 @@
 # Standard library
+from decimal import Decimal
 from typing import Any, Dict
 from unittest.mock import MagicMock
 from uuid import UUID
@@ -8,6 +9,7 @@ import pytest
 from pytest_mock import MockerFixture
 
 # Local
+from db.btc_withdrawals import BtcWithdrawal
 from db.orders import Order
 from executor import Executor
 from instruments import Instruments
@@ -274,3 +276,89 @@ class TestPlaceOrders:
             run_id,
         )
         assert len(result) == 2
+
+
+class TestWithdrawBtc:
+    @pytest.fixture
+    def mock_transaction_data(self) -> Dict[str, Any]:
+        return {
+            "id": "17751183",
+            "fee": Decimal("0.0001"),
+            "currency": "BTC",
+            "amount": Decimal("0.005"),
+            "status": "CREATED",
+            "timestamp": 1741000000000,
+            "transfer_type": "WITHDRAWAL",
+            "destination_adress": "bc1qtest",
+        }
+
+    @pytest.fixture(autouse=True)
+    def setup(
+        self,
+        mock_coinmate: MagicMock,
+        mock_transaction_data: Dict[str, Any],
+        mocker: MockerFixture,
+    ) -> None:
+        mock_coinmate.btc_balance.return_value = 0.005
+        mock_coinmate.btc_withdraw.return_value = mock_transaction_data
+        mocker.patch.object(Instruments, "get_btc_price", return_value=2_000_000.0)
+        mocker.patch.object(
+            BtcWithdrawal,
+            "create_withdrawal",
+            return_value=MagicMock(spec=BtcWithdrawal),
+        )
+
+    def test_returns_btc_withdrawal_on_success(self, executor: Executor) -> None:
+        result = executor.withdraw_btc()
+        assert isinstance(result, BtcWithdrawal)
+
+    def test_returns_none_on_coinmate_error(
+        self, executor: Executor, mock_coinmate: MagicMock
+    ) -> None:
+        mock_coinmate.btc_balance.side_effect = Exception("network error")
+        assert executor.withdraw_btc() is None
+
+    def test_returns_none_on_db_error(
+        self, executor: Executor, mocker: MockerFixture
+    ) -> None:
+        mocker.patch.object(
+            BtcWithdrawal, "create_withdrawal", side_effect=RuntimeError("DB failed")
+        )
+        assert executor.withdraw_btc() is None
+
+    def test_logs_error_on_failure(
+        self, executor: Executor, mock_coinmate: MagicMock, mocker: MockerFixture
+    ) -> None:
+        mock_coinmate.btc_balance.side_effect = Exception("fail")
+        mock_log_error = mocker.patch("executor.log.error")
+        executor.withdraw_btc()
+        mock_log_error.assert_called_once()
+
+    def test_uses_full_balance_for_amount(
+        self, executor: Executor, mock_coinmate: MagicMock
+    ) -> None:
+        executor.withdraw_btc()
+        call_kwargs = mock_coinmate.btc_withdraw.call_args.kwargs
+        assert call_kwargs["amount"] == 0.005
+
+    def test_uses_settings_address(
+        self, executor: Executor, mock_coinmate: MagicMock
+    ) -> None:
+        from settings import settings
+
+        executor.withdraw_btc()
+        call_kwargs = mock_coinmate.btc_withdraw.call_args.kwargs
+        assert call_kwargs["btc_adress"] == settings.btc_external_adress
+
+    def test_amount_czk_computed_from_actual_amount_and_price(
+        self, executor: Executor, mocker: MockerFixture
+    ) -> None:
+        # amount=0.005, price=2_000_000 → amount_czk = 10_000.00
+        mock_create = mocker.patch.object(
+            BtcWithdrawal,
+            "create_withdrawal",
+            return_value=MagicMock(spec=BtcWithdrawal),
+        )
+        executor.withdraw_btc()
+        call_kwargs = mock_create.call_args.kwargs
+        assert call_kwargs["amount_czk"] == Decimal("10000.0")
