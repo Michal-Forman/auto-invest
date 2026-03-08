@@ -4,7 +4,7 @@ from __future__ import annotations
 # Standard library
 from datetime import datetime, timezone
 import hashlib
-from typing import Any, Dict, List, Literal, Optional, cast
+from typing import Any, ClassVar, Dict, List, Literal, Optional, cast
 from uuid import UUID
 
 # Third-party
@@ -13,12 +13,11 @@ from pydantic import BaseModel, Field, model_validator
 
 # Local
 from coinmate import Coinmate
+from db.base import BaseDBModel
 from db.client import supabase
 from log import log
 from settings import settings
 from trading212 import Trading212
-
-TABLE = "orders"
 
 Currency = Literal["USD", "CZK", "EUR", "GBP", "GBX"]
 Side = Literal["BUY", "SELL"]
@@ -52,8 +51,9 @@ class OrderUpdate(BaseModel):
     fee_czk: Optional[float] = None
 
 
-class Order(BaseModel):
+class Order(BaseDBModel):
     # --- Identity ---
+    TABLE: ClassVar[str] = "orders"
     id: Optional[UUID] = None
     run_id: UUID
     idempotency_key: Optional[str] = None
@@ -127,28 +127,6 @@ class Order(BaseModel):
     # Helper methods for DB
     # -------------------------
 
-    def _to_insert_dict(self) -> Dict[str, Any]:
-        """Convert the order to a dict for Supabase insert, excluding None fields."""
-        data = self.model_dump(mode="json", exclude_none=True)
-        return data
-
-    def post_to_db(self) -> Optional[Dict[str, Any]]:
-        """Insert this order into Supabase. Returns the inserted row dict, or None if the idempotency key already exists."""
-
-        order_data: Dict[str, Any] = self._to_insert_dict()
-
-        response: Any = supabase.table(TABLE).insert(order_data).execute()
-
-        # If conflict happens, Supabase returns error
-        if response.data:
-            row = cast(Dict[str, Any], response.data[0])
-            validated = Order.model_validate(row)
-            self.id = validated.id
-            self.created_at = validated.created_at
-            return row
-
-        return None
-
     def generate_idempotency_key(self) -> str:
         """Generate a SHA-256 idempotency key from the order's identifying fields to prevent duplicate inserts."""
 
@@ -176,7 +154,10 @@ class Order(BaseModel):
         )
 
         response: Any = (
-            supabase.table(TABLE).update(update_fields).eq("id", str(self.id)).execute()
+            supabase.table(self.TABLE)
+            .update(update_fields)
+            .eq("id", str(self.id))
+            .execute()
         )
 
         if response.data:
@@ -195,7 +176,7 @@ class Order(BaseModel):
             return []
 
         response: Any = (
-            supabase.table(TABLE).select("*").in_("run_id", run_ids).execute()
+            supabase.table(Order.TABLE).select("*").in_("run_id", run_ids).execute()
         )
 
         if not response.data:
@@ -207,7 +188,7 @@ class Order(BaseModel):
     def get_submitted_orders() -> List[Order]:
         """Fetch all orders with status SUBMITTED from the database."""
         response: Any = (
-            supabase.table(TABLE).select("*").eq("status", "SUBMITTED").execute()
+            supabase.table(Order.TABLE).select("*").eq("status", "SUBMITTED").execute()
         )
 
         if not response.data:

@@ -1,4 +1,5 @@
 # Standard library
+from dataclasses import replace
 from typing import Any, Dict, cast
 from unittest.mock import MagicMock
 
@@ -305,3 +306,44 @@ class TestGetAdjustedRatios:
         assert "BTC" in result
         assert result["VWCEd_EQ"]["multiplier"] == pytest.approx(1.5)
         assert result["BTC"]["multiplier"] == pytest.approx(2.0)
+
+
+class TestIsBtcWithdrawalTresholdExceeded:
+    @pytest.fixture(autouse=True)
+    def setup(self, instruments: Instruments, mocker: MockerFixture) -> None:
+        mocker.patch.object(Instruments, "get_btc_price", return_value=1_500_000.0)
+        mocker.patch.object(instruments.coinmate, "btc_balance", return_value=0.01)
+
+    def test_returns_true_when_above_threshold(self, instruments: Instruments) -> None:
+        instruments.portfolio_settings = replace(
+            instruments.portfolio_settings, btc_withdrawal_treshold=10_000
+        )
+        assert instruments.is_btc_withdrawal_treshold_exceeded() is True
+
+    def test_returns_false_when_below_threshold(self, instruments: Instruments) -> None:
+        instruments.portfolio_settings = replace(
+            instruments.portfolio_settings, btc_withdrawal_treshold=20_000
+        )
+        assert instruments.is_btc_withdrawal_treshold_exceeded() is False
+
+    def test_returns_true_when_exactly_at_threshold(
+        self, instruments: Instruments
+    ) -> None:
+        # 0.01 BTC * 1_500_000 CZK/BTC = 15_000 CZK
+        instruments.portfolio_settings = replace(
+            instruments.portfolio_settings, btc_withdrawal_treshold=15_000
+        )
+        assert instruments.is_btc_withdrawal_treshold_exceeded() is True
+
+    def test_uses_coinmate_balance(self, instruments: Instruments) -> None:
+        instruments.is_btc_withdrawal_treshold_exceeded()
+        cast(MagicMock, instruments.coinmate.btc_balance).assert_called_once()
+
+    def test_uses_btc_price(
+        self, instruments: Instruments, mocker: MockerFixture
+    ) -> None:
+        mock_price = mocker.patch.object(
+            Instruments, "get_btc_price", return_value=1_500_000.0
+        )
+        instruments.is_btc_withdrawal_treshold_exceeded()
+        mock_price.assert_called_once()

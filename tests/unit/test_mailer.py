@@ -1,5 +1,6 @@
 # Standard library
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Any, Callable, Dict, List
 from unittest.mock import MagicMock, patch
 from uuid import UUID
@@ -10,6 +11,7 @@ import pytest
 from pytest_mock import MockerFixture
 
 # Local
+from db.btc_withdrawals import BtcWithdrawal
 from db.orders import Order
 from db.runs import Run
 from mailer import (
@@ -1038,3 +1040,130 @@ class TestSendBalanceAlertTopupSection:
         assert extra_images is not None
         assert "qr_T212" in extra_images
         assert "qr_COINMATE" not in extra_images
+
+
+# ---------------------------------------------------------------------------
+# Tests: send_btc_withdrawal_confirmation
+# ---------------------------------------------------------------------------
+
+_LONG_ADDR = "bc1qxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"  # 39 chars > 20
+_SHORT_ADDR = "bc1qshort"  # 9 chars <= 20
+
+
+@pytest.fixture
+def withdrawal() -> BtcWithdrawal:
+    return BtcWithdrawal(
+        exchange_withdrawal_id=17751183,
+        amount=Decimal("0.00123"),
+        fee=Decimal("0.0001"),
+        fee_czk=Decimal("250.00"),
+        amount_czk=Decimal("3075.00"),
+        currency="BTC",
+        status="CREATED",
+        transfer_type="WITHDRAWAL",
+        destination_address=_LONG_ADDR,
+        exchange_timestamp=datetime(2026, 3, 8, 10, 30, tzinfo=timezone.utc),
+    )
+
+
+class TestSendBtcWithdrawalConfirmation:
+    def test_subject_contains_btc_withdrawal(
+        self, withdrawal: BtcWithdrawal, mocker: MockerFixture
+    ) -> None:
+        mock_send = mocker.patch.object(Mailer, "_send")
+        Mailer().send_btc_withdrawal_confirmation(withdrawal)
+        subject = mock_send.call_args[0][0]
+        assert "BTC withdrawal" in subject
+
+    def test_mail_type_is_btc_withdrawal_confirmation(
+        self, withdrawal: BtcWithdrawal, mocker: MockerFixture
+    ) -> None:
+        mock_send = mocker.patch.object(Mailer, "_send")
+        Mailer().send_btc_withdrawal_confirmation(withdrawal)
+        assert mock_send.call_args.kwargs["mail_type"] == "btc_withdrawal_confirmation"
+
+    def test_long_address_shortened(
+        self, withdrawal: BtcWithdrawal, mocker: MockerFixture
+    ) -> None:
+        mock_send = mocker.patch.object(Mailer, "_send")
+        Mailer().send_btc_withdrawal_confirmation(withdrawal)
+        plain = mock_send.call_args[0][1]
+        expected_short = _LONG_ADDR[:8] + "\u2026" + _LONG_ADDR[-8:]
+        assert expected_short in plain
+
+    def test_short_address_not_shortened(self, mocker: MockerFixture) -> None:
+        short_withdrawal = BtcWithdrawal(
+            exchange_withdrawal_id=17751183,
+            amount=Decimal("0.00123"),
+            fee=Decimal("0.0001"),
+            fee_czk=Decimal("250.00"),
+            amount_czk=Decimal("3075.00"),
+            currency="BTC",
+            status="CREATED",
+            transfer_type="WITHDRAWAL",
+            destination_address=_SHORT_ADDR,
+            exchange_timestamp=datetime(2026, 3, 8, 10, 30, tzinfo=timezone.utc),
+        )
+        mock_send = mocker.patch.object(Mailer, "_send")
+        Mailer().send_btc_withdrawal_confirmation(short_withdrawal)
+        plain = mock_send.call_args[0][1]
+        assert _SHORT_ADDR in plain
+        assert "\u2026" not in plain
+
+    def test_plain_text_contains_amount_btc(
+        self, withdrawal: BtcWithdrawal, mocker: MockerFixture
+    ) -> None:
+        mock_send = mocker.patch.object(Mailer, "_send")
+        Mailer().send_btc_withdrawal_confirmation(withdrawal)
+        plain = mock_send.call_args[0][1]
+        assert "0.00123 BTC" in plain
+
+    def test_plain_text_contains_fee_czk(
+        self, withdrawal: BtcWithdrawal, mocker: MockerFixture
+    ) -> None:
+        mock_send = mocker.patch.object(Mailer, "_send")
+        Mailer().send_btc_withdrawal_confirmation(withdrawal)
+        plain = mock_send.call_args[0][1]
+        assert "250" in plain
+
+    def test_plain_text_contains_exchange_id(
+        self, withdrawal: BtcWithdrawal, mocker: MockerFixture
+    ) -> None:
+        mock_send = mocker.patch.object(Mailer, "_send")
+        Mailer().send_btc_withdrawal_confirmation(withdrawal)
+        plain = mock_send.call_args[0][1]
+        assert "17751183" in plain
+
+    def test_html_contains_amount_btc(
+        self, withdrawal: BtcWithdrawal, mocker: MockerFixture
+    ) -> None:
+        mock_send = mocker.patch.object(Mailer, "_send")
+        Mailer().send_btc_withdrawal_confirmation(withdrawal)
+        html = mock_send.call_args[0][2]
+        assert "0.00123" in html
+
+    def test_html_contains_amount_czk(
+        self, withdrawal: BtcWithdrawal, mocker: MockerFixture
+    ) -> None:
+        mock_send = mocker.patch.object(Mailer, "_send")
+        Mailer().send_btc_withdrawal_confirmation(withdrawal)
+        html = mock_send.call_args[0][2]
+        # round(3075.00) = 3075 → f"{3075:_}" = "3_075" → "3\u00a0075"
+        assert "3\u00a0075" in html
+
+    def test_html_contains_threshold(
+        self, withdrawal: BtcWithdrawal, mocker: MockerFixture
+    ) -> None:
+        mock_send = mocker.patch.object(Mailer, "_send")
+        Mailer().send_btc_withdrawal_confirmation(withdrawal)
+        html = mock_send.call_args[0][2]
+        assert "500" in html  # threshold 500000 is in html
+
+    def test_threshold_formatted_with_nbsp(
+        self, withdrawal: BtcWithdrawal, mocker: MockerFixture
+    ) -> None:
+        mock_send = mocker.patch.object(Mailer, "_send")
+        Mailer().send_btc_withdrawal_confirmation(withdrawal)
+        html = mock_send.call_args[0][2]
+        # 500_000 → "500\u00a0000"
+        assert "500\u00a0000" in html

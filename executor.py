@@ -1,10 +1,12 @@
 # Standard library
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 # Local
 from coinmate import Coinmate
+from db.btc_withdrawals import BtcWithdrawal
 from db.orders import Currency, Order, Status
 from instrument_data import (
     INSTRUMENT_CURRENCIES,
@@ -14,7 +16,7 @@ from instrument_data import (
 )
 from instruments import Instruments
 from log import log
-from settings import PortfolioSettings, settings
+from settings import settings
 from trading212 import Trading212
 
 
@@ -23,12 +25,10 @@ class Executor:
         self,
         t212: Trading212,
         coinmate: Coinmate,
-        portfolio_settings: PortfolioSettings,
     ) -> None:
         """Initialize with Trading212 and Coinmate clients plus portfolio configuration."""
         self.t212 = t212
         self.coinmate = coinmate
-        self.portfolio_settings = portfolio_settings
 
     def _place_btc_order(self, amount: float, multiplier: float, run_id: UUID) -> Order:
         """Place an instant BTC buy on Coinmate for the given CZK amount, persist the Order to DB, and return it."""
@@ -186,3 +186,21 @@ class Executor:
         log.info("All orders placed successfully")
 
         return orders
+
+    def withdraw_btc(self) -> Optional[BtcWithdrawal]:
+        """Withdraw the full BTC balance to the external wallet and persist the withdrawal record. Returns the persisted BtcWithdrawal or None on failure."""
+        try:
+            btc_balance: float = self.coinmate.btc_balance()
+            transaction_data: Dict[str, Any] = self.coinmate.btc_withdraw(
+                btc_adress=settings.btc_external_adress, amount=btc_balance
+            )
+            btc_price = Instruments.get_btc_price()
+            actual_amount = float(transaction_data["amount"])
+            amount_czk = Decimal(str(round(actual_amount * btc_price, 2)))
+            fee_czk = Decimal(str(round(float(transaction_data["fee"]) * btc_price, 2)))
+            return BtcWithdrawal.create_withdrawal(
+                withdrawal_data=transaction_data, amount_czk=amount_czk, fee_czk=fee_czk
+            )
+        except Exception as e:
+            log.error(f"Failed to withdraw BTC: {e}")
+            return None

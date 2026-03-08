@@ -71,6 +71,7 @@ def portfolio_settings() -> PortfolioSettings:
         invest_interval="0 9 * * *",
         balance_buffer=1.5,
         balance_alert_days=7,
+        btc_withdrawal_treshold=500000,
     )
 
 

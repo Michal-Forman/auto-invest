@@ -37,6 +37,7 @@ def portfolio_settings() -> PortfolioSettings:
         invest_interval="0 9 * * *",
         balance_buffer=1.5,
         balance_alert_days=7,
+        btc_withdrawal_treshold=500000,
     )
 
 
@@ -46,10 +47,17 @@ def mock_t212() -> MagicMock:
 
 
 @pytest.fixture
+def mock_coinmate() -> MagicMock:
+    return MagicMock()
+
+
+@pytest.fixture
 def instruments(
-    mock_t212: MagicMock, portfolio_settings: PortfolioSettings
+    mock_t212: MagicMock,
+    mock_coinmate: MagicMock,
+    portfolio_settings: PortfolioSettings,
 ) -> Instruments:
-    return Instruments(mock_t212, portfolio_settings)
+    return Instruments(mock_t212, mock_coinmate, portfolio_settings)
 
 
 @pytest.fixture

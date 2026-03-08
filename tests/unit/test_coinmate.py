@@ -1,4 +1,5 @@
 # Standard library
+from decimal import Decimal
 import hashlib
 import hmac
 from typing import Any, Dict
@@ -9,6 +10,7 @@ from freezegun import freeze_time
 import pytest
 from pytest_mock import MockerFixture
 import requests
+from requests.exceptions import RequestException
 
 # Local
 from coinmate import Coinmate
@@ -233,3 +235,119 @@ class TestPrivateEndpoints:
         coinmate.user_trades("BTC_CZK", limit=10)
         mock_post.assert_called_once()
         assert mock_post.call_args.args[0] == "/tradeHistory"
+
+
+_WITHDRAWAL_DATA_RESPONSE: Dict[str, Any] = {
+    "err": None,
+    "req": {},
+    "res": {
+        "data": {
+            "id": "17751183",
+            "fee": 0.0001,
+            "amountCurrency": "BTC",
+            "amount": 0.00123,
+            "transferStatus": "CREATED",
+            "timestamp": 1741000000000,
+            "transferType": "WITHDRAWAL",
+        }
+    },
+}
+
+
+class TestBtcWithdraw:
+    def test_success_includes_destination_adress(
+        self, coinmate: Coinmate, mocker: MockerFixture
+    ) -> None:
+        mocker.patch.object(
+            coinmate,
+            "_post",
+            return_value={"err": None, "req": {}, "res": {"data": 17751183}},
+        )
+        mocker.patch.object(
+            coinmate,
+            "btc_withdrawal_data",
+            return_value={
+                "id": "17751183",
+                "fee": Decimal("0.0001"),
+                "currency": "BTC",
+                "amount": Decimal("0.00123"),
+                "status": "CREATED",
+                "timestamp": 1741000000000,
+                "transfer_type": "WITHDRAWAL",
+            },
+        )
+        result = coinmate.btc_withdraw("bc1qtest", 0.00123)
+        assert "destination_adress" in result
+        assert result["destination_adress"] == "bc1qtest"
+
+    def test_raises_request_exception_on_err(
+        self, coinmate: Coinmate, mocker: MockerFixture
+    ) -> None:
+        mocker.patch.object(
+            coinmate,
+            "_post",
+            return_value={"err": "insufficient funds", "req": {}, "res": None},
+        )
+        with pytest.raises(RequestException, match="insufficient funds"):
+            coinmate.btc_withdraw("bc1qtest", 0.00123)
+
+    def test_calls_btc_withdrawal_data_with_transaction_id(
+        self, coinmate: Coinmate, mocker: MockerFixture
+    ) -> None:
+        mocker.patch.object(
+            coinmate,
+            "_post",
+            return_value={"err": None, "req": {}, "res": {"data": 17751183}},
+        )
+        mock_data = mocker.patch.object(
+            coinmate,
+            "btc_withdrawal_data",
+            return_value={
+                "id": "17751183",
+                "fee": Decimal("0.0001"),
+                "currency": "BTC",
+                "amount": Decimal("0.00123"),
+                "status": "CREATED",
+                "timestamp": 1741000000000,
+                "transfer_type": "WITHDRAWAL",
+            },
+        )
+        coinmate.btc_withdraw("bc1qtest", 0.00123)
+        mock_data.assert_called_once_with("17751183")
+
+
+class TestBtcWithdrawalData:
+    def test_success_returns_all_keys(
+        self, coinmate: Coinmate, mocker: MockerFixture
+    ) -> None:
+        mocker.patch.object(coinmate, "_post", return_value=_WITHDRAWAL_DATA_RESPONSE)
+        result = coinmate.btc_withdrawal_data("17751183")
+        for key in (
+            "id",
+            "fee",
+            "currency",
+            "amount",
+            "status",
+            "timestamp",
+            "transfer_type",
+        ):
+            assert key in result
+
+    def test_raises_request_exception_on_err(
+        self, coinmate: Coinmate, mocker: MockerFixture
+    ) -> None:
+        mocker.patch.object(
+            coinmate,
+            "_post",
+            return_value={"err": "not found", "req": {}, "res": None},
+        )
+        with pytest.raises(RequestException, match="not found"):
+            coinmate.btc_withdrawal_data("99999")
+
+    def test_decimal_types_for_fee_and_amount(
+        self, coinmate: Coinmate, mocker: MockerFixture
+    ) -> None:
+        mocker.patch.object(coinmate, "_post", return_value=_WITHDRAWAL_DATA_RESPONSE)
+        result = coinmate.btc_withdrawal_data("17751183")
+        assert isinstance(result["fee"], Decimal)
+        assert isinstance(result["amount"], Decimal)

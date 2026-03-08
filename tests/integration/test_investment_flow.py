@@ -76,8 +76,8 @@ class TestCashDistributionToOrders:
             coinmate_buy_response,
         )
 
-        instruments = Instruments(t212, portfolio_settings)
-        executor = Executor(t212, coinmate, portfolio_settings)
+        instruments = Instruments(t212, coinmate, portfolio_settings)
+        executor = Executor(t212, coinmate)
 
         result = instruments.distribute_cash()
         orders = executor.place_orders(
@@ -112,8 +112,8 @@ class TestCashDistributionToOrders:
             coinmate_buy_response,
         )
 
-        instruments = Instruments(t212, portfolio_settings)
-        executor = Executor(t212, coinmate, portfolio_settings)
+        instruments = Instruments(t212, coinmate, portfolio_settings)
+        executor = Executor(t212, coinmate)
 
         result = instruments.distribute_cash()
         orders = executor.place_orders(
@@ -149,8 +149,8 @@ class TestCashDistributionToOrders:
             coinmate_buy_response,
         )
 
-        instruments = Instruments(t212, portfolio_settings)
-        executor = Executor(t212, coinmate, portfolio_settings)
+        instruments = Instruments(t212, coinmate, portfolio_settings)
+        executor = Executor(t212, coinmate)
 
         result = instruments.distribute_cash()
         orders = executor.place_orders(
@@ -181,8 +181,8 @@ class TestCashDistributionToOrders:
         mocker.patch.object(coinmate, "buy_instant", return_value=coinmate_buy_response)
         mocker.patch.object(Order, "post_to_db", return_value=None)
 
-        instruments = Instruments(t212, portfolio_settings)
-        executor = Executor(t212, coinmate, portfolio_settings)
+        instruments = Instruments(t212, coinmate, portfolio_settings)
+        executor = Executor(t212, coinmate)
 
         result = instruments.distribute_cash()
         orders = executor.place_orders(
@@ -219,8 +219,8 @@ class TestCashDistributionToOrders:
             coinmate_buy_response,
         )
 
-        instruments = Instruments(t212, portfolio_settings)
-        executor = Executor(t212, coinmate, portfolio_settings)
+        instruments = Instruments(t212, coinmate, portfolio_settings)
+        executor = Executor(t212, coinmate)
 
         result = instruments.distribute_cash()
         orders = executor.place_orders(
@@ -254,8 +254,8 @@ class TestCashDistributionToOrders:
             coinmate_buy_response,
         )
 
-        instruments = Instruments(t212, portfolio_settings)
-        executor = Executor(t212, coinmate, portfolio_settings)
+        instruments = Instruments(t212, coinmate, portfolio_settings)
+        executor = Executor(t212, coinmate)
 
         result = instruments.distribute_cash()
         orders = executor.place_orders(
@@ -295,7 +295,7 @@ class TestExchangeApiCallArguments:
         )
         mocker.patch.object(Order, "post_to_db", return_value=None)
 
-        executor = Executor(t212, coinmate, portfolio_settings)
+        executor = Executor(t212, coinmate)
         executor.place_orders({"VWCEd_EQ": 5000.0}, {"VWCEd_EQ": 1.0}, RUN_ID)
 
         # 5000 CZK / 25 (fx) / 100 (price) = 2.0 shares
@@ -317,7 +317,7 @@ class TestExchangeApiCallArguments:
         )
         mocker.patch.object(Order, "post_to_db", return_value=None)
 
-        executor = Executor(t212, coinmate, portfolio_settings)
+        executor = Executor(t212, coinmate)
         executor.place_orders({"VWCEd_EQ": 5000.0}, {"VWCEd_EQ": 1.0}, RUN_ID)
 
         # 5000 / 25 / 100.3 = 1.99401..., rounded to 3dp = 1.994
@@ -339,7 +339,7 @@ class TestExchangeApiCallArguments:
         )
         mocker.patch.object(Order, "post_to_db", return_value=None)
 
-        executor = Executor(t212, coinmate, portfolio_settings)
+        executor = Executor(t212, coinmate)
         executor.place_orders({"BTC": 250.0}, {"BTC": 1.0}, RUN_ID)
 
         mock_buy.assert_called_once_with(250.0, "BTC_CZK")
@@ -359,7 +359,7 @@ class TestExchangeApiCallArguments:
         )
         mocker.patch.object(Order, "post_to_db", return_value=None)
 
-        executor = Executor(t212, coinmate, portfolio_settings)
+        executor = Executor(t212, coinmate)
         executor.place_orders({"BTC": 1234.567}, {"BTC": 1.0}, RUN_ID)
 
         # 1234.567 rounded to 2dp = 1234.57
