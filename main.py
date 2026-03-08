@@ -39,7 +39,9 @@ mailer: Mailer = Mailer()
 # --- Check if BTC-Withdrawal should be made and if so, make one
 try:
     if instruments.is_btc_withdrawal_treshold_exceeded():
-        executor.withdraw_btc()
+        withdrawal = executor.withdraw_btc()
+        if withdrawal:
+            mailer.send_btc_withdrawal_confirmation(withdrawal)
     else:
         log.info("No BTC Withdrawal should take place")
 except Exception as e:

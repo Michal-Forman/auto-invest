@@ -18,6 +18,7 @@ import qrcode  # type: ignore[import-untyped]
 import qrcode.constants  # type: ignore[import-untyped]
 
 # Local
+from db.btc_withdrawals import BtcWithdrawal
 from db.mails import Mail
 from db.orders import Order
 from db.runs import Run
@@ -202,6 +203,43 @@ class Mailer:
             "\n".join(plain_lines),
             html,
             mail_type="investment_confirmation",
+        )
+
+    def send_btc_withdrawal_confirmation(self, withdrawal: BtcWithdrawal) -> None:
+        """Send confirmation email after a successful BTC withdrawal."""
+        addr = withdrawal.destination_address
+        destination_short = addr[:8] + "…" + addr[-8:] if len(addr) > 20 else addr
+
+        plain_lines = [
+            "BTC withdrawal complete.",
+            "",
+            f"Amount:      {withdrawal.amount} BTC",
+            f"Fee:         {withdrawal.fee} BTC",
+            f"CZK Value:   {withdrawal.amount_czk} CZK",
+            f"Exchange ID: {withdrawal.exchange_withdrawal_id}",
+            f"Timestamp:   {withdrawal.exchange_timestamp.strftime('%Y-%m-%d %H:%M UTC')}",
+            f"Type:        {withdrawal.transfer_type}",
+            f"Destination: {destination_short}",
+        ]
+
+        now = withdrawal.exchange_timestamp
+        html = self._load_template("btc_withdrawal_confirmation.html").substitute(
+            date_label=now.strftime("%B %-d, %Y"),
+            amount_btc=str(withdrawal.amount),
+            fee_btc=str(withdrawal.fee),
+            amount_czk=f"{float(withdrawal.amount_czk):_.2f}".replace("_", "\u00a0"),
+            exchange_id=str(withdrawal.exchange_withdrawal_id),
+            timestamp=now.strftime("%Y-%m-%d %H:%M UTC"),
+            transfer_type=withdrawal.transfer_type,
+            destination_short=destination_short,
+            destination_full=addr,
+        )
+
+        self._send(
+            "₿ [auto-invest] BTC withdrawal complete",
+            "\n".join(plain_lines),
+            html,
+            mail_type="btc_withdrawal_confirmation",
         )
 
     def send_error_alert(self, error: Exception, run: Optional[Run] = None) -> None:
@@ -655,7 +693,8 @@ if __name__ == "__main__":
         "monthly_summary_clean": False,
         "monthly_summary_with_issues": False,
         "monthly_summary_real": False,  # fetch real dev DB data for the month below
-        "balance_alert": True,
+        "balance_alert": False,
+        "btc_withdrawal": True,
     }
     REAL_YEAR, REAL_MONTH = 2026, 3  # ← change to the month you want to test
     # ──────────────────────────────────────────────────────────────────────
@@ -800,6 +839,23 @@ if __name__ == "__main__":
             print(
                 f"6. send_monthly_summary (real {REAL_YEAR}-{REAL_MONTH:02d}) sent — check inbox"
             )
+
+    if SEND["btc_withdrawal"]:
+        from decimal import Decimal
+
+        dummy_withdrawal = BtcWithdrawal(
+            exchange_withdrawal_id=17751183,
+            amount=Decimal("0.00123456"),
+            fee=Decimal("0.00010000"),
+            amount_czk=Decimal("7842.50"),
+            currency="BTC",
+            status="CREATED",
+            transfer_type="WITHDRAWAL",
+            destination_address="bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+            exchange_timestamp=now,
+        )
+        mailer.send_btc_withdrawal_confirmation(dummy_withdrawal)
+        print("8. send_btc_withdrawal_confirmation sent — check inbox")
 
     if SEND["balance_alert"]:
         from datetime import timezone as _tz
