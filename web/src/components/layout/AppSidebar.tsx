@@ -1,7 +1,6 @@
 import { NavLink } from "react-router-dom";
 import {
   BarChart3,
-  ChevronRight,
   Gauge,
   History,
   ListOrdered,
@@ -19,6 +18,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarTrigger,
 } from "@/components/ui/sidebar";
 
 const navItems = [
@@ -34,11 +34,8 @@ const navItems = [
 export function AppSidebar() {
   return (
     <Sidebar>
-      <SidebarHeader className="px-4 py-4">
-        <div className="flex items-center gap-2">
-          <ChevronRight className="h-5 w-5 text-primary" />
-          <span className="font-semibold text-sm">auto-invest</span>
-        </div>
+      <SidebarHeader className="px-2 py-4 md:hidden">
+        <SidebarTrigger />
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
