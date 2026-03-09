@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { mockInstruments, mockConfig } from "@/data/mock";
+import { formatNumber } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -93,7 +94,7 @@ export function Preview() {
                 >
                   <TableCell>
                     <div className="font-medium">{inst.ticker}</div>
-                    <div className="text-xs text-muted-foreground">{inst.display_name}</div>
+                    <div className="text-xs text-muted-foreground">{inst.name}</div>
                   </TableCell>
                   <TableCell className="text-right">{(inst.target_weight * 100).toFixed(1)}%</TableCell>
                   <TableCell className="text-right">{inst.drop_pct.toFixed(1)}%</TableCell>
@@ -102,7 +103,7 @@ export function Preview() {
                     {inst.note !== "dropped" ? (inst.adjusted_weight * 100).toFixed(1) + "%" : "—"}
                   </TableCell>
                   <TableCell className="text-right font-medium">
-                    {inst.final_czk > 0 ? inst.final_czk.toFixed(0) : "—"}
+                    {inst.final_czk > 0 ? formatNumber(inst.final_czk) : "—"}
                   </TableCell>
                   <TableCell>
                     {inst.note === "bumped" && (
@@ -120,7 +121,7 @@ export function Preview() {
               ))}
               <TableRow className="border-t-2 font-semibold bg-primary/10 text-primary">
                 <TableCell colSpan={5}>Total</TableCell>
-                <TableCell className="text-right">{total.toFixed(0)}</TableCell>
+                <TableCell className="text-right">{formatNumber(total)}</TableCell>
                 <TableCell />
               </TableRow>
             </TableBody>

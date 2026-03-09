@@ -1,6 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import { usePageTitle } from "@/hooks/use-page-title";
+import { useHealth } from "@/hooks/use-health";
 import { mockConfig, mockRuns } from "@/data/mock";
+import { formatNumber } from "@/lib/utils";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -30,9 +32,32 @@ function getNextRunDate(cron: string): string {
   return next.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
 }
 
+type DotStatus = "ok" | "error" | "unknown" | "loading";
+
+function StatusDot({ status, label }: { status: DotStatus; label: string }) {
+  const dotClass =
+    status === "ok"
+      ? "bg-green-500"
+      : status === "error"
+        ? "bg-red-500"
+        : status === "loading"
+          ? "bg-yellow-400 animate-pulse"
+          : "bg-muted-foreground/40";
+  const hint =
+    status === "ok" ? "OK" : status === "error" ? "Error" : status === "loading" ? "…" : "Unknown";
+  return (
+    <div className="flex items-center gap-2">
+      <div className={`h-2 w-2 rounded-full ${dotClass}`} />
+      <span className="text-sm">{label}</span>
+      <span className="text-xs text-muted-foreground">{hint}</span>
+    </div>
+  );
+}
+
 export function Overview() {
   usePageTitle("Overview");
   const navigate = useNavigate();
+  const health = useHealth();
   const lastRun = mockRuns[0];
   const filled = mockRuns.filter((r) => r.status === "FILLED").length;
   const failed = mockRuns.filter((r) => r.status === "FAILED").length;
@@ -49,7 +74,7 @@ export function Overview() {
             <CardTitle className="text-sm text-muted-foreground font-normal">Total Invested</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary">{totalInvested.toLocaleString()} CZK</div>
+            <div className="text-2xl font-bold text-primary">{formatNumber(totalInvested)} CZK</div>
           </CardContent>
         </Card>
         <Card className="border-t-2 border-t-primary">
@@ -92,17 +117,10 @@ export function Overview() {
           <CardHeader className="-mt-4 border-b bg-primary/5 pt-4">
             <CardTitle className="text-base text-primary">Exchange Health</CardTitle>
           </CardHeader>
-          <CardContent className="flex gap-6">
-            <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-green-500" />
-              <span className="text-sm">Trading 212</span>
-              <span className="text-xs text-muted-foreground">OK</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-green-500" />
-              <span className="text-sm">Coinmate</span>
-              <span className="text-xs text-muted-foreground">OK</span>
-            </div>
+          <CardContent className="flex flex-col gap-2">
+            <StatusDot status={health.api} label="API" />
+            <StatusDot status={health.t212} label="Trading 212" />
+            <StatusDot status={health.coinmate} label="Coinmate" />
           </CardContent>
         </Card>
       </div>
@@ -130,7 +148,7 @@ export function Overview() {
                 >
                   <TableCell>{new Date(run.created_at).toLocaleDateString("en-GB")}</TableCell>
                   <TableCell><StatusBadge status={run.status} /></TableCell>
-                  <TableCell className="text-right">{run.total_czk > 0 ? run.total_czk.toLocaleString() : "—"}</TableCell>
+                  <TableCell className="text-right">{run.total_czk > 0 ? formatNumber(run.total_czk) : "—"}</TableCell>
                   <TableCell className="text-right">{run.order_count || "—"}</TableCell>
                 </TableRow>
               ))}

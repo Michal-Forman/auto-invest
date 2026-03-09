@@ -26,35 +26,35 @@ export const mockRuns: Run[] = [
 
 export const mockOrders: Order[] = [
   // r01
-  { id: "o001", run_id: "r01", ticker: "VWCE", display_name: "Vanguard FTSE All-World", exchange: "T212", czk_amount: 1200, quantity: 3.2, fill_price: 375.0, status: "FILLED" },
-  { id: "o002", run_id: "r01", ticker: "IWDA", display_name: "iShares Core MSCI World", exchange: "T212", czk_amount: 900, quantity: 8.1, fill_price: 111.1, status: "FILLED" },
-  { id: "o003", run_id: "r01", ticker: "EIMI", display_name: "iShares Core MSCI EM IMI", exchange: "T212", czk_amount: 450, quantity: 12.0, fill_price: 37.5, status: "FILLED" },
-  { id: "o004", run_id: "r01", ticker: "IUSN", display_name: "iShares MSCI World Small Cap", exchange: "T212", czk_amount: 380, quantity: 22.4, fill_price: 16.96, status: "FILLED" },
-  { id: "o005", run_id: "r01", ticker: "CSPX", display_name: "iShares Core S&P 500", exchange: "T212", czk_amount: 620, quantity: 1.4, fill_price: 442.86, status: "FILLED" },
-  { id: "o006", run_id: "r01", ticker: "IQQH", display_name: "iShares Global Clean Energy", exchange: "T212", czk_amount: 250, quantity: 18.5, fill_price: 13.51, status: "FILLED" },
-  { id: "o007", run_id: "r01", ticker: "2B7K", display_name: "iShares $ Corp Bond ESG", exchange: "T212", czk_amount: 200, quantity: 5.0, fill_price: 40.0, status: "FILLED" },
-  { id: "o008", run_id: "r01", ticker: "BTC", display_name: "Bitcoin", exchange: "Coinmate", czk_amount: 1000, quantity: 0.00098, fill_price: 2550000, status: "FILLED" },
+  { id: "o001", run_id: "r01", ticker: "VWCE", name: "Vanguard FTSE All-World", exchange: "T212", czk_amount: 1200, quantity: 3.2, fill_price: 375.0, status: "FILLED" },
+  { id: "o002", run_id: "r01", ticker: "IWDA", name: "iShares Core MSCI World", exchange: "T212", czk_amount: 900, quantity: 8.1, fill_price: 111.1, status: "FILLED" },
+  { id: "o003", run_id: "r01", ticker: "EIMI", name: "iShares Core MSCI EM IMI", exchange: "T212", czk_amount: 450, quantity: 12.0, fill_price: 37.5, status: "FILLED" },
+  { id: "o004", run_id: "r01", ticker: "IUSN", name: "iShares MSCI World Small Cap", exchange: "T212", czk_amount: 380, quantity: 22.4, fill_price: 16.96, status: "FILLED" },
+  { id: "o005", run_id: "r01", ticker: "CSPX", name: "iShares Core S&P 500", exchange: "T212", czk_amount: 620, quantity: 1.4, fill_price: 442.86, status: "FILLED" },
+  { id: "o006", run_id: "r01", ticker: "IQQH", name: "iShares Global Clean Energy", exchange: "T212", czk_amount: 250, quantity: 18.5, fill_price: 13.51, status: "FILLED" },
+  { id: "o007", run_id: "r01", ticker: "2B7K", name: "iShares $ Corp Bond ESG", exchange: "T212", czk_amount: 200, quantity: 5.0, fill_price: 40.0, status: "FILLED" },
+  { id: "o008", run_id: "r01", ticker: "BTC", name: "Bitcoin", exchange: "Coinmate", czk_amount: 1000, quantity: 0.00098, fill_price: 2550000, status: "FILLED" },
   // r02
-  { id: "o009", run_id: "r02", ticker: "VWCE", display_name: "Vanguard FTSE All-World", exchange: "T212", czk_amount: 1150, quantity: 3.1, fill_price: 370.97, status: "FILLED" },
-  { id: "o010", run_id: "r02", ticker: "IWDA", display_name: "iShares Core MSCI World", exchange: "T212", czk_amount: 880, quantity: 7.9, fill_price: 111.39, status: "FILLED" },
-  { id: "o011", run_id: "r02", ticker: "EIMI", display_name: "iShares Core MSCI EM IMI", exchange: "T212", czk_amount: 470, quantity: 12.5, fill_price: 37.6, status: "FILLED" },
-  { id: "o012", run_id: "r02", ticker: "IUSN", display_name: "iShares MSCI World Small Cap", exchange: "T212", czk_amount: 360, quantity: 21.2, fill_price: 16.98, status: "FILLED" },
-  { id: "o013", run_id: "r02", ticker: "CSPX", display_name: "iShares Core S&P 500", exchange: "T212", czk_amount: 600, quantity: 1.35, fill_price: 444.44, status: "FILLED" },
-  { id: "o014", run_id: "r02", ticker: "IQQH", display_name: "iShares Global Clean Energy", exchange: "T212", czk_amount: 280, quantity: 20.4, fill_price: 13.73, status: "FILLED" },
-  { id: "o015", run_id: "r02", ticker: "2B7K", display_name: "iShares $ Corp Bond ESG", exchange: "T212", czk_amount: 260, quantity: 6.5, fill_price: 40.0, status: "FILLED" },
-  { id: "o016", run_id: "r02", ticker: "BTC", display_name: "Bitcoin", exchange: "Coinmate", czk_amount: 1000, quantity: 0.00101, fill_price: 2475247, status: "FILLED" },
+  { id: "o009", run_id: "r02", ticker: "VWCE", name: "Vanguard FTSE All-World", exchange: "T212", czk_amount: 1150, quantity: 3.1, fill_price: 370.97, status: "FILLED" },
+  { id: "o010", run_id: "r02", ticker: "IWDA", name: "iShares Core MSCI World", exchange: "T212", czk_amount: 880, quantity: 7.9, fill_price: 111.39, status: "FILLED" },
+  { id: "o011", run_id: "r02", ticker: "EIMI", name: "iShares Core MSCI EM IMI", exchange: "T212", czk_amount: 470, quantity: 12.5, fill_price: 37.6, status: "FILLED" },
+  { id: "o012", run_id: "r02", ticker: "IUSN", name: "iShares MSCI World Small Cap", exchange: "T212", czk_amount: 360, quantity: 21.2, fill_price: 16.98, status: "FILLED" },
+  { id: "o013", run_id: "r02", ticker: "CSPX", name: "iShares Core S&P 500", exchange: "T212", czk_amount: 600, quantity: 1.35, fill_price: 444.44, status: "FILLED" },
+  { id: "o014", run_id: "r02", ticker: "IQQH", name: "iShares Global Clean Energy", exchange: "T212", czk_amount: 280, quantity: 20.4, fill_price: 13.73, status: "FILLED" },
+  { id: "o015", run_id: "r02", ticker: "2B7K", name: "iShares $ Corp Bond ESG", exchange: "T212", czk_amount: 260, quantity: 6.5, fill_price: 40.0, status: "FILLED" },
+  { id: "o016", run_id: "r02", ticker: "BTC", name: "Bitcoin", exchange: "Coinmate", czk_amount: 1000, quantity: 0.00101, fill_price: 2475247, status: "FILLED" },
   // r08 (FINISHED — some not yet filled)
-  { id: "o017", run_id: "r08", ticker: "VWCE", display_name: "Vanguard FTSE All-World", exchange: "T212", czk_amount: 1200, quantity: 3.3, fill_price: 363.64, status: "FILLED" },
-  { id: "o018", run_id: "r08", ticker: "IWDA", display_name: "iShares Core MSCI World", exchange: "T212", czk_amount: 900, quantity: 8.2, fill_price: 109.76, status: "FILLED" },
-  { id: "o019", run_id: "r08", ticker: "EIMI", display_name: "iShares Core MSCI EM IMI", exchange: "T212", czk_amount: 450, quantity: null, fill_price: null, status: "SUBMITTED" },
-  { id: "o020", run_id: "r08", ticker: "CSPX", display_name: "iShares Core S&P 500", exchange: "T212", czk_amount: 620, quantity: null, fill_price: null, status: "SUBMITTED" },
-  { id: "o021", run_id: "r08", ticker: "BTC", display_name: "Bitcoin", exchange: "Coinmate", czk_amount: 1000, quantity: 0.00109, fill_price: 2293578, status: "FILLED" },
+  { id: "o017", run_id: "r08", ticker: "VWCE", name: "Vanguard FTSE All-World", exchange: "T212", czk_amount: 1200, quantity: 3.3, fill_price: 363.64, status: "FILLED" },
+  { id: "o018", run_id: "r08", ticker: "IWDA", name: "iShares Core MSCI World", exchange: "T212", czk_amount: 900, quantity: 8.2, fill_price: 109.76, status: "FILLED" },
+  { id: "o019", run_id: "r08", ticker: "EIMI", name: "iShares Core MSCI EM IMI", exchange: "T212", czk_amount: 450, quantity: null, fill_price: null, status: "SUBMITTED" },
+  { id: "o020", run_id: "r08", ticker: "CSPX", name: "iShares Core S&P 500", exchange: "T212", czk_amount: 620, quantity: null, fill_price: null, status: "SUBMITTED" },
+  { id: "o021", run_id: "r08", ticker: "BTC", name: "Bitcoin", exchange: "Coinmate", czk_amount: 1000, quantity: 0.00109, fill_price: 2293578, status: "FILLED" },
 ];
 
 export const mockInstruments: Instrument[] = [
   {
     ticker: "VWCE",
-    display_name: "Vanguard FTSE All-World",
+    name: "Vanguard FTSE All-World",
     exchange: "T212",
     cap_type: "soft",
     target_weight: 0.30,
@@ -67,7 +67,7 @@ export const mockInstruments: Instrument[] = [
   },
   {
     ticker: "IWDA",
-    display_name: "iShares Core MSCI World",
+    name: "iShares Core MSCI World",
     exchange: "T212",
     cap_type: "soft",
     target_weight: 0.20,
@@ -80,7 +80,7 @@ export const mockInstruments: Instrument[] = [
   },
   {
     ticker: "CSPX",
-    display_name: "iShares Core S&P 500",
+    name: "iShares Core S&P 500",
     exchange: "T212",
     cap_type: "none",
     target_weight: 0.15,
@@ -93,7 +93,7 @@ export const mockInstruments: Instrument[] = [
   },
   {
     ticker: "EIMI",
-    display_name: "iShares Core MSCI EM IMI",
+    name: "iShares Core MSCI EM IMI",
     exchange: "T212",
     cap_type: "soft",
     target_weight: 0.10,
@@ -106,7 +106,7 @@ export const mockInstruments: Instrument[] = [
   },
   {
     ticker: "IUSN",
-    display_name: "iShares MSCI World Small Cap",
+    name: "iShares MSCI World Small Cap",
     exchange: "T212",
     cap_type: "soft",
     target_weight: 0.08,
@@ -119,7 +119,7 @@ export const mockInstruments: Instrument[] = [
   },
   {
     ticker: "IQQH",
-    display_name: "iShares Global Clean Energy",
+    name: "iShares Global Clean Energy",
     exchange: "T212",
     cap_type: "hard",
     target_weight: 0.05,
@@ -132,7 +132,7 @@ export const mockInstruments: Instrument[] = [
   },
   {
     ticker: "2B7K",
-    display_name: "iShares $ Corp Bond ESG",
+    name: "iShares $ Corp Bond ESG",
     exchange: "T212",
     cap_type: "none",
     target_weight: 0.04,
@@ -145,7 +145,7 @@ export const mockInstruments: Instrument[] = [
   },
   {
     ticker: "BTC",
-    display_name: "Bitcoin",
+    name: "Bitcoin",
     exchange: "Coinmate",
     cap_type: "none",
     target_weight: 0.20,

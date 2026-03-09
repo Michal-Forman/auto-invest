@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { mockOrders, mockRuns } from "@/data/mock";
+import { formatNumber } from "@/lib/utils";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -21,7 +22,7 @@ export function Orders() {
     const matchSearch =
       search === "" ||
       o.ticker.toLowerCase().includes(search.toLowerCase()) ||
-      o.display_name.toLowerCase().includes(search.toLowerCase());
+      o.name.toLowerCase().includes(search.toLowerCase());
     const matchExchange = exchange === ALL || o.exchange === exchange;
     const matchStatus = status === ALL || o.status === status;
     return matchSearch && matchExchange && matchStatus;
@@ -84,15 +85,15 @@ export function Orders() {
                   </TableCell>
                   <TableCell>
                     <div className="font-medium">{order.ticker}</div>
-                    <div className="text-xs text-muted-foreground">{order.display_name}</div>
+                    <div className="text-xs text-muted-foreground">{order.name}</div>
                   </TableCell>
                   <TableCell>{order.exchange}</TableCell>
-                  <TableCell className="text-right">{order.czk_amount.toLocaleString()}</TableCell>
+                  <TableCell className="text-right">{formatNumber(order.czk_amount)}</TableCell>
                   <TableCell className="text-right">
                     {order.quantity != null ? order.quantity : "—"}
                   </TableCell>
                   <TableCell className="text-right">
-                    {order.fill_price != null ? order.fill_price.toLocaleString() : "—"}
+                    {order.fill_price != null ? formatNumber(order.fill_price) : "—"}
                   </TableCell>
                   <TableCell><StatusBadge status={order.status} /></TableCell>
                 </TableRow>

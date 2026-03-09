@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { mockInstruments } from "@/data/mock";
+import { formatNumber } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -72,7 +73,7 @@ export function Instruments() {
                 <TableRow key={inst.ticker}>
                   <TableCell>
                     <div className="font-medium">{inst.ticker}</div>
-                    <div className="text-xs text-muted-foreground">{inst.display_name}</div>
+                    <div className="text-xs text-muted-foreground">{inst.name}</div>
                   </TableCell>
                   <TableCell>{inst.exchange}</TableCell>
                   <TableCell>
@@ -81,13 +82,13 @@ export function Instruments() {
                     </Badge>
                   </TableCell>
                   <TableCell>{(inst.target_weight * 100).toFixed(1)}%</TableCell>
-                  <TableCell>{inst.ath_price.toLocaleString()}</TableCell>
-                  <TableCell>{inst.current_price.toLocaleString()}</TableCell>
+                  <TableCell>{formatNumber(inst.ath_price)}</TableCell>
+                  <TableCell>{formatNumber(inst.current_price)}</TableCell>
                   <TableCell className={`font-medium ${dropColor(inst.drop_pct)}`}>
                     {inst.drop_pct.toFixed(1)}%
                   </TableCell>
                   <TableCell>{inst.multiplier.toFixed(2)}×</TableCell>
-                  <TableCell className="font-medium">{inst.next_czk.toLocaleString()}</TableCell>
+                  <TableCell className="font-medium">{formatNumber(inst.next_czk)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

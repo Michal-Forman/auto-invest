@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { mockRuns } from "@/data/mock";
+import { formatNumber } from "@/lib/utils";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -42,7 +43,7 @@ export function RunHistory() {
                     <StatusBadge status={run.status} />
                   </TableCell>
                   <TableCell className="text-right">
-                    {run.total_czk > 0 ? run.total_czk.toLocaleString() : "—"}
+                    {run.total_czk > 0 ? formatNumber(run.total_czk) : "—"}
                   </TableCell>
                   <TableCell className="text-right">
                     {run.order_count || "—"}

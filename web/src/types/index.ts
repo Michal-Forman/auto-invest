@@ -15,7 +15,7 @@ export interface Order {
   id: string;
   run_id: string;
   ticker: string;
-  display_name: string;
+  name: string;
   exchange: Exchange;
   czk_amount: number;
   quantity: number | null;
@@ -25,7 +25,7 @@ export interface Order {
 
 export interface Instrument {
   ticker: string;
-  display_name: string;
+  name: string;
   exchange: Exchange;
   cap_type: CapType;
   target_weight: number;

@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { mockRuns, mockOrders } from "@/data/mock";
+import { formatNumber } from "@/lib/utils";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -61,7 +62,7 @@ export function RunDetail() {
           <div>
             <div className="text-sm text-muted-foreground">Total CZK</div>
             <div className="font-medium">
-              {run.total_czk > 0 ? `${run.total_czk.toLocaleString()} CZK` : "—"}
+              {run.total_czk > 0 ? `${formatNumber(run.total_czk)} CZK` : "—"}
             </div>
           </div>
         </CardContent>
@@ -129,15 +130,15 @@ export function RunDetail() {
                   <TableRow key={order.id}>
                     <TableCell>
                       <div className="font-medium">{order.ticker}</div>
-                      <div className="text-xs text-muted-foreground">{order.display_name}</div>
+                      <div className="text-xs text-muted-foreground">{order.name}</div>
                     </TableCell>
                     <TableCell>{order.exchange}</TableCell>
-                    <TableCell className="text-right">{order.czk_amount.toLocaleString()}</TableCell>
+                    <TableCell className="text-right">{formatNumber(order.czk_amount)}</TableCell>
                     <TableCell className="text-right">
                       {order.quantity != null ? order.quantity : "—"}
                     </TableCell>
                     <TableCell className="text-right">
-                      {order.fill_price != null ? order.fill_price.toLocaleString() : "—"}
+                      {order.fill_price != null ? formatNumber(order.fill_price) : "—"}
                     </TableCell>
                     <TableCell><StatusBadge status={order.status} /></TableCell>
                   </TableRow>

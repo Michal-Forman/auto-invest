@@ -1,5 +1,6 @@
 import { usePageTitle } from "@/hooks/use-page-title";
 import { mockConfig, mockInstruments } from "@/data/mock";
+import { formatNumber } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -32,7 +33,7 @@ export function Config() {
             <CardTitle className="text-sm text-muted-foreground font-normal">INVEST_AMOUNT</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary">{mockConfig.invest_amount.toLocaleString()} CZK</div>
+            <div className="text-2xl font-bold text-primary">{formatNumber(mockConfig.invest_amount)} CZK</div>
           </CardContent>
         </Card>
         <Card className="border-t-2 border-t-primary">
@@ -86,7 +87,7 @@ export function Config() {
             <TableHeader>
               <TableRow className="bg-muted/40 hover:bg-muted/40">
                 <TableHead>Ticker</TableHead>
-                <TableHead>Display Name</TableHead>
+                <TableHead>Name</TableHead>
                 <TableHead>Exchange</TableHead>
                 <TableHead>Cap Type</TableHead>
                 <TableHead className="text-right">Target Weight</TableHead>
@@ -96,7 +97,7 @@ export function Config() {
               {mockInstruments.map((inst) => (
                 <TableRow key={inst.ticker}>
                   <TableCell className="font-mono text-sm font-medium">{inst.ticker}</TableCell>
-                  <TableCell>{inst.display_name}</TableCell>
+                  <TableCell>{inst.name}</TableCell>
                   <TableCell>{inst.exchange}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className={capVariants[inst.cap_type]}>

@@ -15,6 +15,7 @@ import {
 } from "recharts";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { mockRunHistory, mockAllocationHistory, mockDropHistory, mockStatusBreakdown, mockPortfolioGrowth } from "@/data/mock";
+import { formatNumber } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const COLORS = ["#1e3a8a", "#1e40af", "#2563eb", "#3b82f6", "#60a5fa", "#93c5fd", "#f59e0b", "#10b981"];
@@ -110,7 +111,7 @@ export function Analytics() {
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" tick={{ fontSize: 11 }} angle={-30} textAnchor="end" />
               <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-              <Tooltip formatter={(v: number) => [`${v.toLocaleString()} CZK`, "Total Invested"]} />
+              <Tooltip formatter={(v: number) => [`${formatNumber(v)} CZK`, "Total Invested"]} />
               <Line type="monotone" dataKey="total" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
             </LineChart>
           </ResponsiveContainer>
