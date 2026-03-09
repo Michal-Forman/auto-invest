@@ -7,12 +7,12 @@ import pandas as pd  # type: ignore[import-untyped]
 import yfinance as yf  # type: ignore[import-untyped]
 
 # Local
-import coinmate
-from coinmate import Coinmate
-from instrument_data import INSTRUMENT_CAPS, T212_TO_YF
-from log import log
-from settings import PortfolioSettings
-from trading212 import Trading212
+import core.coinmate
+from core.coinmate import Coinmate
+from core.instrument_data import INSTRUMENT_CAPS, T212_TO_YF
+from core.log import log
+from core.settings import PortfolioSettings
+from core.trading212 import Trading212
 
 SOFT_CAP_PERCENT = 75
 HARD_CAP_RESET_PERCENT = 90
@@ -314,7 +314,7 @@ class Instruments:
 
 
 if __name__ == "__main__":
-    from instrument_data import INSTRUMENT_CURRENCIES, INSTRUMENT_NAMES, T212_TO_YF
+    from core.instrument_data import INSTRUMENT_CURRENCIES, INSTRUMENT_NAMES, T212_TO_YF
 
     for ticker in T212_TO_YF:
         try:

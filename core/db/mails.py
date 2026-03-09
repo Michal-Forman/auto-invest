@@ -10,8 +10,8 @@ from uuid import UUID
 from pydantic import BaseModel
 
 # Local
-from db.client import supabase
-from log import log
+from core.db.client import supabase
+from core.log import log
 
 TABLE = "mails"
 

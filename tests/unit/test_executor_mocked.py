@@ -9,10 +9,10 @@ import pytest
 from pytest_mock import MockerFixture
 
 # Local
-from db.btc_withdrawals import BtcWithdrawal
-from db.orders import Order
-from executor import Executor
-from instruments import Instruments
+from core.db.btc_withdrawals import BtcWithdrawal
+from core.db.orders import Order
+from core.executor import Executor
+from core.instruments import Instruments
 
 
 @pytest.fixture
@@ -97,7 +97,7 @@ class TestPlaceBtcOrder:
             "err": None,
         }
         mocker.patch.object(Order, "post_to_db", side_effect=RuntimeError("DB down"))
-        mock_log_error = mocker.patch("executor.log.error")
+        mock_log_error = mocker.patch("core.executor.log.error")
 
         executor._place_btc_order(500.0, 1.0, run_id)
 
@@ -117,7 +117,7 @@ class TestPlaceBtcOrder:
             "err": None,
         }
         mocker.patch.object(Order, "post_to_db", return_value={"id": "some-uuid"})
-        mock_log_info = mocker.patch("executor.log.info")
+        mock_log_info = mocker.patch("core.executor.log.info")
 
         executor._place_btc_order(500.0, 1.0, run_id)
 
@@ -203,7 +203,7 @@ class TestPlaceT212Order:
         mock_t212.equity_order_place_market.return_value = self._t212_response(
             -1.0, 2.0
         )
-        mock_log_warning = mocker.patch("executor.log.warning")
+        mock_log_warning = mocker.patch("core.executor.log.warning")
 
         order = executor._place_t212_order("VWCEd_EQ", 5000.0, 1.0, run_id)
 
@@ -220,7 +220,7 @@ class TestPlaceT212Order:
     ) -> None:
         mock_t212.equity_order_place_market.return_value = self._t212_response(0, 2.0)
         mocker.patch.object(Order, "post_to_db", side_effect=RuntimeError("DB down"))
-        mock_log_error = mocker.patch("executor.log.error")
+        mock_log_error = mocker.patch("core.executor.log.error")
 
         executor._place_t212_order("VWCEd_EQ", 5000.0, 1.0, run_id)
 
@@ -236,7 +236,7 @@ class TestPlaceT212Order:
     ) -> None:
         mock_t212.equity_order_place_market.return_value = self._t212_response(2.0, 2.0)
         mocker.patch.object(Order, "post_to_db", return_value={"id": "some-uuid"})
-        mock_log_info = mocker.patch("executor.log.info")
+        mock_log_info = mocker.patch("core.executor.log.info")
 
         executor._place_t212_order("VWCEd_EQ", 5000.0, 1.0, run_id)
 
@@ -338,7 +338,7 @@ class TestWithdrawBtc:
     def test_uses_settings_address(
         self, executor: Executor, mock_coinmate: MagicMock
     ) -> None:
-        from settings import settings
+        from core.settings import settings
 
         executor.withdraw_btc()
         call_kwargs = mock_coinmate.btc_withdraw.call_args.kwargs

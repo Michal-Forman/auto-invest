@@ -11,8 +11,8 @@ import pytest
 from pytest_mock import MockerFixture
 
 # Local
-from db.orders import Order
-from db.runs import Run
+from core.db.orders import Order
+from core.db.runs import Run
 
 
 def _run_row(

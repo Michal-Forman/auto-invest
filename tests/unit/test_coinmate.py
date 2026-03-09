@@ -13,7 +13,7 @@ import requests
 from requests.exceptions import RequestException
 
 # Local
-from coinmate import Coinmate
+from core.coinmate import Coinmate
 
 
 @pytest.fixture

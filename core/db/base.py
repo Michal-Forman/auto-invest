@@ -8,7 +8,7 @@ from typing import Any, ClassVar, Dict, Optional, cast
 from pydantic import BaseModel
 
 # Local
-from db.client import supabase
+from core.db.client import supabase
 
 
 class BaseDBModel(BaseModel):

@@ -10,13 +10,13 @@ import pytest
 from pytest_mock import MockerFixture
 
 # Local
-from db.runs import Run, RunUpdate
+from core.db.runs import Run, RunUpdate
 
 
 def _build_supabase_mock(mocker: MockerFixture) -> tuple:
     """Patch db.base.supabase and db.runs.supabase with a fluent mock chain. Returns (mock_sb, mock_chain)."""
-    mock_sb = mocker.patch("db.base.supabase")
-    mocker.patch("db.runs.supabase", mock_sb)
+    mock_sb = mocker.patch("core.db.base.supabase")
+    mocker.patch("core.db.runs.supabase", mock_sb)
     mock_chain = MagicMock()
     mock_sb.table.return_value = mock_chain
     for method in [
@@ -327,12 +327,12 @@ class TestRunExistsToday:
 
     @freeze_time("2026-03-03 09:00:00")
     def test_returns_true_when_run_found_in_prod(self, mocker: MockerFixture) -> None:
-        from settings import settings as real_settings
+        from core.settings import settings as real_settings
 
         mock_settings = MagicMock()
         mock_settings.env = "prod"
         mock_settings.portfolio = real_settings.portfolio
-        mocker.patch("db.runs.settings", mock_settings)
+        mocker.patch("core.db.runs.settings", mock_settings)
 
         _, mock_chain = _build_supabase_mock(mocker)
         mock_chain.execute.return_value = MagicMock(data=[{"id": "some-id"}])

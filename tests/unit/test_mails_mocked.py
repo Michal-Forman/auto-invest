@@ -8,7 +8,7 @@ import pytest
 from pytest_mock import MockerFixture
 
 # Local
-from db.mails import Mail
+from core.db.mails import Mail
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -17,7 +17,7 @@ from db.mails import Mail
 
 def _build_supabase_mock(mocker: MockerFixture) -> tuple:
     """Patch db.mails.supabase with a fluent mock chain. Returns (mock_sb, mock_chain)."""
-    mock_sb = mocker.patch("db.mails.supabase")
+    mock_sb = mocker.patch("core.db.mails.supabase")
     mock_chain = MagicMock()
     mock_sb.table.return_value = mock_chain
     for method in [

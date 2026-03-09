@@ -14,7 +14,7 @@ import requests
 from requests.exceptions import RequestException
 
 # Local
-from log import log
+from core.log import log
 
 
 class Coinmate:
@@ -223,7 +223,7 @@ class Coinmate:
 
 
 if __name__ == "__main__":
-    from settings import settings
+    from core.settings import settings
 
     coinmate = Coinmate(
         settings.coinmate_client_id,

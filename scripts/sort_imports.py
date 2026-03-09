@@ -34,6 +34,7 @@ def sort_and_comment(path):
         profile="black",
         force_sort_within_sections=True,
         known_third_party=["supabase"],
+        known_first_party=["core"],
     )
     isort.file(path, config=config)
 
@@ -79,7 +80,16 @@ def sort_and_comment(path):
         f.writelines(out)
 
 
-EXCLUDE_DIRS = {"__pycache__", ".venv", "venv", ".git", "supabase", "scripts"}
+EXCLUDE_DIRS = {
+    "__pycache__",
+    ".venv",
+    "venv",
+    ".git",
+    "supabase",
+    "scripts",
+    "web",
+    "node_modules",
+}
 
 
 def find_py_files(root):

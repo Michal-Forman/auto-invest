@@ -21,10 +21,10 @@ for _key, _val in _env_test.items():
 import pytest
 
 # Local
-from db.orders import Order
-from db.runs import Run
-from instruments import Instruments
-from settings import PortfolioSettings
+from core.db.orders import Order
+from core.db.runs import Run
+from core.instruments import Instruments
+from core.settings import PortfolioSettings
 
 
 @pytest.fixture

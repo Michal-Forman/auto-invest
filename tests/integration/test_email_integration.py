@@ -10,10 +10,10 @@ import pytest
 from pytest_mock import MockerFixture
 
 # Local
-from db.mails import Mail
-from db.orders import Order
-from db.runs import Run
-from mailer import Mailer
+from core.db.mails import Mail
+from core.db.orders import Order
+from core.db.runs import Run
+from core.mailer import Mailer
 
 # ---------------------------------------------------------------------------
 # Shared fixtures / helpers
@@ -139,7 +139,7 @@ class TestInvestmentConfirmationIntegration:
 
         mocker.patch("builtins.open", side_effect=_open_selective)
         mock_server = MagicMock()
-        mock_smtp = mocker.patch("mailer.smtplib.SMTP_SSL")
+        mock_smtp = mocker.patch("core.mailer.smtplib.SMTP_SSL")
         mock_smtp.return_value.__enter__.return_value = mock_server
         mock_post = _patch_mail_db(mocker)
 
@@ -320,7 +320,7 @@ class TestMailSummaryGuard:
     def test_summary_sent_for_period_false_when_no_db_record(
         self, mocker: MockerFixture
     ) -> None:
-        mock_sb = mocker.patch("db.mails.supabase")
+        mock_sb = mocker.patch("core.db.mails.supabase")
         mock_chain = MagicMock()
         mock_sb.table.return_value = mock_chain
         for m in ["select", "eq", "limit"]:
@@ -332,7 +332,7 @@ class TestMailSummaryGuard:
     def test_summary_sent_for_period_true_when_db_record_exists(
         self, mocker: MockerFixture
     ) -> None:
-        mock_sb = mocker.patch("db.mails.supabase")
+        mock_sb = mocker.patch("core.db.mails.supabase")
         mock_chain = MagicMock()
         mock_sb.table.return_value = mock_chain
         for m in ["select", "eq", "limit"]:
@@ -344,7 +344,7 @@ class TestMailSummaryGuard:
     def test_summary_sent_for_period_returns_false_on_db_error(
         self, mocker: MockerFixture
     ) -> None:
-        mock_sb = mocker.patch("db.mails.supabase")
+        mock_sb = mocker.patch("core.db.mails.supabase")
         mock_sb.table.side_effect = RuntimeError("supabase unavailable")
 
         assert Mail.summary_sent_for_period("2026-02") is False
@@ -449,9 +449,9 @@ class TestBalanceAlertIntegration:
         mock_settings.coinmate_deposit_account = None
         mock_settings.coinmate_deposit_vs = None
         mock_settings.portfolio.invest_interval = "0 9 * * *"
-        mocker.patch("mailer.settings", mock_settings)
-        mocker.patch("mailer._make_spd_qr", return_value=b"PNG")
-        mocker.patch("mailer._runs_in_next_30_days", return_value=4)
+        mocker.patch("core.mailer.settings", mock_settings)
+        mocker.patch("core.mailer._make_spd_qr", return_value=b"PNG")
+        mocker.patch("core.mailer._runs_in_next_30_days", return_value=4)
 
         Mailer().send_balance_alert([_make_balance_alert(exchange="T212")])
 
@@ -469,8 +469,8 @@ class TestBalanceAlertIntegration:
         mock_settings.coinmate_deposit_account = None
         mock_settings.coinmate_deposit_vs = None
         mock_settings.portfolio.invest_interval = "0 9 * * *"
-        mocker.patch("mailer.settings", mock_settings)
-        mocker.patch("mailer._runs_in_next_30_days", return_value=4)
+        mocker.patch("core.mailer.settings", mock_settings)
+        mocker.patch("core.mailer._runs_in_next_30_days", return_value=4)
 
         Mailer().send_balance_alert([_make_balance_alert(exchange="T212")])
 
@@ -498,7 +498,7 @@ class TestBalanceAlertIntegration:
 
         mocker.patch("builtins.open", side_effect=_open_selective)
         mock_server = MagicMock()
-        mock_smtp = mocker.patch("mailer.smtplib.SMTP_SSL")
+        mock_smtp = mocker.patch("core.mailer.smtplib.SMTP_SSL")
         mock_smtp.return_value.__enter__.return_value = mock_server
         mock_post = _patch_mail_db(mocker)
 

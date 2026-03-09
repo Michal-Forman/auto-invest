@@ -5,8 +5,8 @@ from typing import Callable
 import pytest
 
 # Local
-from db.orders import Order
-from db.runs import Run
+from core.db.orders import Order
+from core.db.runs import Run
 
 
 class TestProcessNewRunData:

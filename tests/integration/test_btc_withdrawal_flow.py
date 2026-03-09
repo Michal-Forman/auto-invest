@@ -9,13 +9,13 @@ from pytest_mock import MockerFixture
 from requests.exceptions import RequestException
 
 # Local
-from coinmate import Coinmate
-from db.btc_withdrawals import BtcWithdrawal
-from executor import Executor
-from instruments import Instruments
-from mailer import Mailer
-from settings import PortfolioSettings
-from trading212 import Trading212
+from core.coinmate import Coinmate
+from core.db.btc_withdrawals import BtcWithdrawal
+from core.executor import Executor
+from core.instruments import Instruments
+from core.mailer import Mailer
+from core.settings import PortfolioSettings
+from core.trading212 import Trading212
 
 
 def _make_transaction_data(amount: float = 0.01) -> dict:

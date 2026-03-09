@@ -6,7 +6,7 @@ from typing import Optional
 from croniter import croniter  # type: ignore[import-untyped]
 
 # Local
-from settings import settings
+from core.settings import settings
 
 
 def find_balance_exhaustion_date(

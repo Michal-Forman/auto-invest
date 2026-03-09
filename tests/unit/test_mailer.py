@@ -11,10 +11,10 @@ import pytest
 from pytest_mock import MockerFixture
 
 # Local
-from db.btc_withdrawals import BtcWithdrawal
-from db.orders import Order
-from db.runs import Run
-from mailer import (
+from core.db.btc_withdrawals import BtcWithdrawal
+from core.db.orders import Order
+from core.db.runs import Run
+from core.mailer import (
     _FEE_RATIO_THRESHOLD,
     _FX_DRIFT_THRESHOLD,
     _SLIPPAGE_THRESHOLD,
@@ -76,7 +76,7 @@ def _make_order(**overrides: Any) -> Order:
 def _patch_smtp_and_logo(mocker: MockerFixture) -> MagicMock:
     """Patch smtplib.SMTP_SSL and logo file open so no real network/disk is needed."""
     mock_server = MagicMock()
-    mock_smtp_cls = mocker.patch("mailer.smtplib.SMTP_SSL")
+    mock_smtp_cls = mocker.patch("core.mailer.smtplib.SMTP_SSL")
     mock_smtp_cls.return_value.__enter__.return_value = mock_server
     # Patch open only for the logo so templates still load from disk
     import builtins
@@ -135,7 +135,7 @@ class TestSend:
         self, mocker: MockerFixture
     ) -> None:
         mock_server = _patch_smtp_and_logo(mocker)
-        mocker.patch("mailer.Mail.post_to_db")
+        mocker.patch("core.mailer.Mail.post_to_db")
 
         mailer = Mailer()
         mailer._send("Subject", "plain", "<html>body</html>", "error_alert")
@@ -145,7 +145,7 @@ class TestSend:
 
     def test_send_persists_to_db_after_success(self, mocker: MockerFixture) -> None:
         _patch_smtp_and_logo(mocker)
-        mock_post = mocker.patch("mailer.Mail.post_to_db")
+        mock_post = mocker.patch("core.mailer.Mail.post_to_db")
 
         mailer = Mailer()
         mailer._send(
@@ -158,11 +158,11 @@ class TestSend:
         self, mocker: MockerFixture
     ) -> None:
         _patch_smtp_and_logo(mocker)
-        mock_post = mocker.patch("mailer.Mail.post_to_db")
+        mock_post = mocker.patch("core.mailer.Mail.post_to_db")
         # Make SMTP_SSL context manager raise on send_message
         mock_server = MagicMock()
         mock_server.send_message.side_effect = Exception("SMTP failure")
-        mock_smtp_cls = mocker.patch("mailer.smtplib.SMTP_SSL")
+        mock_smtp_cls = mocker.patch("core.mailer.smtplib.SMTP_SSL")
         mock_smtp_cls.return_value.__enter__.return_value = mock_server
 
         mailer = Mailer()
@@ -173,10 +173,10 @@ class TestSend:
 
     def test_send_raises_on_smtp_failure(self, mocker: MockerFixture) -> None:
         _patch_smtp_and_logo(mocker)
-        mocker.patch("mailer.Mail.post_to_db")
+        mocker.patch("core.mailer.Mail.post_to_db")
         mock_server = MagicMock()
         mock_server.login.side_effect = OSError("Connection refused")
-        mock_smtp_cls = mocker.patch("mailer.smtplib.SMTP_SSL")
+        mock_smtp_cls = mocker.patch("core.mailer.smtplib.SMTP_SSL")
         mock_smtp_cls.return_value.__enter__.return_value = mock_server
 
         mailer = Mailer()
@@ -185,7 +185,7 @@ class TestSend:
 
     def test_send_sets_correct_email_headers(self, mocker: MockerFixture) -> None:
         mock_server = _patch_smtp_and_logo(mocker)
-        mocker.patch("mailer.Mail.post_to_db")
+        mocker.patch("core.mailer.Mail.post_to_db")
 
         mailer = Mailer()
         mailer._send("My Subject", "plain", "<html/>", "error_alert")
@@ -202,7 +202,7 @@ class TestSend:
         def _capture_post(self_mail: Any) -> None:  # type: ignore[misc]
             captured.append(self_mail)
 
-        mocker.patch("mailer.Mail.post_to_db", _capture_post)
+        mocker.patch("core.mailer.Mail.post_to_db", _capture_post)
 
         mailer = Mailer()
         mailer._send("Subject", "plain", "<html/>", "monthly_summary", period="2026-02")
@@ -213,7 +213,7 @@ class TestSend:
         mocker.stopall()
 
         _patch_smtp_and_logo(mocker)
-        mock_mail_cls = mocker.patch("mailer.Mail")
+        mock_mail_cls = mocker.patch("core.mailer.Mail")
         mock_mail_instance = MagicMock()
         mock_mail_cls.return_value = mock_mail_instance
 
@@ -901,7 +901,7 @@ class TestSendBalanceAlertTopupSection:
         mock_settings.coinmate_deposit_account = coinmate_account
         mock_settings.coinmate_deposit_vs = coinmate_vs
         mock_settings.portfolio.invest_interval = "0 9 * * *"
-        mocker.patch("mailer.settings", mock_settings)
+        mocker.patch("core.mailer.settings", mock_settings)
         return mock_settings
 
     def test_extra_images_contains_qr_when_deposit_config_present(
@@ -909,8 +909,8 @@ class TestSendBalanceAlertTopupSection:
     ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
         self._patch_settings(mocker, t212_account="19-123456789/0800", t212_vs="12345")
-        mocker.patch("mailer._make_spd_qr", return_value=b"PNG")
-        mocker.patch("mailer._runs_in_next_30_days", return_value=4)
+        mocker.patch("core.mailer._make_spd_qr", return_value=b"PNG")
+        mocker.patch("core.mailer._runs_in_next_30_days", return_value=4)
 
         Mailer().send_balance_alert([_make_alert(exchange="T212")])
 
@@ -923,7 +923,7 @@ class TestSendBalanceAlertTopupSection:
     ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
         self._patch_settings(mocker)  # all None
-        mocker.patch("mailer._runs_in_next_30_days", return_value=4)
+        mocker.patch("core.mailer._runs_in_next_30_days", return_value=4)
 
         Mailer().send_balance_alert([_make_alert(exchange="T212")])
 
@@ -935,8 +935,8 @@ class TestSendBalanceAlertTopupSection:
     ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
         self._patch_settings(mocker, t212_account="19-123456789/0800", t212_vs="12345")
-        mocker.patch("mailer._make_spd_qr", return_value=b"PNG")
-        mocker.patch("mailer._runs_in_next_30_days", return_value=4)
+        mocker.patch("core.mailer._make_spd_qr", return_value=b"PNG")
+        mocker.patch("core.mailer._runs_in_next_30_days", return_value=4)
 
         Mailer().send_balance_alert([_make_alert(exchange="T212")])
 
@@ -950,7 +950,7 @@ class TestSendBalanceAlertTopupSection:
     ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
         self._patch_settings(mocker)  # all None
-        mocker.patch("mailer._runs_in_next_30_days", return_value=4)
+        mocker.patch("core.mailer._runs_in_next_30_days", return_value=4)
 
         Mailer().send_balance_alert([_make_alert(exchange="T212")])
 
@@ -963,8 +963,8 @@ class TestSendBalanceAlertTopupSection:
     ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
         self._patch_settings(mocker, t212_account="19-123456789/0800", t212_vs="12345")
-        mock_qr = mocker.patch("mailer._make_spd_qr", return_value=b"PNG")
-        mocker.patch("mailer._runs_in_next_30_days", return_value=4)
+        mock_qr = mocker.patch("core.mailer._make_spd_qr", return_value=b"PNG")
+        mocker.patch("core.mailer._runs_in_next_30_days", return_value=4)
 
         # ceil(4 * 333.0 / 100) * 100 = ceil(13.32) * 100 = 1400
         Mailer().send_balance_alert([_make_alert(exchange="T212", spend_per_run=333.0)])
@@ -977,8 +977,8 @@ class TestSendBalanceAlertTopupSection:
     ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
         self._patch_settings(mocker, t212_account="19-123456789/0800", t212_vs="12345")
-        mock_qr = mocker.patch("mailer._make_spd_qr", return_value=b"PNG")
-        mocker.patch("mailer._runs_in_next_30_days", return_value=4)
+        mock_qr = mocker.patch("core.mailer._make_spd_qr", return_value=b"PNG")
+        mocker.patch("core.mailer._runs_in_next_30_days", return_value=4)
 
         # ceil(4 * 250.0 / 100) * 100 = ceil(10.0) * 100 = 1000
         Mailer().send_balance_alert([_make_alert(exchange="T212", spend_per_run=250.0)])
@@ -997,8 +997,8 @@ class TestSendBalanceAlertTopupSection:
             coinmate_account="987654321/2060",
             coinmate_vs="99999",
         )
-        mock_qr = mocker.patch("mailer._make_spd_qr", return_value=b"PNG")
-        mocker.patch("mailer._runs_in_next_30_days", return_value=4)
+        mock_qr = mocker.patch("core.mailer._make_spd_qr", return_value=b"PNG")
+        mocker.patch("core.mailer._runs_in_next_30_days", return_value=4)
 
         Mailer().send_balance_alert(
             [_make_alert(exchange="T212"), _make_alert(exchange="COINMATE")]
@@ -1013,8 +1013,8 @@ class TestSendBalanceAlertTopupSection:
     def test_unknown_exchange_skips_qr_generation(self, mocker: MockerFixture) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
         self._patch_settings(mocker)  # all None
-        mock_qr = mocker.patch("mailer._make_spd_qr", return_value=b"PNG")
-        mocker.patch("mailer._runs_in_next_30_days", return_value=4)
+        mock_qr = mocker.patch("core.mailer._make_spd_qr", return_value=b"PNG")
+        mocker.patch("core.mailer._runs_in_next_30_days", return_value=4)
 
         Mailer().send_balance_alert([_make_alert(exchange="KRAKEN")])
 
@@ -1028,8 +1028,8 @@ class TestSendBalanceAlertTopupSection:
         mock_send = mocker.patch.object(Mailer, "_send")
         # Only T212 has deposit config; COINMATE does not
         self._patch_settings(mocker, t212_account="19-123456789/0800", t212_vs="12345")
-        mock_qr = mocker.patch("mailer._make_spd_qr", return_value=b"PNG")
-        mocker.patch("mailer._runs_in_next_30_days", return_value=4)
+        mock_qr = mocker.patch("core.mailer._make_spd_qr", return_value=b"PNG")
+        mocker.patch("core.mailer._runs_in_next_30_days", return_value=4)
 
         Mailer().send_balance_alert(
             [_make_alert(exchange="T212"), _make_alert(exchange="COINMATE")]

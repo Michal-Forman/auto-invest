@@ -8,9 +8,9 @@ import pytest
 from pytest_mock import MockerFixture
 
 # Local
-from coinmate import Coinmate
-from db.orders import Order
-from trading212 import Trading212
+from core.coinmate import Coinmate
+from core.db.orders import Order
+from core.trading212 import Trading212
 
 
 def _submitted_order_row(

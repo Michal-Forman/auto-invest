@@ -7,9 +7,9 @@ import pytest
 from pytest_mock import MockerFixture
 
 # Local
-from coinmate import Coinmate
-from settings import PortfolioSettings
-from trading212 import Trading212
+from core.coinmate import Coinmate
+from core.settings import PortfolioSettings
+from core.trading212 import Trading212
 
 
 def _make_chain() -> MagicMock:
@@ -37,8 +37,8 @@ def supabase_mocks(mocker: MockerFixture) -> SimpleNamespace:
     orders_chain = _make_chain()
     runs_chain = _make_chain()
 
-    mock_orders_sb = mocker.patch("db.orders.supabase")
-    mock_runs_sb = mocker.patch("db.runs.supabase")
+    mock_orders_sb = mocker.patch("core.db.orders.supabase")
+    mock_runs_sb = mocker.patch("core.db.runs.supabase")
 
     mock_orders_sb.table.return_value = orders_chain
     mock_runs_sb.table.side_effect = lambda name: (

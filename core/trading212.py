@@ -9,7 +9,7 @@ import requests
 from requests.exceptions import HTTPError, RequestException
 
 # Local
-from log import log
+from core.log import log
 
 
 class Trading212:
@@ -256,7 +256,7 @@ class Trading212:
 
 
 if __name__ == "__main__":
-    from settings import settings
+    from core.settings import settings
 
     t212 = Trading212(settings.t212_id_key, settings.t212_private_key, env=settings.env)
     print(t212.balance())

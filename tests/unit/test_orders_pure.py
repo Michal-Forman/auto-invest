@@ -7,7 +7,7 @@ from uuid import UUID
 import pytest
 
 # Local
-from db.orders import Order, OrderUpdate
+from core.db.orders import Order, OrderUpdate
 
 
 class TestGenerateIdempotencyKey:

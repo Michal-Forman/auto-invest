@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from freezegun import freeze_time
 
 # Local
-from utils import find_balance_exhaustion_date, is_now_cron_time
+from core.utils import find_balance_exhaustion_date, is_now_cron_time
 
 
 @freeze_time("2026-03-03 09:00:00")

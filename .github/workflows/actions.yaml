@@ -56,4 +56,4 @@ jobs:
           COINMATE_DEPOSIT_VS: ${{ vars.COINMATE_DEPOSIT_VS }}
           BTC_WITHDRAWAL_TRESHOLD: ${{ vars.BTC_WITHDRAWAL_TRESHOLD }}
           BTC_EXTERNAL_ADRESS: ${{ vars.BTC_EXTERNAL_ADRESS }}
-        run: python main.py
+        run: python -m core.main

@@ -8,11 +8,11 @@ from typing import Any, ClassVar, Dict, Literal, Optional
 from uuid import UUID
 
 # Local
-from db.base import BaseDBModel
+from core.db.base import BaseDBModel
 
 Status = Literal["CREATED", "FILLED", "FAILED"]
 # Local
-from log import log
+from core.log import log
 
 
 class BtcWithdrawal(BaseDBModel):

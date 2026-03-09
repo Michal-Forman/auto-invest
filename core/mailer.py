@@ -18,12 +18,12 @@ import qrcode  # type: ignore[import-untyped]
 import qrcode.constants  # type: ignore[import-untyped]
 
 # Local
-from db.btc_withdrawals import BtcWithdrawal
-from db.mails import Mail
-from db.orders import Order
-from db.runs import Run
-from log import log
-from settings import settings
+from core.db.btc_withdrawals import BtcWithdrawal
+from core.db.mails import Mail
+from core.db.orders import Order
+from core.db.runs import Run
+from core.log import log
+from core.settings import settings
 
 _TEMPLATE_DIR = os.path.join(os.path.dirname(__file__), "templates", "emails")
 _ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")

@@ -2,7 +2,7 @@
 from typing import Dict
 
 # Local
-from db.orders import Currency, InstrumentType
+from core.db.orders import Currency, InstrumentType
 
 T212_TO_YF: Dict[str, str] = {
     "VWCEd_EQ": "VWCE.DE",
