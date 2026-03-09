@@ -36,7 +36,7 @@ export function Analytics() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
-          <CardHeader className="border-b bg-primary/5">
+          <CardHeader className="-mt-4 border-b bg-primary/5 pt-4">
             <CardTitle className="text-base text-primary">CZK Invested per Run</CardTitle>
           </CardHeader>
           <CardContent>
@@ -53,7 +53,7 @@ export function Analytics() {
         </Card>
 
         <Card>
-          <CardHeader className="border-b bg-primary/5">
+          <CardHeader className="-mt-4 border-b bg-primary/5 pt-4">
             <CardTitle className="text-base text-primary">Run Status Breakdown</CardTitle>
           </CardHeader>
           <CardContent className="flex justify-center">
@@ -81,7 +81,7 @@ export function Analytics() {
       </div>
 
       <Card>
-        <CardHeader className="border-b bg-primary/5">
+        <CardHeader className="-mt-4 border-b bg-primary/5 pt-4">
           <CardTitle className="text-base text-primary">Allocation % per Instrument over Time</CardTitle>
         </CardHeader>
         <CardContent>
@@ -101,7 +101,7 @@ export function Analytics() {
       </Card>
 
       <Card>
-        <CardHeader className="border-b bg-primary/5">
+        <CardHeader className="-mt-4 border-b bg-primary/5 pt-4">
           <CardTitle className="text-base text-primary">Portfolio Value Over Time (CZK)</CardTitle>
         </CardHeader>
         <CardContent>
@@ -118,7 +118,7 @@ export function Analytics() {
       </Card>
 
       <Card>
-        <CardHeader className="border-b bg-primary/5">
+        <CardHeader className="-mt-4 border-b bg-primary/5 pt-4">
           <CardTitle className="text-base text-primary">Drop-from-ATH % per Instrument</CardTitle>
         </CardHeader>
         <CardContent>

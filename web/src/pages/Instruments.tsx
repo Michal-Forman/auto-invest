@@ -52,7 +52,7 @@ export function Instruments() {
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold text-primary">Instruments</h1>
       <Card>
-        <CardContent className="p-0 overflow-auto">
+        <CardContent className="p-0 overflow-auto -mt-4">
           <Table>
             <TableHeader>
               <TableRow>

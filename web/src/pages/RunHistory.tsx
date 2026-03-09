@@ -13,7 +13,7 @@ export function RunHistory() {
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold text-primary">Run History</h1>
       <Card>
-        <CardContent className="p-0">
+        <CardContent className="p-0 -mt-4">
           <Table>
             <TableHeader>
               <TableRow className="bg-primary/5 hover:bg-primary/5">

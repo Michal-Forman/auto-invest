@@ -54,7 +54,7 @@ export function Config() {
       </div>
 
       <Card>
-        <CardHeader className="border-b bg-primary/5">
+        <CardHeader className="-mt-4 border-b bg-primary/5 pt-4">
           <CardTitle className="text-base text-primary">Schedule</CardTitle>
         </CardHeader>
         <CardContent className="space-y-1">
@@ -64,7 +64,7 @@ export function Config() {
       </Card>
 
       <Card>
-        <CardHeader className="border-b bg-primary/5">
+        <CardHeader className="-mt-4 border-b bg-primary/5 pt-4">
           <CardTitle className="text-base text-primary">Environment</CardTitle>
         </CardHeader>
         <CardContent>
@@ -78,13 +78,13 @@ export function Config() {
       </Card>
 
       <Card>
-        <CardHeader className="border-b bg-primary/5">
+        <CardHeader className="-mt-4 border-b bg-primary/5 pt-4">
           <CardTitle className="text-base text-primary">Instrument Registry</CardTitle>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="p-0 -mt-4">
           <Table>
             <TableHeader>
-              <TableRow className="bg-primary/5 hover:bg-primary/5">
+              <TableRow className="bg-muted/40 hover:bg-muted/40">
                 <TableHead>Ticker</TableHead>
                 <TableHead>Display Name</TableHead>
                 <TableHead>Exchange</TableHead>

@@ -56,7 +56,7 @@ export function Preview() {
       <h1 className="text-2xl font-semibold text-primary">Next Run Preview</h1>
 
       <Card>
-        <CardHeader className="border-b bg-primary/5">
+        <CardHeader className="-mt-4 border-b bg-primary/5 pt-4">
           <CardTitle className="text-base text-primary">Invest Amount</CardTitle>
         </CardHeader>
         <CardContent className="flex items-center gap-3">

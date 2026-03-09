@@ -80,7 +80,7 @@ export function Overview() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
-          <CardHeader className="border-b bg-primary/5">
+          <CardHeader className="-mt-4 border-b bg-primary/5 pt-4">
             <CardTitle className="text-base text-primary">Next Run</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1">
@@ -89,7 +89,7 @@ export function Overview() {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="border-b bg-primary/5">
+          <CardHeader className="-mt-4 border-b bg-primary/5 pt-4">
             <CardTitle className="text-base text-primary">Exchange Health</CardTitle>
           </CardHeader>
           <CardContent className="flex gap-6">
@@ -108,13 +108,13 @@ export function Overview() {
       </div>
 
       <Card>
-        <CardHeader className="border-b bg-primary/5">
+        <CardHeader className="-mt-4 border-b bg-primary/5 pt-4">
           <CardTitle className="text-base text-primary">Recent Runs</CardTitle>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="p-0 -mt-4">
           <Table>
             <TableHeader>
-              <TableRow className="bg-primary/5 hover:bg-primary/5">
+              <TableRow className="bg-muted/40 hover:bg-muted/40">
                 <TableHead>Date</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">CZK</TableHead>
