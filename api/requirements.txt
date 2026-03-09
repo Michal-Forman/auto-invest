@@ -1,0 +1,4 @@
+cachetools==5.5.2
+fastapi==0.115.12
+types-cachetools
+uvicorn[standard]==0.34.0

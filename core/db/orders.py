@@ -185,6 +185,33 @@ class Order(BaseDBModel):
         return [Order.model_validate(row) for row in response.data]
 
     @staticmethod
+    def get_orders(
+        ticker: Optional[str] = None,
+        exchange: Optional[str] = None,
+        status: Optional[str] = None,
+    ) -> List[Order]:
+        """Fetch orders with optional filters, ordered by most recent first."""
+        query: Any = (
+            supabase.table(Order.TABLE)
+            .select("*")
+            .order("submitted_at", desc=True)
+        )
+
+        if ticker:
+            query = query.eq("t212_ticker", ticker)
+        if exchange:
+            query = query.eq("exchange", exchange)
+        if status:
+            query = query.eq("status", status)
+
+        response: Any = query.execute()
+
+        if not response.data:
+            return []
+
+        return [Order.model_validate(row) for row in response.data]
+
+    @staticmethod
     def get_submitted_orders() -> List[Order]:
         """Fetch all orders with status SUBMITTED from the database."""
         response: Any = (

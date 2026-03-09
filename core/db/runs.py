@@ -242,6 +242,26 @@ class Run(BaseDBModel):
         )
 
     @staticmethod
+    def get_all_runs(limit: int = 50, status: Optional[str] = None) -> List[Run]:
+        """Fetch runs with optional status filter, ordered by most recent first."""
+        query: Any = (
+            supabase.table(Run.TABLE)
+            .select("*")
+            .order("started_at", desc=True)
+            .limit(limit)
+        )
+
+        if status:
+            query = query.eq("status", status)
+
+        response: Any = query.execute()
+
+        if not response.data:
+            return []
+
+        return [Run.model_validate(row) for row in response.data]
+
+    @staticmethod
     def get_recent_runs(limit: int = 50) -> List[Run]:
         """Fetch the N most recent FINISHED or FILLED runs, ordered by most recent first."""
         response: Any = (
