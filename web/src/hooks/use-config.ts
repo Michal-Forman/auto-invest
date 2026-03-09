@@ -1,20 +1,11 @@
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import type { Config } from "@/types";
 
 export function useConfig() {
-  const [data, setData] = useState<Config | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-
-  useEffect(() => {
-    setLoading(true);
-    setError(false);
-    api.getConfig()
-      .then(setData)
-      .catch(() => setError(true))
-      .finally(() => setLoading(false));
-  }, []);
-
-  return { data, loading, error };
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["config"],
+    queryFn: () => api.getConfig(),
+    staleTime: 60 * 60 * 1000,
+  });
+  return { data: data ?? null, loading: isLoading, error: isError };
 }

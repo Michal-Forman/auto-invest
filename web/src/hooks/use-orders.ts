@@ -1,20 +1,11 @@
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import type { Order } from "@/types";
 
 export function useOrders() {
-  const [data, setData] = useState<Order[] | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-
-  useEffect(() => {
-    setLoading(true);
-    setError(false);
-    api.getOrders()
-      .then(setData)
-      .catch(() => setError(true))
-      .finally(() => setLoading(false));
-  }, []);
-
-  return { data, loading, error };
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["orders"],
+    queryFn: () => api.getOrders(),
+    staleTime: 5 * 60 * 1000,
+  });
+  return { data: data ?? null, loading: isLoading, error: isError };
 }

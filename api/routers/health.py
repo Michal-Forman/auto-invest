@@ -2,15 +2,21 @@
 from fastapi import APIRouter
 
 # Local
+from api.cache import health_cache
 from api.dependencies import get_coinmate, get_t212
 from api.schemas import HealthResponse
 
 router = APIRouter()
 
+CACHE_KEY = "health"
+
 
 @router.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
-    """Ping each exchange to verify connectivity."""
+    """Ping each exchange to verify connectivity (cached 5 min)."""
+    if CACHE_KEY in health_cache:
+        return health_cache[CACHE_KEY]
+
     t212_ok = False
     coinmate_ok = False
 
@@ -33,4 +39,7 @@ def health() -> HealthResponse:
         print(f"[health] Coinmate exception: {type(e).__name__}: {e}", flush=True)
 
     print(f"[health] done → api=True  t212={t212_ok}  coinmate={coinmate_ok}", flush=True)
-    return HealthResponse(api=True, t212=t212_ok, coinmate=coinmate_ok)
+    response = HealthResponse(api=True, t212=t212_ok, coinmate=coinmate_ok)
+    if t212_ok and coinmate_ok:
+        health_cache[CACHE_KEY] = response
+    return response
