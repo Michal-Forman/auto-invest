@@ -1,5 +1,5 @@
 import { usePageTitle } from "@/hooks/use-page-title";
-import { mockConfig, mockInstruments } from "@/data/mock";
+import { useConfig } from "@/hooks/use-config";
 import { formatNumber } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +23,11 @@ function parseCron(cron: string): string {
 
 export function Config() {
   usePageTitle("Config");
+  const { data: config, loading, error } = useConfig();
+
+  if (loading) return <p className="text-muted-foreground p-6">Loading…</p>;
+  if (error || !config) return <p className="text-red-600 p-6">Failed to load data.</p>;
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold text-primary">Configuration</h1>
@@ -33,7 +38,7 @@ export function Config() {
             <CardTitle className="text-sm text-muted-foreground font-normal">INVEST_AMOUNT</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary">{formatNumber(mockConfig.invest_amount)} CZK</div>
+            <div className="text-2xl font-bold text-primary">{formatNumber(config.invest_amount)} CZK</div>
           </CardContent>
         </Card>
         <Card className="border-t-2 border-t-primary">
@@ -41,7 +46,7 @@ export function Config() {
             <CardTitle className="text-sm text-muted-foreground font-normal">T212_WEIGHT</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary">{(mockConfig.t212_weight * 100).toFixed(0)}%</div>
+            <div className="text-2xl font-bold text-primary">{(config.t212_weight * 100).toFixed(0)}%</div>
           </CardContent>
         </Card>
         <Card className="border-t-2 border-t-primary">
@@ -49,7 +54,7 @@ export function Config() {
             <CardTitle className="text-sm text-muted-foreground font-normal">BTC_WEIGHT</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary">{(mockConfig.btc_weight * 100).toFixed(0)}%</div>
+            <div className="text-2xl font-bold text-primary">{(config.btc_weight * 100).toFixed(0)}%</div>
           </CardContent>
         </Card>
       </div>
@@ -59,8 +64,8 @@ export function Config() {
           <CardTitle className="text-base text-primary">Schedule</CardTitle>
         </CardHeader>
         <CardContent className="space-y-1">
-          <div className="font-mono text-sm text-muted-foreground">{mockConfig.cron}</div>
-          <div className="font-medium">{parseCron(mockConfig.cron)}</div>
+          <div className="font-mono text-sm text-muted-foreground">{config.invest_interval}</div>
+          <div className="font-medium">{parseCron(config.invest_interval)}</div>
         </CardContent>
       </Card>
 
@@ -69,11 +74,11 @@ export function Config() {
           <CardTitle className="text-base text-primary">Environment</CardTitle>
         </CardHeader>
         <CardContent>
-          <Badge variant="outline" className={mockConfig.environment === "prod"
+          <Badge variant="outline" className={config.environment === "prod"
             ? "bg-green-100 text-green-800 border-green-200"
             : "bg-yellow-100 text-yellow-800 border-yellow-200"
           }>
-            {mockConfig.environment.toUpperCase()}
+            {config.environment.toUpperCase()}
           </Badge>
         </CardContent>
       </Card>
@@ -88,23 +93,23 @@ export function Config() {
               <TableRow className="bg-muted/40 hover:bg-muted/40">
                 <TableHead>Ticker</TableHead>
                 <TableHead>Name</TableHead>
-                <TableHead>Exchange</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Currency</TableHead>
                 <TableHead>Cap Type</TableHead>
-                <TableHead className="text-right">Target Weight</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mockInstruments.map((inst) => (
+              {config.instruments.map((inst) => (
                 <TableRow key={inst.ticker}>
                   <TableCell className="font-mono text-sm font-medium">{inst.ticker}</TableCell>
-                  <TableCell>{inst.name}</TableCell>
-                  <TableCell>{inst.exchange}</TableCell>
+                  <TableCell>{inst.display_name}</TableCell>
+                  <TableCell>{inst.instrument_type}</TableCell>
+                  <TableCell>{inst.currency}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className={capVariants[inst.cap_type]}>
                       {inst.cap_type}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-right">{(inst.target_weight * 100).toFixed(1)}%</TableCell>
                 </TableRow>
               ))}
             </TableBody>

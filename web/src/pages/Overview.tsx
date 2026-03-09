@@ -1,7 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useHealth } from "@/hooks/use-health";
-import { mockConfig, mockRuns } from "@/data/mock";
+import { useRuns } from "@/hooks/use-runs";
+import { useConfig } from "@/hooks/use-config";
 import { formatNumber } from "@/lib/utils";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -58,11 +59,14 @@ export function Overview() {
   usePageTitle("Overview");
   const navigate = useNavigate();
   const health = useHealth();
-  const lastRun = mockRuns[0];
-  const filled = mockRuns.filter((r) => r.status === "FILLED").length;
-  const failed = mockRuns.filter((r) => r.status === "FAILED").length;
-  const totalInvested = mockRuns.filter((r) => r.total_czk > 0).reduce((s, r) => s + r.total_czk, 0);
-  const recent = mockRuns.slice(0, 5);
+  const { data: runs, loading: runsLoading, error: runsError } = useRuns();
+  const { data: config } = useConfig();
+
+  const lastRun = runs?.[0] ?? null;
+  const filled = runs?.filter((r) => r.status === "FILLED").length ?? 0;
+  const failed = runs?.filter((r) => r.status === "FAILED").length ?? 0;
+  const totalInvested = runs?.filter((r) => r.total_czk > 0).reduce((s, r) => s + r.total_czk, 0) ?? 0;
+  const recent = runs?.slice(0, 5) ?? [];
 
   return (
     <div className="space-y-6">
@@ -74,7 +78,11 @@ export function Overview() {
             <CardTitle className="text-sm text-muted-foreground font-normal">Total Invested</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary">{formatNumber(totalInvested)} CZK</div>
+            {runsLoading ? (
+              <div className="text-muted-foreground text-sm">Loading…</div>
+            ) : (
+              <div className="text-2xl font-bold text-primary">{formatNumber(totalInvested)} CZK</div>
+            )}
           </CardContent>
         </Card>
         <Card className="border-t-2 border-t-primary">
@@ -82,7 +90,13 @@ export function Overview() {
             <CardTitle className="text-sm text-muted-foreground font-normal">Last Run Status</CardTitle>
           </CardHeader>
           <CardContent>
-            <StatusBadge status={lastRun.status} />
+            {runsLoading ? (
+              <div className="text-muted-foreground text-sm">Loading…</div>
+            ) : lastRun ? (
+              <StatusBadge status={lastRun.status} />
+            ) : (
+              <div className="text-muted-foreground text-sm">—</div>
+            )}
           </CardContent>
         </Card>
         <Card className="border-t-2 border-t-primary">
@@ -90,7 +104,11 @@ export function Overview() {
             <CardTitle className="text-sm text-muted-foreground font-normal">Completed Runs</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary">{filled}</div>
+            {runsLoading ? (
+              <div className="text-muted-foreground text-sm">Loading…</div>
+            ) : (
+              <div className="text-2xl font-bold text-primary">{filled}</div>
+            )}
           </CardContent>
         </Card>
         <Card className="border-t-2 border-t-primary">
@@ -98,10 +116,16 @@ export function Overview() {
             <CardTitle className="text-sm text-muted-foreground font-normal">Failed Runs</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{failed}</div>
+            {runsLoading ? (
+              <div className="text-muted-foreground text-sm">Loading…</div>
+            ) : (
+              <div className="text-2xl font-bold text-red-600">{failed}</div>
+            )}
           </CardContent>
         </Card>
       </div>
+
+      {runsError && <p className="text-red-600 p-2">Failed to load run data.</p>}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
@@ -109,8 +133,14 @@ export function Overview() {
             <CardTitle className="text-base text-primary">Next Run</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1">
-            <div className="text-sm text-muted-foreground">{parseCron(mockConfig.cron)}</div>
-            <div className="font-medium">{getNextRunDate(mockConfig.cron)}</div>
+            {config ? (
+              <>
+                <div className="text-sm text-muted-foreground">{parseCron(config.invest_interval)}</div>
+                <div className="font-medium">{getNextRunDate(config.invest_interval)}</div>
+              </>
+            ) : (
+              <div className="text-muted-foreground text-sm">Loading…</div>
+            )}
           </CardContent>
         </Card>
         <Card>
@@ -152,6 +182,11 @@ export function Overview() {
                   <TableCell className="text-right">{run.order_count || "—"}</TableCell>
                 </TableRow>
               ))}
+              {!runsLoading && recent.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center text-muted-foreground py-6">No runs yet.</TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>

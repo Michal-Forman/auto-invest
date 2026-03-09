@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { usePageTitle } from "@/hooks/use-page-title";
-import { mockRuns } from "@/data/mock";
+import { useRuns } from "@/hooks/use-runs";
 import { formatNumber } from "@/lib/utils";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,6 +9,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 export function RunHistory() {
   usePageTitle("Runs");
   const navigate = useNavigate();
+  const { data: runs, loading, error } = useRuns();
+
+  if (loading) return <p className="text-muted-foreground p-6">Loading…</p>;
+  if (error) return <p className="text-red-600 p-6">Failed to load data.</p>;
 
   return (
     <div className="space-y-6">
@@ -25,7 +29,7 @@ export function RunHistory() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mockRuns.map((run) => (
+              {(runs ?? []).map((run) => (
                 <TableRow
                   key={run.id}
                   className="cursor-pointer"

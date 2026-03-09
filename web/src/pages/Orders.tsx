@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { usePageTitle } from "@/hooks/use-page-title";
-import { mockOrders, mockRuns } from "@/data/mock";
+import { useOrders } from "@/hooks/use-orders";
+import { useRuns } from "@/hooks/use-runs";
 import { formatNumber } from "@/lib/utils";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,7 +11,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import type { Exchange, OrderStatus } from "@/types";
 
 const ALL = "ALL";
-const runDateMap = Object.fromEntries(mockRuns.map((r) => [r.id, r.created_at.slice(0, 10)]));
 
 export function Orders() {
   usePageTitle("Orders");
@@ -18,11 +18,19 @@ export function Orders() {
   const [exchange, setExchange] = useState<Exchange | typeof ALL>(ALL);
   const [status, setStatus] = useState<OrderStatus | typeof ALL>(ALL);
 
-  const filtered = mockOrders.filter((o) => {
+  const { data: orders, loading: ordersLoading, error: ordersError } = useOrders();
+  const { data: runs } = useRuns();
+
+  if (ordersLoading) return <p className="text-muted-foreground p-6">Loading…</p>;
+  if (ordersError) return <p className="text-red-600 p-6">Failed to load data.</p>;
+
+  const runDateMap = Object.fromEntries((runs ?? []).map((r) => [r.id, r.created_at.slice(0, 10)]));
+
+  const filtered = (orders ?? []).filter((o) => {
     const matchSearch =
       search === "" ||
       o.ticker.toLowerCase().includes(search.toLowerCase()) ||
-      o.name.toLowerCase().includes(search.toLowerCase());
+      o.display_name.toLowerCase().includes(search.toLowerCase());
     const matchExchange = exchange === ALL || o.exchange === exchange;
     const matchStatus = status === ALL || o.status === status;
     return matchSearch && matchExchange && matchStatus;
@@ -85,7 +93,7 @@ export function Orders() {
                   </TableCell>
                   <TableCell>
                     <div className="font-medium">{order.ticker}</div>
-                    <div className="text-xs text-muted-foreground">{order.name}</div>
+                    <div className="text-xs text-muted-foreground">{order.display_name}</div>
                   </TableCell>
                   <TableCell>{order.exchange}</TableCell>
                   <TableCell className="text-right">{formatNumber(order.czk_amount)}</TableCell>

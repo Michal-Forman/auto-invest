@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { usePageTitle } from "@/hooks/use-page-title";
-import { mockRuns, mockOrders } from "@/data/mock";
+import { useRunDetail } from "@/hooks/use-run-detail";
 import { formatNumber } from "@/lib/utils";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,16 +14,16 @@ export function RunDetail() {
   usePageTitle("Run Detail");
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const run = mockRuns.find((r) => r.id === id);
-  const orders = mockOrders.filter((o) => o.run_id === id);
+  const { data: run, loading, error } = useRunDetail(id);
 
-  if (!run) {
+  if (loading) return <p className="text-muted-foreground p-6">Loading…</p>;
+  if (error || !run) {
     return (
       <div className="space-y-4">
         <Button variant="ghost" size="sm" onClick={() => navigate("/runs")}>
           <ChevronLeft className="h-4 w-4 mr-1" /> Back
         </Button>
-        <p className="text-muted-foreground">Run not found.</p>
+        <p className="text-muted-foreground">{error ? "Failed to load data." : "Run not found."}</p>
       </div>
     );
   }
@@ -108,7 +108,7 @@ export function RunDetail() {
         </CardContent>
       </Card>
 
-      {orders.length > 0 && (
+      {run.orders.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Orders</CardTitle>
@@ -126,11 +126,11 @@ export function RunDetail() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {orders.map((order) => (
+                {run.orders.map((order) => (
                   <TableRow key={order.id}>
                     <TableCell>
                       <div className="font-medium">{order.ticker}</div>
-                      <div className="text-xs text-muted-foreground">{order.name}</div>
+                      <div className="text-xs text-muted-foreground">{order.display_name}</div>
                     </TableCell>
                     <TableCell>{order.exchange}</TableCell>
                     <TableCell className="text-right">{formatNumber(order.czk_amount)}</TableCell>

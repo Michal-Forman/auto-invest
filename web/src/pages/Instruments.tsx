@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { usePageTitle } from "@/hooks/use-page-title";
-import { mockInstruments } from "@/data/mock";
+import { useInstruments } from "@/hooks/use-instruments";
 import { formatNumber } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import type { CapType } from "@/types";
+import type { CapType, Instrument } from "@/types";
 
-type SortKey = keyof (typeof mockInstruments)[0];
+type SortKey = keyof Instrument;
 
 function dropColor(drop: number) {
   if (drop < 20) return "text-green-700";
@@ -26,12 +26,17 @@ export function Instruments() {
   const [sortKey, setSortKey] = useState<SortKey>("ticker");
   const [asc, setAsc] = useState(true);
 
+  const { data: instruments, loading, error } = useInstruments();
+
+  if (loading) return <p className="text-muted-foreground p-6">Loading…</p>;
+  if (error) return <p className="text-red-600 p-6">Failed to load data.</p>;
+
   function handleSort(key: SortKey) {
     if (key === sortKey) setAsc(!asc);
     else { setSortKey(key); setAsc(true); }
   }
 
-  const sorted = [...mockInstruments].sort((a, b) => {
+  const sorted = [...(instruments ?? [])].sort((a, b) => {
     const va = a[sortKey];
     const vb = b[sortKey];
     if (typeof va === "number" && typeof vb === "number") return asc ? va - vb : vb - va;
@@ -73,7 +78,7 @@ export function Instruments() {
                 <TableRow key={inst.ticker}>
                   <TableCell>
                     <div className="font-medium">{inst.ticker}</div>
-                    <div className="text-xs text-muted-foreground">{inst.name}</div>
+                    <div className="text-xs text-muted-foreground">{inst.display_name}</div>
                   </TableCell>
                   <TableCell>{inst.exchange}</TableCell>
                   <TableCell>

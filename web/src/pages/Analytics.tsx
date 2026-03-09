@@ -14,7 +14,7 @@ import {
   YAxis,
 } from "recharts";
 import { usePageTitle } from "@/hooks/use-page-title";
-import { mockRunHistory, mockAllocationHistory, mockDropHistory, mockStatusBreakdown, mockPortfolioGrowth } from "@/data/mock";
+import { useAnalytics } from "@/hooks/use-analytics";
 import { formatNumber } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -26,11 +26,28 @@ const STATUS_COLORS: Record<string, string> = {
   CREATED: "#9ca3af",
 };
 
-const INSTRUMENTS = ["VWCE", "IWDA", "CSPX", "EIMI", "IUSN", "IQQH", "2B7K", "BTC"];
-const DROP_INSTRUMENTS = ["VWCE", "IWDA", "CSPX", "EIMI", "IQQH", "BTC"];
-
 export function Analytics() {
   usePageTitle("Analytics");
+  const { runs, allocation, status, loading, error } = useAnalytics();
+
+  if (loading) return <p className="text-muted-foreground p-6">Loading…</p>;
+  if (error) return <p className="text-red-600 p-6">Failed to load data.</p>;
+
+  // Derive instrument keys from allocation data
+  const instruments = allocation && allocation.length > 0
+    ? Object.keys(allocation[0]).filter((k) => k !== "date")
+    : [];
+
+  // Compute portfolio growth as cumulative sum of czk from runs
+  const portfolioGrowth = (() => {
+    if (!runs) return [];
+    let cumulative = 0;
+    return [...runs].map((r) => {
+      cumulative += r.czk;
+      return { date: r.date, total: cumulative };
+    });
+  })();
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold text-primary">Analytics</h1>
@@ -42,7 +59,7 @@ export function Analytics() {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={mockRunHistory} margin={{ top: 4, right: 8, bottom: 20, left: 0 }}>
+              <BarChart data={runs ?? []} margin={{ top: 4, right: 8, bottom: 20, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" tick={{ fontSize: 11 }} angle={-30} textAnchor="end" />
                 <YAxis tick={{ fontSize: 11 }} />
@@ -61,16 +78,16 @@ export function Analytics() {
             <ResponsiveContainer width="100%" height={220}>
               <PieChart>
                 <Pie
-                  data={mockStatusBreakdown.filter((d) => d.count > 0)}
+                  data={(status ?? []).filter((d) => d.count > 0)}
                   dataKey="count"
                   nameKey="status"
                   cx="50%"
                   cy="50%"
                   outerRadius={80}
-                  label={({ status, count }) => `${status} (${count})`}
+                  label={({ status: s, count }) => `${s} (${count})`}
                   labelLine
                 >
-                  {mockStatusBreakdown.filter((d) => d.count > 0).map((entry) => (
+                  {(status ?? []).filter((d) => d.count > 0).map((entry) => (
                     <Cell key={entry.status} fill={STATUS_COLORS[entry.status] ?? "#9ca3af"} />
                   ))}
                 </Pie>
@@ -87,13 +104,13 @@ export function Analytics() {
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={mockAllocationHistory} margin={{ top: 4, right: 8, bottom: 20, left: 0 }}>
+            <BarChart data={allocation ?? []} margin={{ top: 4, right: 8, bottom: 20, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" tick={{ fontSize: 11 }} angle={-30} textAnchor="end" />
               <YAxis tick={{ fontSize: 11 }} />
               <Tooltip />
               <Legend wrapperStyle={{ fontSize: 11 }} />
-              {INSTRUMENTS.map((key, i) => (
+              {instruments.map((key, i) => (
                 <Bar key={key} dataKey={key} stackId="a" fill={COLORS[i % COLORS.length]} />
               ))}
             </BarChart>
@@ -107,39 +124,12 @@ export function Analytics() {
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={mockPortfolioGrowth} margin={{ top: 4, right: 8, bottom: 20, left: 0 }}>
+            <LineChart data={portfolioGrowth} margin={{ top: 4, right: 8, bottom: 20, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" tick={{ fontSize: 11 }} angle={-30} textAnchor="end" />
               <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
               <Tooltip formatter={(v: number) => [`${formatNumber(v)} CZK`, "Total Invested"]} />
               <Line type="monotone" dataKey="total" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="-mt-4 border-b bg-primary/5 pt-4">
-          <CardTitle className="text-base text-primary">Drop-from-ATH % per Instrument</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={260}>
-            <LineChart data={mockDropHistory} margin={{ top: 4, right: 8, bottom: 20, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" tick={{ fontSize: 11 }} angle={-30} textAnchor="end" />
-              <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip />
-              <Legend wrapperStyle={{ fontSize: 11 }} />
-              {DROP_INSTRUMENTS.map((key, i) => (
-                <Line
-                  key={key}
-                  type="monotone"
-                  dataKey={key}
-                  stroke={COLORS[i % COLORS.length]}
-                  dot={false}
-                  strokeWidth={2}
-                />
-              ))}
             </LineChart>
           </ResponsiveContainer>
         </CardContent>
