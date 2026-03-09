@@ -9,7 +9,6 @@ export function Layout() {
       <SidebarInset>
         <header className="flex h-12 items-center gap-2 border-b px-4">
           <SidebarTrigger />
-          <span className="font-semibold text-sm">auto-invest</span>
         </header>
         <main className="flex-1 overflow-auto p-6">
           <Outlet />

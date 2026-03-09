@@ -24,38 +24,38 @@ export function Config() {
   usePageTitle("Config");
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Configuration</h1>
+      <h1 className="text-2xl font-semibold text-primary">Configuration</h1>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Card>
+        <Card className="border-t-2 border-t-primary">
           <CardHeader className="pb-1">
             <CardTitle className="text-sm text-muted-foreground font-normal">INVEST_AMOUNT</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{mockConfig.invest_amount.toLocaleString()} CZK</div>
+            <div className="text-2xl font-bold text-primary">{mockConfig.invest_amount.toLocaleString()} CZK</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-t-2 border-t-primary">
           <CardHeader className="pb-1">
             <CardTitle className="text-sm text-muted-foreground font-normal">T212_WEIGHT</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{(mockConfig.t212_weight * 100).toFixed(0)}%</div>
+            <div className="text-2xl font-bold text-primary">{(mockConfig.t212_weight * 100).toFixed(0)}%</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-t-2 border-t-primary">
           <CardHeader className="pb-1">
             <CardTitle className="text-sm text-muted-foreground font-normal">BTC_WEIGHT</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{(mockConfig.btc_weight * 100).toFixed(0)}%</div>
+            <div className="text-2xl font-bold text-primary">{(mockConfig.btc_weight * 100).toFixed(0)}%</div>
           </CardContent>
         </Card>
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Schedule</CardTitle>
+        <CardHeader className="border-b bg-primary/5">
+          <CardTitle className="text-base text-primary">Schedule</CardTitle>
         </CardHeader>
         <CardContent className="space-y-1">
           <div className="font-mono text-sm text-muted-foreground">{mockConfig.cron}</div>
@@ -64,8 +64,8 @@ export function Config() {
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Environment</CardTitle>
+        <CardHeader className="border-b bg-primary/5">
+          <CardTitle className="text-base text-primary">Environment</CardTitle>
         </CardHeader>
         <CardContent>
           <Badge variant="outline" className={mockConfig.environment === "prod"
@@ -78,13 +78,13 @@ export function Config() {
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Instrument Registry</CardTitle>
+        <CardHeader className="border-b bg-primary/5">
+          <CardTitle className="text-base text-primary">Instrument Registry</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
-              <TableRow>
+              <TableRow className="bg-primary/5 hover:bg-primary/5">
                 <TableHead>Ticker</TableHead>
                 <TableHead>Display Name</TableHead>
                 <TableHead>Exchange</TableHead>

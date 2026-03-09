@@ -41,18 +41,18 @@ export function Overview() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Overview</h1>
+      <h1 className="text-2xl font-semibold text-primary">Overview</h1>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Card>
+        <Card className="border-t-2 border-t-primary">
           <CardHeader className="pb-1">
             <CardTitle className="text-sm text-muted-foreground font-normal">Total Invested</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalInvested.toLocaleString()} CZK</div>
+            <div className="text-2xl font-bold text-primary">{totalInvested.toLocaleString()} CZK</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-t-2 border-t-primary">
           <CardHeader className="pb-1">
             <CardTitle className="text-sm text-muted-foreground font-normal">Last Run Status</CardTitle>
           </CardHeader>
@@ -60,15 +60,15 @@ export function Overview() {
             <StatusBadge status={lastRun.status} />
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-t-2 border-t-primary">
           <CardHeader className="pb-1">
             <CardTitle className="text-sm text-muted-foreground font-normal">Completed Runs</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{filled}</div>
+            <div className="text-2xl font-bold text-primary">{filled}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-t-2 border-t-primary">
           <CardHeader className="pb-1">
             <CardTitle className="text-sm text-muted-foreground font-normal">Failed Runs</CardTitle>
           </CardHeader>
@@ -80,8 +80,8 @@ export function Overview() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Next Run</CardTitle>
+          <CardHeader className="border-b bg-primary/5">
+            <CardTitle className="text-base text-primary">Next Run</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1">
             <div className="text-sm text-muted-foreground">{parseCron(mockConfig.cron)}</div>
@@ -89,8 +89,8 @@ export function Overview() {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Exchange Health</CardTitle>
+          <CardHeader className="border-b bg-primary/5">
+            <CardTitle className="text-base text-primary">Exchange Health</CardTitle>
           </CardHeader>
           <CardContent className="flex gap-6">
             <div className="flex items-center gap-2">
@@ -108,13 +108,13 @@ export function Overview() {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Recent Runs</CardTitle>
+        <CardHeader className="border-b bg-primary/5">
+          <CardTitle className="text-base text-primary">Recent Runs</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
-              <TableRow>
+              <TableRow className="bg-primary/5 hover:bg-primary/5">
                 <TableHead>Date</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">CZK</TableHead>

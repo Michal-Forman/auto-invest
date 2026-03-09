@@ -40,7 +40,7 @@ export function Instruments() {
   function SortHeader({ label, col }: { label: string; col: SortKey }) {
     return (
       <TableHead
-        className="cursor-pointer select-none hover:bg-muted/50"
+        className="cursor-pointer select-none bg-primary/5 hover:bg-primary/10 text-primary"
         onClick={() => handleSort(col)}
       >
         {label} {sortKey === col ? (asc ? "↑" : "↓") : ""}
@@ -50,7 +50,7 @@ export function Instruments() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Instruments</h1>
+      <h1 className="text-2xl font-semibold text-primary">Instruments</h1>
       <Card>
         <CardContent className="p-0 overflow-auto">
           <Table>

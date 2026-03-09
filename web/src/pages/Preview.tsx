@@ -53,11 +53,11 @@ export function Preview() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Next Run Preview</h1>
+      <h1 className="text-2xl font-semibold text-primary">Next Run Preview</h1>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Invest Amount</CardTitle>
+        <CardHeader className="border-b bg-primary/5">
+          <CardTitle className="text-base text-primary">Invest Amount</CardTitle>
         </CardHeader>
         <CardContent className="flex items-center gap-3">
           <Input
@@ -118,7 +118,7 @@ export function Preview() {
                   </TableCell>
                 </TableRow>
               ))}
-              <TableRow className="border-t-2 font-semibold bg-muted/30">
+              <TableRow className="border-t-2 font-semibold bg-primary/10 text-primary">
                 <TableCell colSpan={5}>Total</TableCell>
                 <TableCell className="text-right">{total.toFixed(0)}</TableCell>
                 <TableCell />

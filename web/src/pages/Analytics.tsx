@@ -17,10 +17,10 @@ import { usePageTitle } from "@/hooks/use-page-title";
 import { mockRunHistory, mockAllocationHistory, mockDropHistory, mockStatusBreakdown, mockPortfolioGrowth } from "@/data/mock";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#f97316", "#ec4899"];
+const COLORS = ["#1e3a8a", "#1e40af", "#2563eb", "#3b82f6", "#60a5fa", "#93c5fd", "#f59e0b", "#10b981"];
 const STATUS_COLORS: Record<string, string> = {
   FILLED: "#10b981",
-  FINISHED: "#3b82f6",
+  FINISHED: "#1e3a8a",
   FAILED: "#ef4444",
   CREATED: "#9ca3af",
 };
@@ -32,12 +32,12 @@ export function Analytics() {
   usePageTitle("Analytics");
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Analytics</h1>
+      <h1 className="text-2xl font-semibold text-primary">Analytics</h1>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">CZK Invested per Run</CardTitle>
+          <CardHeader className="border-b bg-primary/5">
+            <CardTitle className="text-base text-primary">CZK Invested per Run</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={220}>
@@ -46,15 +46,15 @@ export function Analytics() {
                 <XAxis dataKey="date" tick={{ fontSize: 11 }} angle={-30} textAnchor="end" />
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip />
-                <Bar dataKey="czk" fill="#3b82f6" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="czk" fill="#1e3a8a" radius={[3, 3, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Run Status Breakdown</CardTitle>
+          <CardHeader className="border-b bg-primary/5">
+            <CardTitle className="text-base text-primary">Run Status Breakdown</CardTitle>
           </CardHeader>
           <CardContent className="flex justify-center">
             <ResponsiveContainer width="100%" height={220}>
@@ -81,8 +81,8 @@ export function Analytics() {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Allocation % per Instrument over Time</CardTitle>
+        <CardHeader className="border-b bg-primary/5">
+          <CardTitle className="text-base text-primary">Allocation % per Instrument over Time</CardTitle>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={260}>
@@ -101,8 +101,8 @@ export function Analytics() {
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Portfolio Value Over Time (CZK)</CardTitle>
+        <CardHeader className="border-b bg-primary/5">
+          <CardTitle className="text-base text-primary">Portfolio Value Over Time (CZK)</CardTitle>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={220}>
@@ -118,8 +118,8 @@ export function Analytics() {
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Drop-from-ATH % per Instrument</CardTitle>
+        <CardHeader className="border-b bg-primary/5">
+          <CardTitle className="text-base text-primary">Drop-from-ATH % per Instrument</CardTitle>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={260}>

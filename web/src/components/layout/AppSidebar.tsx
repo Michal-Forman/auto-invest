@@ -8,6 +8,7 @@ import {
   Settings,
   TrendingUp,
 } from "lucide-react";
+import logo from "@/assets/logo_white.png";
 import {
   Sidebar,
   SidebarContent,
@@ -34,8 +35,12 @@ const navItems = [
 export function AppSidebar() {
   return (
     <Sidebar>
-      <SidebarHeader className="px-2 py-4 md:hidden">
-        <SidebarTrigger />
+      <SidebarHeader className="px-4 py-4 border-b border-white/10">
+        <div className="flex items-center gap-3">
+          <img src={logo} alt="auto-invest logo" className="h-9 w-9 shrink-0" />
+          <span className="font-semibold text-base text-sidebar-foreground">auto-invest</span>
+          <SidebarTrigger className="ml-auto md:hidden" />
+        </div>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>

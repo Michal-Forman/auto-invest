@@ -11,12 +11,12 @@ export function RunHistory() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Run History</h1>
+      <h1 className="text-2xl font-semibold text-primary">Run History</h1>
       <Card>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
-              <TableRow>
+              <TableRow className="bg-primary/5 hover:bg-primary/5">
                 <TableHead>Date</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Total CZK</TableHead>
