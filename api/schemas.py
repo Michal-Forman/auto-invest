@@ -73,9 +73,9 @@ class PreviewItemResponse(BaseModel):
 
 
 class HealthResponse(BaseModel):
-    api: str
-    t212: str
-    coinmate: str
+    api: bool
+    t212: bool
+    coinmate: bool
 
 
 class AnalyticsRunItem(BaseModel):

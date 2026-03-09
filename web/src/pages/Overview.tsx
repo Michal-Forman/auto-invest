@@ -37,19 +37,9 @@ function getNextRunDate(cron: string): string {
   return next.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
 }
 
-type DotStatus = "ok" | "error" | "unknown" | "loading";
-
-function StatusDot({ status, label }: { status: DotStatus; label: string }) {
-  const dotClass =
-    status === "ok"
-      ? "bg-green-500"
-      : status === "error"
-        ? "bg-red-500"
-        : status === "loading"
-          ? "bg-yellow-400 animate-pulse"
-          : "bg-muted-foreground/40";
-  const hint =
-    status === "ok" ? "OK" : status === "error" ? "Error" : status === "loading" ? "…" : "Unknown";
+function StatusDot({ ok, loading, label }: { ok: boolean; loading: boolean; label: string }) {
+  const dotClass = loading ? "bg-yellow-400 animate-pulse" : ok ? "bg-green-500" : "bg-red-500";
+  const hint = loading ? "…" : ok ? "OK" : "Error";
   return (
     <div className="flex items-center gap-2">
       <div className={`h-2 w-2 rounded-full ${dotClass}`} />
@@ -152,9 +142,9 @@ export function Overview() {
             <CardTitle className="text-base text-primary">Exchange Health</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
-            <StatusDot status={health.api} label="API" />
-            <StatusDot status={health.t212} label="Trading 212" />
-            <StatusDot status={health.coinmate} label="Coinmate" />
+            <StatusDot ok={health.api} loading={health.loading} label="API" />
+            <StatusDot ok={health.t212} loading={health.loading} label="Trading 212" />
+            <StatusDot ok={health.coinmate} loading={health.loading} label="Coinmate" />
           </CardContent>
         </Card>
       </div>
