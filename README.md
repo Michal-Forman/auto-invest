@@ -173,13 +173,13 @@ Apply the migrations in `supabase/migrations/` to your Supabase project. There a
 
 ```bash
 # Single run (dev mode, uses demo broker)
-python3 -m core.main
+python3 -m core.cron
 
 # Production (set ENV=prod in your environment or scheduler)
-ENV=prod python3 -m core.main
+ENV=prod python3 -m core.cron
 ```
 
-Schedule `python3 -m core.main` with a system cron job. The script evaluates the `INVEST_INTERVAL` cron expression internally and skips execution if it's not the right time — so it's safe to run it frequently (e.g. every minute).
+Schedule `python3 -m core.cron` with a system cron job. The script evaluates the `INVEST_INTERVAL` cron expression internally and skips execution if it's not the right time — so it's safe to run it frequently (e.g. every minute).
 
 ### GitHub Actions
 
@@ -187,7 +187,7 @@ The production deployment uses two GitHub Actions workflows:
 
 | Workflow | File | Trigger | Purpose |
 |----------|------|---------|---------|
-| **Run** | `actions.yaml` | Daily at 09:00 UTC + manual | Executes `python -m core.main` with production secrets/vars |
+| **Run** | `actions.yaml` | Daily at 09:00 UTC + manual | Executes `python -m core.cron` with production secrets/vars |
 | **CI** | `ci.yaml` | Push/PR to `main` + manual | Runs formatting checks, import sorting, mypy, and the full test suite |
 
 ---
@@ -294,7 +294,7 @@ Runs on every push and pull request to `main`. Steps:
 
 ### Production runner (`actions.yaml`)
 
-Runs daily at 09:00 UTC (and on manual dispatch). Injects all secrets and environment variables from the GitHub `Main` environment, then executes `python -m core.main` with `ENV=prod`.
+Runs daily at 09:00 UTC (and on manual dispatch). Injects all secrets and environment variables from the GitHub `Main` environment, then executes `python -m core.cron` with `ENV=prod`.
 
 ---
 
