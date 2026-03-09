@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 # Local
-from api.routers import analytics, config, health, instruments, orders, preview, runs
+from api.routers import analytics, config, health, instruments, orders, runs
 
 app = FastAPI(title="auto-invest API", version="1.0.0")
 
@@ -23,5 +23,4 @@ app.include_router(config.router)
 app.include_router(runs.router)
 app.include_router(orders.router)
 app.include_router(instruments.router)
-app.include_router(preview.router)
 app.include_router(analytics.router)

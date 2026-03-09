@@ -4,7 +4,6 @@ import type {
   Order,
   Config,
   Instrument,
-  PreviewItem,
   AnalyticsRunItem,
   AnalyticsAllocationItem,
   AnalyticsStatusItem,
@@ -49,12 +48,6 @@ export const api = {
 
   getInstruments(): Promise<Instrument[]> {
     return apiFetch<Instrument[]>("/instruments");
-  },
-
-  getPreview(amount?: number): Promise<PreviewItem[]> {
-    const params: Record<string, string> = {};
-    if (amount !== undefined) params.amount = String(amount);
-    return apiFetch<PreviewItem[]>("/preview", params);
   },
 
   getAnalyticsRuns(limit?: number): Promise<AnalyticsRunItem[]> {
