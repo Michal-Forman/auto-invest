@@ -8,6 +8,18 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
+const CRON_HOUR = import.meta.env.VITE_INVEST_CRON?.split(" ")[1] ?? null;
+
+function withEnvTime(cron: string): string {
+  if (!CRON_HOUR) return cron;
+  const envParts = import.meta.env.VITE_INVEST_CRON.split(" ");
+  const parts = cron.split(" ");
+  if (parts.length !== 5) return cron;
+  parts[0] = envParts[0]; // minute
+  parts[1] = envParts[1]; // hour
+  return parts.join(" ");
+}
+
 function parseCron(cron: string): string {
   const parts = cron.split(" ");
   if (parts.length !== 5) return cron;
@@ -129,8 +141,8 @@ export function Overview() {
           <CardContent className="space-y-1">
             {config ? (
               <>
-                <div className="text-sm text-muted-foreground">{parseCron(config.invest_interval)}</div>
-                <div className="font-medium">{getNextRunDate(config.invest_interval)}</div>
+                <div className="text-sm text-muted-foreground">{parseCron(withEnvTime(config.invest_interval))}</div>
+                <div className="font-medium">{getNextRunDate(withEnvTime(config.invest_interval))}</div>
               </>
             ) : (
               <div className="text-muted-foreground text-sm">Loading…</div>

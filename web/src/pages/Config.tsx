@@ -12,6 +12,18 @@ const capVariants: Record<CapType, string> = {
   hard: "bg-purple-100 text-purple-700 border-purple-200",
 };
 
+const CRON_HOUR = import.meta.env.VITE_INVEST_CRON?.split(" ")[1] ?? null;
+
+function withEnvTime(cron: string): string {
+  if (!CRON_HOUR) return cron;
+  const envParts = import.meta.env.VITE_INVEST_CRON.split(" ");
+  const parts = cron.split(" ");
+  if (parts.length !== 5) return cron;
+  parts[0] = envParts[0]; // minute
+  parts[1] = envParts[1]; // hour
+  return parts.join(" ");
+}
+
 function parseCron(cron: string): string {
   const parts = cron.split(" ");
   if (parts.length !== 5) return cron;
@@ -66,8 +78,8 @@ export function Config() {
           <CardTitle className="text-base text-primary">Schedule</CardTitle>
         </CardHeader>
         <CardContent className="space-y-1">
-          <div className="font-mono text-sm text-muted-foreground">{config.invest_interval}</div>
-          <div className="font-medium">{parseCron(config.invest_interval)}</div>
+          <div className="font-mono text-sm text-muted-foreground">{withEnvTime(config.invest_interval)}</div>
+          <div className="font-medium">{parseCron(withEnvTime(config.invest_interval))}</div>
         </CardContent>
       </Card>
 
