@@ -37,7 +37,7 @@ def config() -> ConfigResponse:
 
     return ConfigResponse(
         invest_amount=p.invest_amount,
-        t212_weight=p.t212_weight / 100,
+        t212_weight=float(p.t212_weight),
         btc_weight=p.btc_weight,
         invest_interval=p.invest_interval,
         environment=settings.env,

@@ -192,9 +192,7 @@ class Order(BaseDBModel):
     ) -> List[Order]:
         """Fetch orders with optional filters, ordered by most recent first."""
         query: Any = (
-            supabase.table(Order.TABLE)
-            .select("*")
-            .order("submitted_at", desc=True)
+            supabase.table(Order.TABLE).select("*").order("submitted_at", desc=True)
         )
 
         if ticker:

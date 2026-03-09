@@ -15,7 +15,9 @@ function parseCron(cron: string): string {
   const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const dayLabel = dow === "*" ? "every day" : `every ${days[parseInt(dow)] ?? dow}`;
   if (dom === "*" && month === "*") {
-    return `${dayLabel} at ${hour.padStart(2, "0")}:${minute.padStart(2, "0")} UTC`;
+    const h = hour === "*" ? "*" : hour.padStart(2, "0");
+    const m = minute === "*" ? "*" : minute.padStart(2, "0");
+    return `${dayLabel} at ${h}:${m} UTC`;
   }
   return cron;
 }
@@ -24,7 +26,9 @@ function getNextRunDate(cron: string): string {
   const parts = cron.split(" ");
   if (parts.length !== 5) return "Unknown";
   const dow = parseInt(parts[4]);
-  const hour = parseInt(parts[1]);
+  if (isNaN(dow)) return "Unknown";
+  const hourRaw = parseInt(parts[1]);
+  const hour = isNaN(hourRaw) ? 0 : hourRaw;
   const now = new Date();
   const dayDiff = (dow - now.getUTCDay() + 7) % 7 || 7;
   const next = new Date(now);

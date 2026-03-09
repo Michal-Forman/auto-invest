@@ -85,3 +85,8 @@ export interface AnalyticsStatusItem {
   status: string;
   count: number;
 }
+
+export interface PortfolioValueItem {
+  date: string;
+  value: number;
+}

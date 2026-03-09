@@ -28,7 +28,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 export function Analytics() {
   usePageTitle("Analytics");
-  const { runs, allocation, status, loading, error } = useAnalytics();
+  const { runs, allocation, status, portfolioValue, loading, error } = useAnalytics();
 
   if (loading) return <p className="text-muted-foreground p-6">Loading…</p>;
   if (error) return <p className="text-red-600 p-6">Failed to load data.</p>;
@@ -37,16 +37,6 @@ export function Analytics() {
   const instruments = allocation && allocation.length > 0
     ? Object.keys(allocation[0]).filter((k) => k !== "date")
     : [];
-
-  // Compute portfolio growth as cumulative sum of czk from runs
-  const portfolioGrowth = (() => {
-    if (!runs) return [];
-    let cumulative = 0;
-    return [...runs].map((r) => {
-      cumulative += r.czk;
-      return { date: r.date, total: cumulative };
-    });
-  })();
 
   return (
     <div className="space-y-6">
@@ -124,12 +114,12 @@ export function Analytics() {
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={portfolioGrowth} margin={{ top: 4, right: 8, bottom: 20, left: 0 }}>
+            <LineChart data={portfolioValue ?? []} margin={{ top: 4, right: 8, bottom: 20, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" tick={{ fontSize: 11 }} angle={-30} textAnchor="end" />
               <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-              <Tooltip formatter={(v: number) => [`${formatNumber(v)} CZK`, "Total Invested"]} />
-              <Line type="monotone" dataKey="total" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
+              <Tooltip formatter={(v: number) => [`${formatNumber(v)} CZK`, "Portfolio Value"]} />
+              <Line type="monotone" dataKey="value" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
             </LineChart>
           </ResponsiveContainer>
         </CardContent>

@@ -28,6 +28,8 @@ export function Config() {
   if (loading) return <p className="text-muted-foreground p-6">Loading…</p>;
   if (error || !config) return <p className="text-red-600 p-6">Failed to load data.</p>;
 
+  const totalWeight = config.t212_weight + config.btc_weight;
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold text-primary">Configuration</h1>
@@ -46,7 +48,7 @@ export function Config() {
             <CardTitle className="text-sm text-muted-foreground font-normal">T212_WEIGHT</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary">{(config.t212_weight * 100).toFixed(0)}%</div>
+            <div className="text-2xl font-bold text-primary">{(config.t212_weight / totalWeight * 100).toFixed(0)}%</div>
           </CardContent>
         </Card>
         <Card className="border-t-2 border-t-primary">
@@ -54,7 +56,7 @@ export function Config() {
             <CardTitle className="text-sm text-muted-foreground font-normal">BTC_WEIGHT</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary">{(config.btc_weight * 100).toFixed(0)}%</div>
+            <div className="text-2xl font-bold text-primary">{(config.btc_weight / totalWeight * 100).toFixed(0)}%</div>
           </CardContent>
         </Card>
       </div>

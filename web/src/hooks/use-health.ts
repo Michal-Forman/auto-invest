@@ -18,6 +18,7 @@ export function useHealth(): HealthState {
   });
 
   useEffect(() => {
+    let alive = true;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
 
@@ -27,6 +28,7 @@ export function useHealth(): HealthState {
         return res.json();
       })
       .then((data) => {
+        if (!alive) return;
         setState({
           api: "ok",
           t212: data.t212 === "ok" ? "ok" : "error",
@@ -34,11 +36,13 @@ export function useHealth(): HealthState {
         });
       })
       .catch(() => {
+        if (!alive) return;
         setState({ api: "error", t212: "unknown", coinmate: "unknown" });
       })
       .finally(() => clearTimeout(timeout));
 
     return () => {
+      alive = false;
       controller.abort();
       clearTimeout(timeout);
     };

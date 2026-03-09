@@ -32,7 +32,7 @@ export function Preview() {
             type="number"
             value={amount ?? defaultAmount}
             onChange={(e) => setAmount(Math.max(0, parseFloat(e.target.value) || 0))}
-            className="max-w-xs"
+            className="max-w-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             min={0}
           />
           <span className="text-muted-foreground text-sm">CZK</span>

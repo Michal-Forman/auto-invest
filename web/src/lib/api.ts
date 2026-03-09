@@ -8,6 +8,7 @@ import type {
   AnalyticsRunItem,
   AnalyticsAllocationItem,
   AnalyticsStatusItem,
+  PortfolioValueItem,
 } from "@/types";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
@@ -70,5 +71,9 @@ export const api = {
 
   getAnalyticsStatus(): Promise<AnalyticsStatusItem[]> {
     return apiFetch<AnalyticsStatusItem[]>("/analytics/status");
+  },
+
+  getPortfolioValue(): Promise<PortfolioValueItem[]> {
+    return apiFetch<PortfolioValueItem[]>("/analytics/portfolio-value");
   },
 };

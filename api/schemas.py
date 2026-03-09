@@ -92,3 +92,8 @@ class AnalyticsAllocationItem(BaseModel):
 class AnalyticsStatusItem(BaseModel):
     status: str
     count: int
+
+
+class PortfolioValueItem(BaseModel):
+    date: str
+    value: float

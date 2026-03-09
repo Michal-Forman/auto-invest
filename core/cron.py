@@ -86,7 +86,9 @@ def main() -> None:
             ]:
                 spend_per_run = (adj / total_adj) * invest
                 bal = get_bal()
-                runs_out_on = find_balance_exhaustion_date(cron, spend_per_run, bal, BUFFER)
+                runs_out_on = find_balance_exhaustion_date(
+                    cron, spend_per_run, bal, BUFFER
+                )
                 if runs_out_on and (runs_out_on - run_start).days <= ALERT_DAYS:
                     alerts.append(
                         {
@@ -104,7 +106,10 @@ def main() -> None:
             log.warning(f"Balance check skipped (non-critical): {e}")
 
     # --- Create new orders if they should be made today AND they have not yet been ---
-    if is_now_cron_time(settings.portfolio.invest_interval) and not Run.run_exists_today():
+    if (
+        is_now_cron_time(settings.portfolio.invest_interval)
+        and not Run.run_exists_today()
+    ):
         log.info("Starting investment process")
 
         # Init new run
@@ -116,7 +121,9 @@ def main() -> None:
             calculated_investment: Dict[str, Dict[str, float]] = (
                 instruments.distribute_cash()
             )
-            cash_distribution: Dict[str, float] = calculated_investment["cash_distribution"]
+            cash_distribution: Dict[str, float] = calculated_investment[
+                "cash_distribution"
+            ]
             multipliers: Dict[str, float] = calculated_investment["multipliers"]
             orders: List[Order] = executor.place_orders(
                 cash_distribution, multipliers, run_id=run.id
@@ -129,7 +136,9 @@ def main() -> None:
             log.info("Run data updated successfully")
 
             # Send investment confirmation email
-            mailer.send_investment_confirmation(run, orders, cash_distribution, multipliers)
+            mailer.send_investment_confirmation(
+                run, orders, cash_distribution, multipliers
+            )
 
         except Exception as e:
             log.error(f"Investment run failed: {e}")
