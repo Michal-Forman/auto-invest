@@ -12,9 +12,9 @@ export function Preview() {
   usePageTitle("Preview");
   const { data: config } = useConfig();
   const defaultAmount = config?.invest_amount ?? 5000;
-  const [amount, setAmount] = useState<number | null>(null);
+  const [inputValue, setInputValue] = useState<string>("");
 
-  const effectiveAmount = amount ?? defaultAmount;
+  const effectiveAmount = inputValue === "" ? defaultAmount : Math.max(0, parseFloat(inputValue) || 0);
   const { data: preview, loading, error } = usePreview(effectiveAmount);
 
   const total = preview?.reduce((s, i) => s + i.czk_amount, 0) ?? 0;
@@ -30,8 +30,9 @@ export function Preview() {
         <CardContent className="flex items-center gap-3">
           <Input
             type="number"
-            value={amount ?? defaultAmount}
-            onChange={(e) => setAmount(Math.max(0, parseFloat(e.target.value) || 0))}
+            value={inputValue === "" ? "" : inputValue}
+            placeholder={String(defaultAmount)}
+            onChange={(e) => setInputValue(e.target.value)}
             className="max-w-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             min={0}
           />
