@@ -27,7 +27,6 @@ async function apiFetch<T>(path: string, params?: Record<string, string>): Promi
   const res = await fetch(url.toString(), { headers });
 
   if (res.status === 401) {
-    await supabase.auth.signOut();
     window.location.href = "/login";
     throw new Error("Unauthorized");
   }
@@ -54,6 +53,10 @@ export const api = {
     if (exchange !== undefined) params.exchange = exchange;
     if (status !== undefined) params.status = status;
     return apiFetch<Order[]>("/orders", params);
+  },
+
+  getHealth(): Promise<{ api: boolean; t212: boolean; coinmate: boolean }> {
+    return apiFetch<{ api: boolean; t212: boolean; coinmate: boolean }>("/health");
   },
 
   getConfig(): Promise<Config> {
