@@ -55,6 +55,7 @@ class Order(BaseDBModel):
     # --- Identity ---
     TABLE: ClassVar[str] = "orders"
     id: Optional[UUID] = None
+    user_id: Optional[str] = None
     run_id: UUID
     idempotency_key: Optional[str] = None
 
@@ -170,14 +171,17 @@ class Order(BaseDBModel):
         return None
 
     @staticmethod
-    def get_orders_for_runs(run_ids: List[str]) -> List[Order]:
+    def get_orders_for_runs(
+        run_ids: List[str], user_id: Optional[str] = None
+    ) -> List[Order]:
         """Fetch all orders belonging to the given run IDs."""
         if not run_ids:
             return []
 
-        response: Any = (
-            supabase.table(Order.TABLE).select("*").in_("run_id", run_ids).execute()
-        )
+        query: Any = supabase.table(Order.TABLE).select("*").in_("run_id", run_ids)
+        if user_id:
+            query = query.eq("user_id", user_id)
+        response: Any = query.execute()
 
         if not response.data:
             return []
@@ -189,6 +193,7 @@ class Order(BaseDBModel):
         ticker: Optional[str] = None,
         exchange: Optional[str] = None,
         status: Optional[str] = None,
+        user_id: Optional[str] = None,
     ) -> List[Order]:
         """Fetch orders with optional filters, ordered by most recent first."""
         query: Any = (
@@ -201,6 +206,8 @@ class Order(BaseDBModel):
             query = query.eq("exchange", exchange)
         if status:
             query = query.eq("status", status)
+        if user_id:
+            query = query.eq("user_id", user_id)
 
         response: Any = query.execute()
 
@@ -210,11 +217,12 @@ class Order(BaseDBModel):
         return [Order.model_validate(row) for row in response.data]
 
     @staticmethod
-    def get_submitted_orders() -> List[Order]:
+    def get_submitted_orders(user_id: Optional[str] = None) -> List[Order]:
         """Fetch all orders with status SUBMITTED from the database."""
-        response: Any = (
-            supabase.table(Order.TABLE).select("*").eq("status", "SUBMITTED").execute()
-        )
+        query: Any = supabase.table(Order.TABLE).select("*").eq("status", "SUBMITTED")
+        if user_id:
+            query = query.eq("user_id", user_id)
+        response: Any = query.execute()
 
         if not response.data:
             return []
@@ -245,9 +253,11 @@ class Order(BaseDBModel):
         )
 
     @classmethod
-    def update_orders(cls, t212: Trading212, coinmate: Coinmate) -> None:
+    def update_orders(
+        cls, t212: Trading212, coinmate: Coinmate, user_id: Optional[str] = None
+    ) -> None:
         """Match all SUBMITTED orders against T212/Coinmate trade history and update their fill status in the DB."""
-        orders_to_update: List[Order] = Order.get_submitted_orders()
+        orders_to_update: List[Order] = Order.get_submitted_orders(user_id=user_id)
 
         if not orders_to_update:
             log.info("No submitted orders to update")

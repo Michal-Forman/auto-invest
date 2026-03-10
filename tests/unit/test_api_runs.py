@@ -43,19 +43,19 @@ def test_list_runs_returns_items(mocker, make_run):
 def test_limit_param_forwarded(mocker):
     mock = mocker.patch.object(Run, "get_all_runs", return_value=[])
     client.get("/runs?limit=5")
-    mock.assert_called_once_with(limit=5, status=None)
+    mock.assert_called_once_with(limit=5, status=None, user_id="test-user-id")
 
 
 def test_status_param_forwarded(mocker):
     mock = mocker.patch.object(Run, "get_all_runs", return_value=[])
     client.get("/runs?status=FILLED")
-    mock.assert_called_once_with(limit=50, status="FILLED")
+    mock.assert_called_once_with(limit=50, status="FILLED", user_id="test-user-id")
 
 
 def test_default_limit_is_50(mocker):
     mock = mocker.patch.object(Run, "get_all_runs", return_value=[])
     client.get("/runs")
-    mock.assert_called_once_with(limit=50, status=None)
+    mock.assert_called_once_with(limit=50, status=None, user_id="test-user-id")
 
 
 def test_total_czk_defaults_zero_when_none(mocker, make_run):

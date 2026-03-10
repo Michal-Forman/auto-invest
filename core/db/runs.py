@@ -14,7 +14,7 @@ from core.db.base import BaseDBModel
 from core.db.client import supabase
 from core.db.orders import Order
 from core.log import log
-from core.settings import settings
+from core.settings import PortfolioSettings, settings
 
 RUN_EXPIRY_DAYS = 14
 
@@ -38,6 +38,7 @@ class Run(BaseDBModel):
     # --- Identity ---
     TABLE: ClassVar[str] = "runs"
     id: Optional[UUID] = None
+    user_id: Optional[str] = None
 
     # --- Timing ---
     started_at: datetime
@@ -97,19 +98,24 @@ class Run(BaseDBModel):
         return None
 
     @staticmethod
-    def create_run(run_start: datetime) -> Run:
-        """Create a new CREATED run with current portfolio settings, insert it into DB, and return the persisted Run."""
+    def create_run(
+        run_start: datetime,
+        portfolio: "PortfolioSettings",
+        user_id: Optional[str] = None,
+    ) -> Run:
+        """Create a new CREATED run with the given portfolio settings, insert it into DB, and return the persisted Run."""
         run = Run(
             started_at=run_start,
             status="CREATED",
-            invest_amount=settings.portfolio.invest_amount,
-            invest_interval=settings.portfolio.invest_interval,
-            t212_default_weight=settings.portfolio.t212_weight,
-            btc_default_weight=settings.portfolio.btc_weight,
+            invest_amount=portfolio.invest_amount,
+            invest_interval=portfolio.invest_interval,
+            t212_default_weight=portfolio.t212_weight,
+            btc_default_weight=portfolio.btc_weight,
             total_orders=0,
             successful_orders=0,
             failed_orders=0,
             test=False,
+            user_id=user_id,
         )
 
         try:
@@ -186,15 +192,17 @@ class Run(BaseDBModel):
             self.update_in_db(update)
 
     @staticmethod
-    def _get_finished_runs() -> List[Run]:
+    def _get_finished_runs(user_id: Optional[str] = None) -> List[Run]:
         """Fetch all runs with status FINISHED from the database, ordered by most recent first."""
-        response: Any = (
+        query: Any = (
             supabase.table("runs")
             .select("*")
             .eq("status", "FINISHED")
             .order("started_at", desc=True)
-            .execute()
         )
+        if user_id:
+            query = query.eq("user_id", user_id)
+        response: Any = query.execute()
 
         if not response.data:
             return []
@@ -202,9 +210,9 @@ class Run(BaseDBModel):
         return [Run.model_validate(row) for row in response.data]
 
     @classmethod
-    def update_runs(cls) -> None:
+    def update_runs(cls, user_id: Optional[str] = None) -> None:
         """Process all FINISHED runs: mark expired ones as FAILED, mark fully-filled ones as FILLED."""
-        finished_runs: List[Run] = cls._get_finished_runs()
+        finished_runs: List[Run] = cls._get_finished_runs(user_id=user_id)
         for run in finished_runs:
             try:
                 run._try_mark_run_failed_if_expired()
@@ -242,8 +250,12 @@ class Run(BaseDBModel):
         )
 
     @staticmethod
-    def get_all_runs(limit: int = 50, status: Optional[str] = None) -> List[Run]:
-        """Fetch runs with optional status filter, ordered by most recent first."""
+    def get_all_runs(
+        limit: int = 50,
+        status: Optional[str] = None,
+        user_id: Optional[str] = None,
+    ) -> List[Run]:
+        """Fetch runs with optional status/user filter, ordered by most recent first."""
         query: Any = (
             supabase.table(Run.TABLE)
             .select("*")
@@ -253,6 +265,8 @@ class Run(BaseDBModel):
 
         if status:
             query = query.eq("status", status)
+        if user_id:
+            query = query.eq("user_id", user_id)
 
         response: Any = query.execute()
 
@@ -262,16 +276,18 @@ class Run(BaseDBModel):
         return [Run.model_validate(row) for row in response.data]
 
     @staticmethod
-    def get_recent_runs(limit: int = 50) -> List[Run]:
+    def get_recent_runs(limit: int = 50, user_id: Optional[str] = None) -> List[Run]:
         """Fetch the N most recent FINISHED or FILLED runs, ordered by most recent first."""
-        response: Any = (
+        query: Any = (
             supabase.table(Run.TABLE)
             .select("*")
             .in_("status", ["FINISHED", "FILLED"])
             .order("started_at", desc=True)
             .limit(limit)
-            .execute()
         )
+        if user_id:
+            query = query.eq("user_id", user_id)
+        response: Any = query.execute()
 
         if not response.data:
             return []
@@ -279,7 +295,9 @@ class Run(BaseDBModel):
         return [Run.model_validate(row) for row in response.data]
 
     @staticmethod
-    def get_runs_for_period(year: int, month: int) -> List[Run]:
+    def get_runs_for_period(
+        year: int, month: int, user_id: Optional[str] = None
+    ) -> List[Run]:
         """Fetch all FINISHED or FILLED runs for the given year/month (UTC)."""
         start = datetime(year, month, 1, tzinfo=timezone.utc)
         if month == 12:
@@ -287,15 +305,17 @@ class Run(BaseDBModel):
         else:
             end = datetime(year, month + 1, 1, tzinfo=timezone.utc)
 
-        response: Any = (
+        query: Any = (
             supabase.table(Run.TABLE)
             .select("*")
             .in_("status", ["FINISHED", "FILLED"])
             .gte("started_at", start.isoformat())
             .lt("started_at", end.isoformat())
             .order("started_at", desc=True)
-            .execute()
         )
+        if user_id:
+            query = query.eq("user_id", user_id)
+        response: Any = query.execute()
 
         if not response.data:
             return []
@@ -303,7 +323,9 @@ class Run(BaseDBModel):
         return [Run.model_validate(row) for row in response.data]
 
     @staticmethod
-    def get_failed_runs_for_period(year: int, month: int) -> List[Run]:
+    def get_failed_runs_for_period(
+        year: int, month: int, user_id: Optional[str] = None
+    ) -> List[Run]:
         """Fetch all FAILED runs that started in the given year/month (UTC)."""
         start = datetime(year, month, 1, tzinfo=timezone.utc)
         if month == 12:
@@ -311,15 +333,17 @@ class Run(BaseDBModel):
         else:
             end = datetime(year, month + 1, 1, tzinfo=timezone.utc)
 
-        response: Any = (
+        query: Any = (
             supabase.table(Run.TABLE)
             .select("*")
             .eq("status", "FAILED")
             .gte("started_at", start.isoformat())
             .lt("started_at", end.isoformat())
             .order("started_at", desc=True)
-            .execute()
         )
+        if user_id:
+            query = query.eq("user_id", user_id)
+        response: Any = query.execute()
 
         if not response.data:
             return []
@@ -327,21 +351,23 @@ class Run(BaseDBModel):
         return [Run.model_validate(row) for row in response.data]
 
     @staticmethod
-    def run_exists_today() -> bool:
+    def run_exists_today(user_id: Optional[str] = None) -> bool:
         """Check if a run was already created today (UTC). Always returns False in non-prod."""
         now: datetime = datetime.now(timezone.utc)
 
         start_of_day: datetime = now.replace(hour=0, minute=0, second=0, microsecond=0)
         end_of_day: datetime = start_of_day + timedelta(days=1)
 
-        response: Any = (
+        query: Any = (
             supabase.table(Run.TABLE)
             .select("id")
             .gte("started_at", start_of_day.isoformat())
             .lt("started_at", end_of_day.isoformat())
             .limit(1)
-            .execute()
         )
+        if user_id:
+            query = query.eq("user_id", user_id)
+        response: Any = query.execute()
 
         if settings.env != "prod":
             return False

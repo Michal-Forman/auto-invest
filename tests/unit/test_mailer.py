@@ -23,6 +23,7 @@ from core.mailer import (
     _make_spd_qr,
     _runs_in_next_30_days,
 )
+from core.settings import PortfolioSettings, UserSettings
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -71,6 +72,47 @@ def _make_order(**overrides: Any) -> Order:
     }
     defaults.update(overrides)
     return Order(**defaults)
+
+
+_TEST_PORTFOLIO = PortfolioSettings(
+    pie_id=1,
+    t212_weight=95,
+    btc_weight=0.05,
+    invest_amount=5000.0,
+    invest_interval="0 9 * * *",
+    balance_buffer=1.5,
+    balance_alert_days=7,
+    btc_withdrawal_treshold=500000,
+)
+
+
+def _make_user_settings(**overrides: Any) -> UserSettings:
+    defaults: Dict[str, Any] = {
+        "user_id": "test-user-id",
+        "t212_id_key": "test-t212-key",
+        "t212_private_key": "test-t212-priv",
+        "coinmate_client_id": 1,
+        "coinmate_public_key": "test-pub",
+        "coinmate_private_key": "test-priv",
+        "my_mail": "test@example.com",
+        "mail_recipient": "recipient@example.com",
+        "mail_host": "smtp.example.com",
+        "mail_port": 465,
+        "mail_password": "secret",
+        "t212_deposit_account": None,
+        "t212_deposit_vs": None,
+        "coinmate_deposit_account": None,
+        "coinmate_deposit_vs": None,
+        "btc_external_adress": "bc1qexampleaddressfortesting",
+        "portfolio": _TEST_PORTFOLIO,
+        "env": "dev",
+    }
+    defaults.update(overrides)
+    return UserSettings(**defaults)
+
+
+def _make_mailer(**overrides: Any) -> Mailer:
+    return Mailer(_make_user_settings(**overrides))
 
 
 def _patch_smtp_and_logo(mocker: MockerFixture) -> MagicMock:
@@ -137,7 +179,7 @@ class TestSend:
         mock_server = _patch_smtp_and_logo(mocker)
         mocker.patch("core.mailer.Mail.post_to_db")
 
-        mailer = Mailer()
+        mailer = _make_mailer()
         mailer._send("Subject", "plain", "<html>body</html>", "error_alert")
 
         mock_server.login.assert_called_once_with(mailer.my_mail, mailer.mail_password)
@@ -147,7 +189,7 @@ class TestSend:
         _patch_smtp_and_logo(mocker)
         mock_post = mocker.patch("core.mailer.Mail.post_to_db")
 
-        mailer = Mailer()
+        mailer = _make_mailer()
         mailer._send(
             "Subject", "plain", "<html/>", "investment_confirmation", period="2026-03"
         )
@@ -165,7 +207,7 @@ class TestSend:
         mock_smtp_cls = mocker.patch("core.mailer.smtplib.SMTP_SSL")
         mock_smtp_cls.return_value.__enter__.return_value = mock_server
 
-        mailer = Mailer()
+        mailer = _make_mailer()
         with pytest.raises(Exception, match="SMTP failure"):
             mailer._send("Subject", "plain", "<html/>", "error_alert")
 
@@ -179,7 +221,7 @@ class TestSend:
         mock_smtp_cls = mocker.patch("core.mailer.smtplib.SMTP_SSL")
         mock_smtp_cls.return_value.__enter__.return_value = mock_server
 
-        mailer = Mailer()
+        mailer = _make_mailer()
         with pytest.raises(OSError):
             mailer._send("Subject", "plain", "<html/>", "error_alert")
 
@@ -187,7 +229,7 @@ class TestSend:
         mock_server = _patch_smtp_and_logo(mocker)
         mocker.patch("core.mailer.Mail.post_to_db")
 
-        mailer = Mailer()
+        mailer = _make_mailer()
         mailer._send("My Subject", "plain", "<html/>", "error_alert")
 
         sent_msg = mock_server.send_message.call_args[0][0]
@@ -204,7 +246,7 @@ class TestSend:
 
         mocker.patch("core.mailer.Mail.post_to_db", _capture_post)
 
-        mailer = Mailer()
+        mailer = _make_mailer()
         mailer._send("Subject", "plain", "<html/>", "monthly_summary", period="2026-02")
 
         # Mail.post_to_db is an instance method patched at class level; check via Mail constructor
@@ -238,7 +280,7 @@ class TestSendInvestmentConfirmation:
         dist = {"VWCEd_EQ": 5000.0}
         mults = {"VWCEd_EQ": 1.0}
 
-        Mailer().send_investment_confirmation(run, orders, dist, mults)
+        _make_mailer().send_investment_confirmation(run, orders, dist, mults)
 
         mock_send.assert_called_once()
         subject = mock_send.call_args[0][0]
@@ -247,7 +289,7 @@ class TestSendInvestmentConfirmation:
     def test_plain_text_contains_run_id(self, mocker: MockerFixture) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
         run = _make_run()
-        Mailer().send_investment_confirmation(
+        _make_mailer().send_investment_confirmation(
             run, [], {"VWCEd_EQ": 1000.0}, {"VWCEd_EQ": 1.2}
         )
         plain = mock_send.call_args[0][1]
@@ -257,7 +299,7 @@ class TestSendInvestmentConfirmation:
         mock_send = mocker.patch.object(Mailer, "_send")
         run = _make_run()
         dist = {"VWCE": 3000.0, "BTC": 2000.0}
-        Mailer().send_investment_confirmation(run, [], dist, {})
+        _make_mailer().send_investment_confirmation(run, [], dist, {})
         plain = mock_send.call_args[0][1]
         assert "5000" in plain
 
@@ -265,7 +307,7 @@ class TestSendInvestmentConfirmation:
         mock_send = mocker.patch.object(Mailer, "_send")
         run = _make_run()
         dist = {"VWCEd_EQ": 4000.0, "BTC": 1000.0}
-        Mailer().send_investment_confirmation(run, [], dist, {"VWCEd_EQ": 1.5})
+        _make_mailer().send_investment_confirmation(run, [], dist, {"VWCEd_EQ": 1.5})
         html = mock_send.call_args[0][2]
         assert "VWCEd_EQ" in html
         assert "BTC" in html
@@ -277,7 +319,7 @@ class TestSendInvestmentConfirmation:
         run = _make_run()
         dist = {"VWCE": 5000.0}
         mults = {"VWCE": 1.5}
-        Mailer().send_investment_confirmation(run, [], dist, mults)
+        _make_mailer().send_investment_confirmation(run, [], dist, mults)
         html = mock_send.call_args[0][2]
         assert "#16a34a" in html  # green color for mult > 1.0
 
@@ -286,21 +328,21 @@ class TestSendInvestmentConfirmation:
         run = _make_run()
         order = _make_order(t212_ticker="VWCE", exchange="COINMATE")
         dist = {"VWCE": 5000.0}
-        Mailer().send_investment_confirmation(run, [order], dist, {})
+        _make_mailer().send_investment_confirmation(run, [order], dist, {})
         html = mock_send.call_args[0][2]
         assert "COINMATE" in html
 
     def test_mail_type_is_investment_confirmation(self, mocker: MockerFixture) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
         run = _make_run()
-        Mailer().send_investment_confirmation(run, [], {"VWCE": 1000.0}, {})
+        _make_mailer().send_investment_confirmation(run, [], {"VWCE": 1000.0}, {})
         assert mock_send.call_args.kwargs["mail_type"] == "investment_confirmation"
 
     def test_rows_sorted_by_czk_descending(self, mocker: MockerFixture) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
         run = _make_run()
         dist = {"SMALL": 100.0, "BIG": 4000.0, "MID": 900.0}
-        Mailer().send_investment_confirmation(run, [], dist, {})
+        _make_mailer().send_investment_confirmation(run, [], dist, {})
         html = mock_send.call_args[0][2]
         # BIG should appear before MID before SMALL in HTML
         assert html.index("BIG") < html.index("MID") < html.index("SMALL")
@@ -317,7 +359,7 @@ class TestSendErrorAlert:
         try:
             raise ValueError("something failed")
         except ValueError as e:
-            Mailer().send_error_alert(e)
+            _make_mailer().send_error_alert(e)
         subject = mock_send.call_args[0][0]
         assert "ERROR" in subject
 
@@ -326,7 +368,7 @@ class TestSendErrorAlert:
         try:
             raise ValueError("boom")
         except ValueError as e:
-            Mailer().send_error_alert(e)
+            _make_mailer().send_error_alert(e)
         plain = mock_send.call_args[0][1]
         assert "ValueError" in plain
         assert "boom" in plain
@@ -339,7 +381,7 @@ class TestSendErrorAlert:
         try:
             raise RuntimeError("db error")
         except RuntimeError as e:
-            Mailer().send_error_alert(e, run=run)
+            _make_mailer().send_error_alert(e, run=run)
         plain = mock_send.call_args[0][1]
         assert str(_RUN_ID) in plain
 
@@ -350,7 +392,7 @@ class TestSendErrorAlert:
         try:
             raise RuntimeError("unexpected")
         except RuntimeError as e:
-            Mailer().send_error_alert(e)
+            _make_mailer().send_error_alert(e)
         plain = mock_send.call_args[0][1]
         assert "unexpected error" in plain.lower()
 
@@ -362,7 +404,7 @@ class TestSendErrorAlert:
         try:
             raise RuntimeError("oops")
         except RuntimeError as e:
-            Mailer().send_error_alert(e, run=run)
+            _make_mailer().send_error_alert(e, run=run)
         html = mock_send.call_args[0][2]
         assert "Run ID" in html
         assert str(_RUN_ID)[:8] in html
@@ -372,7 +414,7 @@ class TestSendErrorAlert:
         try:
             raise RuntimeError("oops")
         except RuntimeError as e:
-            Mailer().send_error_alert(e)
+            _make_mailer().send_error_alert(e)
         html = mock_send.call_args[0][2]
         assert "Run ID" not in html
 
@@ -381,7 +423,7 @@ class TestSendErrorAlert:
         try:
             raise ValueError("err")
         except ValueError as e:
-            Mailer().send_error_alert(e)
+            _make_mailer().send_error_alert(e)
         assert mock_send.call_args.kwargs["mail_type"] == "error_alert"
 
     def test_plain_contains_traceback(self, mocker: MockerFixture) -> None:
@@ -389,7 +431,7 @@ class TestSendErrorAlert:
         try:
             raise ValueError("traceback test")
         except ValueError as e:
-            Mailer().send_error_alert(e)
+            _make_mailer().send_error_alert(e)
         plain = mock_send.call_args[0][1]
         assert "Traceback" in plain
 
@@ -539,13 +581,13 @@ class TestComputeWarnings:
 class TestSendMonthlySummary:
     def test_returns_early_when_no_runs(self, mocker: MockerFixture) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
-        Mailer().send_monthly_summary([], [])
+        _make_mailer().send_monthly_summary([], [])
         mock_send.assert_not_called()
 
     def test_subject_contains_month_label(self, mocker: MockerFixture) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
         run = _make_run()
-        Mailer().send_monthly_summary([run], [])
+        _make_mailer().send_monthly_summary([run], [])
         subject = mock_send.call_args[0][0]
         assert "March 2026" in subject
 
@@ -556,14 +598,14 @@ class TestSendMonthlySummary:
             _make_order(t212_ticker="VWCE", total_czk=3000.0, status="FILLED"),
             _make_order(t212_ticker="BTC", total_czk=2000.0, status="FILLED"),
         ]
-        Mailer().send_monthly_summary([run], orders)
+        _make_mailer().send_monthly_summary([run], orders)
         plain = mock_send.call_args[0][1]
         assert "5000" in plain
 
     def test_plain_shows_no_issues_when_clean(self, mocker: MockerFixture) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
         run = _make_run()
-        Mailer().send_monthly_summary([run], [])
+        _make_mailer().send_monthly_summary([run], [])
         plain = mock_send.call_args[0][1]
         assert "No issues" in plain
 
@@ -575,7 +617,7 @@ class TestSendMonthlySummary:
             error="Timed out",
             id=UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
         )
-        Mailer().send_monthly_summary([run], [], failed_runs=[failed])
+        _make_mailer().send_monthly_summary([run], [], failed_runs=[failed])
         plain = mock_send.call_args[0][1]
         assert "FAILED" in plain
         assert "Timed out" in plain
@@ -584,7 +626,7 @@ class TestSendMonthlySummary:
         mock_send = mocker.patch.object(Mailer, "_send")
         run = _make_run()
         bad_order = _make_order(status="FAILED", error="Insufficient funds")  # type: ignore[arg-type]
-        Mailer().send_monthly_summary([run], [bad_order])
+        _make_mailer().send_monthly_summary([run], [bad_order])
         plain = mock_send.call_args[0][1]
         assert "Insufficient funds" in plain
 
@@ -593,7 +635,7 @@ class TestSendMonthlySummary:
     ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
         run = _make_run()
-        Mailer().send_monthly_summary([run], [])
+        _make_mailer().send_monthly_summary([run], [])
         html = mock_send.call_args[0][2]
         assert "No warnings" in html
 
@@ -604,7 +646,7 @@ class TestSendMonthlySummary:
         run = _make_run()
         # Order with large slippage
         order = _make_order(status="FILLED", price=100.0, fill_price=120.0)
-        Mailer().send_monthly_summary([run], [order])
+        _make_mailer().send_monthly_summary([run], [order])
         html = mock_send.call_args[0][2]
         assert "Price slippage" in html
 
@@ -613,7 +655,7 @@ class TestSendMonthlySummary:
     ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
         run = _make_run()
-        Mailer().send_monthly_summary([run], [])
+        _make_mailer().send_monthly_summary([run], [])
         html = mock_send.call_args[0][2]
         assert "No issues found" in html
 
@@ -623,7 +665,7 @@ class TestSendMonthlySummary:
         mock_send = mocker.patch.object(Mailer, "_send")
         run = _make_run()
         failed = _make_run(status="FAILED", error="Order expired")
-        Mailer().send_monthly_summary([run], [], failed_runs=[failed])
+        _make_mailer().send_monthly_summary([run], [], failed_runs=[failed])
         html = mock_send.call_args[0][2]
         assert "FAILED RUN" in html
         assert "Order expired" in html
@@ -631,13 +673,13 @@ class TestSendMonthlySummary:
     def test_mail_type_is_monthly_summary(self, mocker: MockerFixture) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
         run = _make_run()
-        Mailer().send_monthly_summary([run], [])
+        _make_mailer().send_monthly_summary([run], [])
         assert mock_send.call_args.kwargs["mail_type"] == "monthly_summary"
 
     def test_period_kwarg_matches_anchor_run_month(self, mocker: MockerFixture) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
         run = _make_run(started_at=datetime(2026, 2, 5, 9, 0, 0, tzinfo=timezone.utc))
-        Mailer().send_monthly_summary([run], [])
+        _make_mailer().send_monthly_summary([run], [])
         # period passed as keyword
         assert mock_send.call_args[1].get("period") == "2026-02"
 
@@ -648,7 +690,7 @@ class TestSendMonthlySummary:
         run = _make_run()
         good = _make_order(t212_ticker="VWCE", total_czk=3000.0, status="FILLED")
         bad = _make_order(t212_ticker="VWCE", total_czk=9999.0, status="FAILED")  # type: ignore[arg-type]
-        Mailer().send_monthly_summary([run], [good, bad])
+        _make_mailer().send_monthly_summary([run], [good, bad])
         plain = mock_send.call_args[0][1]
         assert "3000" in plain
         assert "12999" not in plain  # bad order should not inflate total
@@ -657,14 +699,14 @@ class TestSendMonthlySummary:
         mock_send = mocker.patch.object(Mailer, "_send")
         run1 = _make_run(started_at=datetime(2026, 3, 15, 9, 0, 0, tzinfo=timezone.utc))
         run2 = _make_run(started_at=datetime(2026, 3, 3, 9, 0, 0, tzinfo=timezone.utc))
-        Mailer().send_monthly_summary([run1, run2], [])
+        _make_mailer().send_monthly_summary([run1, run2], [])
         subject = mock_send.call_args[0][0]
         assert "March 2026" in subject
 
     def test_only_failed_runs_no_successful_runs(self, mocker: MockerFixture) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
         failed = _make_run(status="FAILED")
-        Mailer().send_monthly_summary([], [], failed_runs=[failed])
+        _make_mailer().send_monthly_summary([], [], failed_runs=[failed])
         mock_send.assert_called_once()
         plain = mock_send.call_args[0][1]
         assert "FAILED" in plain
@@ -691,38 +733,38 @@ def _make_alert(**overrides: Any) -> dict:
 class TestSendBalanceAlert:
     def test_calls_send_with_low_balance_subject(self, mocker: MockerFixture) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
-        Mailer().send_balance_alert([_make_alert()])
+        _make_mailer().send_balance_alert([_make_alert()])
         subject = mock_send.call_args[0][0]
         assert "balance" in subject.lower()
 
     def test_plain_contains_exchange_name(self, mocker: MockerFixture) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
-        Mailer().send_balance_alert([_make_alert(exchange="T212")])
+        _make_mailer().send_balance_alert([_make_alert(exchange="T212")])
         plain = mock_send.call_args[0][1]
         assert "T212" in plain
 
     def test_plain_contains_runs_out_date(self, mocker: MockerFixture) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
         runs_out = datetime(2026, 3, 7, 9, 0, 0, tzinfo=timezone.utc)
-        Mailer().send_balance_alert([_make_alert(runs_out_on=runs_out)])
+        _make_mailer().send_balance_alert([_make_alert(runs_out_on=runs_out)])
         plain = mock_send.call_args[0][1]
         assert "2026-03-07" in plain
 
     def test_plain_contains_days_until_broke(self, mocker: MockerFixture) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
-        Mailer().send_balance_alert([_make_alert(days_until_broke=3)])
+        _make_mailer().send_balance_alert([_make_alert(days_until_broke=3)])
         plain = mock_send.call_args[0][1]
         assert "3" in plain
 
     def test_html_contains_exchange_name(self, mocker: MockerFixture) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
-        Mailer().send_balance_alert([_make_alert(exchange="COINMATE")])
+        _make_mailer().send_balance_alert([_make_alert(exchange="COINMATE")])
         html = mock_send.call_args[0][2]
         assert "COINMATE" in html
 
     def test_html_uses_red_color_for_urgent_days(self, mocker: MockerFixture) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
-        Mailer().send_balance_alert([_make_alert(days_until_broke=1)])
+        _make_mailer().send_balance_alert([_make_alert(days_until_broke=1)])
         html = mock_send.call_args[0][2]
         assert "#dc2626" in html
 
@@ -730,18 +772,18 @@ class TestSendBalanceAlert:
         self, mocker: MockerFixture
     ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
-        Mailer().send_balance_alert([_make_alert(days_until_broke=5)])
+        _make_mailer().send_balance_alert([_make_alert(days_until_broke=5)])
         html = mock_send.call_args[0][2]
         assert "#b45309" in html
 
     def test_mail_type_is_balance_alert(self, mocker: MockerFixture) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
-        Mailer().send_balance_alert([_make_alert()])
+        _make_mailer().send_balance_alert([_make_alert()])
         assert mock_send.call_args.kwargs["mail_type"] == "balance_alert"
 
     def test_period_kwarg_is_todays_date(self, mocker: MockerFixture) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
-        Mailer().send_balance_alert([_make_alert()])
+        _make_mailer().send_balance_alert([_make_alert()])
         period = mock_send.call_args.kwargs.get("period")
         assert period is not None
         # Should be a valid YYYY-MM-DD date string
@@ -755,14 +797,14 @@ class TestSendBalanceAlert:
             _make_alert(exchange="T212"),
             _make_alert(exchange="COINMATE"),
         ]
-        Mailer().send_balance_alert(alerts)
+        _make_mailer().send_balance_alert(alerts)
         plain = mock_send.call_args[0][1]
         assert "T212" in plain
         assert "COINMATE" in plain
 
     def test_html_contains_balance_value(self, mocker: MockerFixture) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
-        Mailer().send_balance_alert([_make_alert(balance=4567.89)])
+        _make_mailer().send_balance_alert([_make_alert(balance=4567.89)])
         html = mock_send.call_args[0][2]
         assert (
             "4\u00a0567.89" in html
@@ -770,7 +812,7 @@ class TestSendBalanceAlert:
 
     def test_html_contains_spend_per_run_value(self, mocker: MockerFixture) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
-        Mailer().send_balance_alert([_make_alert(spend_per_run=1234.56)])
+        _make_mailer().send_balance_alert([_make_alert(spend_per_run=1234.56)])
         html = mock_send.call_args[0][2]
         assert "1\u00a0234.56" in html
 
@@ -886,33 +928,32 @@ class TestRunsInNext30Days:
 class TestSendBalanceAlertTopupSection:
     """Tests for the deposit QR code and top-up section of send_balance_alert."""
 
-    def _patch_settings(
+    def _make_mailer_with_deposit(
         self,
-        mocker: MockerFixture,
         *,
         t212_account: str | None = None,
         t212_vs: str | None = None,
         coinmate_account: str | None = None,
         coinmate_vs: str | None = None,
-    ) -> MagicMock:
-        mock_settings = MagicMock()
-        mock_settings.t212_deposit_account = t212_account
-        mock_settings.t212_deposit_vs = t212_vs
-        mock_settings.coinmate_deposit_account = coinmate_account
-        mock_settings.coinmate_deposit_vs = coinmate_vs
-        mock_settings.portfolio.invest_interval = "0 9 * * *"
-        mocker.patch("core.mailer.settings", mock_settings)
-        return mock_settings
+    ) -> Mailer:
+        return _make_mailer(
+            t212_deposit_account=t212_account,
+            t212_deposit_vs=t212_vs,
+            coinmate_deposit_account=coinmate_account,
+            coinmate_deposit_vs=coinmate_vs,
+        )
 
     def test_extra_images_contains_qr_when_deposit_config_present(
         self, mocker: MockerFixture
     ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
-        self._patch_settings(mocker, t212_account="19-123456789/0800", t212_vs="12345")
+        mailer = self._make_mailer_with_deposit(
+            t212_account="19-123456789/0800", t212_vs="12345"
+        )
         mocker.patch("core.mailer._make_spd_qr", return_value=b"PNG")
         mocker.patch("core.mailer._runs_in_next_30_days", return_value=4)
 
-        Mailer().send_balance_alert([_make_alert(exchange="T212")])
+        mailer.send_balance_alert([_make_alert(exchange="T212")])
 
         extra_images = mock_send.call_args.kwargs.get("extra_images")
         assert extra_images is not None
@@ -922,10 +963,10 @@ class TestSendBalanceAlertTopupSection:
         self, mocker: MockerFixture
     ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
-        self._patch_settings(mocker)  # all None
+        mailer = self._make_mailer_with_deposit()  # all None
         mocker.patch("core.mailer._runs_in_next_30_days", return_value=4)
 
-        Mailer().send_balance_alert([_make_alert(exchange="T212")])
+        mailer.send_balance_alert([_make_alert(exchange="T212")])
 
         extra_images = mock_send.call_args.kwargs.get("extra_images")
         assert extra_images is None
@@ -934,11 +975,13 @@ class TestSendBalanceAlertTopupSection:
         self, mocker: MockerFixture
     ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
-        self._patch_settings(mocker, t212_account="19-123456789/0800", t212_vs="12345")
+        mailer = self._make_mailer_with_deposit(
+            t212_account="19-123456789/0800", t212_vs="12345"
+        )
         mocker.patch("core.mailer._make_spd_qr", return_value=b"PNG")
         mocker.patch("core.mailer._runs_in_next_30_days", return_value=4)
 
-        Mailer().send_balance_alert([_make_alert(exchange="T212")])
+        mailer.send_balance_alert([_make_alert(exchange="T212")])
 
         html = mock_send.call_args[0][2]
         assert "Suggested top-up:" in html
@@ -949,10 +992,10 @@ class TestSendBalanceAlertTopupSection:
         self, mocker: MockerFixture
     ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
-        self._patch_settings(mocker)  # all None
+        mailer = self._make_mailer_with_deposit()  # all None
         mocker.patch("core.mailer._runs_in_next_30_days", return_value=4)
 
-        Mailer().send_balance_alert([_make_alert(exchange="T212")])
+        mailer.send_balance_alert([_make_alert(exchange="T212")])
 
         html = mock_send.call_args[0][2]
         # "Suggested top-up:" only appears inside an actual topup card
@@ -962,12 +1005,14 @@ class TestSendBalanceAlertTopupSection:
         self, mocker: MockerFixture
     ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
-        self._patch_settings(mocker, t212_account="19-123456789/0800", t212_vs="12345")
+        mailer = self._make_mailer_with_deposit(
+            t212_account="19-123456789/0800", t212_vs="12345"
+        )
         mock_qr = mocker.patch("core.mailer._make_spd_qr", return_value=b"PNG")
         mocker.patch("core.mailer._runs_in_next_30_days", return_value=4)
 
         # ceil(4 * 333.0 / 100) * 100 = ceil(13.32) * 100 = 1400
-        Mailer().send_balance_alert([_make_alert(exchange="T212", spend_per_run=333.0)])
+        mailer.send_balance_alert([_make_alert(exchange="T212", spend_per_run=333.0)])
 
         _, _, amount = mock_qr.call_args[0]
         assert amount == 1400.0
@@ -976,12 +1021,14 @@ class TestSendBalanceAlertTopupSection:
         self, mocker: MockerFixture
     ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
-        self._patch_settings(mocker, t212_account="19-123456789/0800", t212_vs="12345")
+        mailer = self._make_mailer_with_deposit(
+            t212_account="19-123456789/0800", t212_vs="12345"
+        )
         mock_qr = mocker.patch("core.mailer._make_spd_qr", return_value=b"PNG")
         mocker.patch("core.mailer._runs_in_next_30_days", return_value=4)
 
         # ceil(4 * 250.0 / 100) * 100 = ceil(10.0) * 100 = 1000
-        Mailer().send_balance_alert([_make_alert(exchange="T212", spend_per_run=250.0)])
+        mailer.send_balance_alert([_make_alert(exchange="T212", spend_per_run=250.0)])
 
         _, _, amount = mock_qr.call_args[0]
         assert amount == 1000.0
@@ -990,8 +1037,7 @@ class TestSendBalanceAlertTopupSection:
         self, mocker: MockerFixture
     ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
-        self._patch_settings(
-            mocker,
+        mailer = self._make_mailer_with_deposit(
             t212_account="19-123456789/0800",
             t212_vs="12345",
             coinmate_account="987654321/2060",
@@ -1000,7 +1046,7 @@ class TestSendBalanceAlertTopupSection:
         mock_qr = mocker.patch("core.mailer._make_spd_qr", return_value=b"PNG")
         mocker.patch("core.mailer._runs_in_next_30_days", return_value=4)
 
-        Mailer().send_balance_alert(
+        mailer.send_balance_alert(
             [_make_alert(exchange="T212"), _make_alert(exchange="COINMATE")]
         )
 
@@ -1012,11 +1058,11 @@ class TestSendBalanceAlertTopupSection:
 
     def test_unknown_exchange_skips_qr_generation(self, mocker: MockerFixture) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
-        self._patch_settings(mocker)  # all None
+        mailer = self._make_mailer_with_deposit()  # all None
         mock_qr = mocker.patch("core.mailer._make_spd_qr", return_value=b"PNG")
         mocker.patch("core.mailer._runs_in_next_30_days", return_value=4)
 
-        Mailer().send_balance_alert([_make_alert(exchange="KRAKEN")])
+        mailer.send_balance_alert([_make_alert(exchange="KRAKEN")])
 
         mock_qr.assert_not_called()
         extra_images = mock_send.call_args.kwargs.get("extra_images")
@@ -1027,11 +1073,13 @@ class TestSendBalanceAlertTopupSection:
     ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
         # Only T212 has deposit config; COINMATE does not
-        self._patch_settings(mocker, t212_account="19-123456789/0800", t212_vs="12345")
+        mailer = self._make_mailer_with_deposit(
+            t212_account="19-123456789/0800", t212_vs="12345"
+        )
         mock_qr = mocker.patch("core.mailer._make_spd_qr", return_value=b"PNG")
         mocker.patch("core.mailer._runs_in_next_30_days", return_value=4)
 
-        Mailer().send_balance_alert(
+        mailer.send_balance_alert(
             [_make_alert(exchange="T212"), _make_alert(exchange="COINMATE")]
         )
 
@@ -1071,7 +1119,7 @@ class TestSendBtcWithdrawalConfirmation:
         self, withdrawal: BtcWithdrawal, mocker: MockerFixture
     ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
-        Mailer().send_btc_withdrawal_confirmation(withdrawal)
+        _make_mailer().send_btc_withdrawal_confirmation(withdrawal)
         subject = mock_send.call_args[0][0]
         assert "BTC withdrawal" in subject
 
@@ -1079,14 +1127,14 @@ class TestSendBtcWithdrawalConfirmation:
         self, withdrawal: BtcWithdrawal, mocker: MockerFixture
     ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
-        Mailer().send_btc_withdrawal_confirmation(withdrawal)
+        _make_mailer().send_btc_withdrawal_confirmation(withdrawal)
         assert mock_send.call_args.kwargs["mail_type"] == "btc_withdrawal_confirmation"
 
     def test_long_address_shortened(
         self, withdrawal: BtcWithdrawal, mocker: MockerFixture
     ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
-        Mailer().send_btc_withdrawal_confirmation(withdrawal)
+        _make_mailer().send_btc_withdrawal_confirmation(withdrawal)
         plain = mock_send.call_args[0][1]
         expected_short = _LONG_ADDR[:8] + "\u2026" + _LONG_ADDR[-8:]
         assert expected_short in plain
@@ -1105,7 +1153,7 @@ class TestSendBtcWithdrawalConfirmation:
             exchange_timestamp=datetime(2026, 3, 8, 10, 30, tzinfo=timezone.utc),
         )
         mock_send = mocker.patch.object(Mailer, "_send")
-        Mailer().send_btc_withdrawal_confirmation(short_withdrawal)
+        _make_mailer().send_btc_withdrawal_confirmation(short_withdrawal)
         plain = mock_send.call_args[0][1]
         assert _SHORT_ADDR in plain
         assert "\u2026" not in plain
@@ -1114,7 +1162,7 @@ class TestSendBtcWithdrawalConfirmation:
         self, withdrawal: BtcWithdrawal, mocker: MockerFixture
     ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
-        Mailer().send_btc_withdrawal_confirmation(withdrawal)
+        _make_mailer().send_btc_withdrawal_confirmation(withdrawal)
         plain = mock_send.call_args[0][1]
         assert "0.00123 BTC" in plain
 
@@ -1122,7 +1170,7 @@ class TestSendBtcWithdrawalConfirmation:
         self, withdrawal: BtcWithdrawal, mocker: MockerFixture
     ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
-        Mailer().send_btc_withdrawal_confirmation(withdrawal)
+        _make_mailer().send_btc_withdrawal_confirmation(withdrawal)
         plain = mock_send.call_args[0][1]
         assert "250" in plain
 
@@ -1130,7 +1178,7 @@ class TestSendBtcWithdrawalConfirmation:
         self, withdrawal: BtcWithdrawal, mocker: MockerFixture
     ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
-        Mailer().send_btc_withdrawal_confirmation(withdrawal)
+        _make_mailer().send_btc_withdrawal_confirmation(withdrawal)
         plain = mock_send.call_args[0][1]
         assert "17751183" in plain
 
@@ -1138,7 +1186,7 @@ class TestSendBtcWithdrawalConfirmation:
         self, withdrawal: BtcWithdrawal, mocker: MockerFixture
     ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
-        Mailer().send_btc_withdrawal_confirmation(withdrawal)
+        _make_mailer().send_btc_withdrawal_confirmation(withdrawal)
         html = mock_send.call_args[0][2]
         assert "0.00123" in html
 
@@ -1146,7 +1194,7 @@ class TestSendBtcWithdrawalConfirmation:
         self, withdrawal: BtcWithdrawal, mocker: MockerFixture
     ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
-        Mailer().send_btc_withdrawal_confirmation(withdrawal)
+        _make_mailer().send_btc_withdrawal_confirmation(withdrawal)
         html = mock_send.call_args[0][2]
         # round(3075.00) = 3075 → f"{3075:_}" = "3_075" → "3\u00a0075"
         assert "3\u00a0075" in html
@@ -1155,7 +1203,7 @@ class TestSendBtcWithdrawalConfirmation:
         self, withdrawal: BtcWithdrawal, mocker: MockerFixture
     ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
-        Mailer().send_btc_withdrawal_confirmation(withdrawal)
+        _make_mailer().send_btc_withdrawal_confirmation(withdrawal)
         html = mock_send.call_args[0][2]
         assert "500" in html  # threshold 500000 is in html
 
@@ -1163,7 +1211,7 @@ class TestSendBtcWithdrawalConfirmation:
         self, withdrawal: BtcWithdrawal, mocker: MockerFixture
     ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
-        Mailer().send_btc_withdrawal_confirmation(withdrawal)
+        _make_mailer().send_btc_withdrawal_confirmation(withdrawal)
         html = mock_send.call_args[0][2]
         # 500_000 → "500\u00a0000"
         assert "500\u00a0000" in html

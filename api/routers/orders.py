@@ -2,9 +2,10 @@
 from typing import List, Optional
 
 # Third-party
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 # Local
+from api.dependencies import get_current_user_id
 from api.schemas import OrderResponse
 from core.db.orders import Order
 from core.instrument_data import INSTRUMENT_NAMES
@@ -17,10 +18,11 @@ def list_orders(
     ticker: Optional[str] = None,
     exchange: Optional[str] = None,
     status: Optional[str] = None,
+    user_id: str = Depends(get_current_user_id),
 ) -> List[OrderResponse]:
     """Return orders with optional filters by ticker, exchange, and status."""
     orders: List[Order] = Order.get_orders(
-        ticker=ticker, exchange=exchange, status=status
+        ticker=ticker, exchange=exchange, status=status, user_id=user_id
     )
 
     return [

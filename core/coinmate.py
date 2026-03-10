@@ -223,14 +223,18 @@ class Coinmate:
 
 
 if __name__ == "__main__":
-    from core.settings import settings
+    from core.db.users import UserRecord
+    from core.settings import UserSettings
 
+    _user = UserRecord.get_cron_users()[0]
+    _us = UserSettings.from_user(_user)
+    assert _us.coinmate_client_id is not None
     coinmate = Coinmate(
-        settings.coinmate_client_id,
-        settings.coinmate_public_key,
-        settings.coinmate_private_key,
+        _us.coinmate_client_id,
+        _us.coinmate_public_key,
+        _us.coinmate_private_key,
     )
     # print(coinmate.btc_balance())
-    # print(coinmate.btc_withdraw(settings.btc_external_adress, 0.00005))
+    # print(coinmate.btc_withdraw(_us.btc_external_adress, 0.00005))
     # 17751147
     print(coinmate.btc_withdrawal_data("17751183"))

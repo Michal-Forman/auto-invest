@@ -10,10 +10,11 @@ import pytest
 from api.cache import instruments_cache
 from api.main import app
 from api.routers.instruments import _apply_cap
+from core.instruments import Instruments
 
 client = TestClient(app)
 
-_CACHE_KEY = "instruments"
+_CACHE_KEY = "instruments:test-user-id"
 
 _FAKE_RATIO_DATA: Dict[str, Any] = {
     "default_ratios": {"VWCEd_EQ": 0.9, "BTC": 0.1},
@@ -118,8 +119,8 @@ def test_response_schema_all_fields_present(mocker):
 
 
 def test_result_served_from_cache(mocker):
-    # Pre-populate cache; get_t212 should never be called if cache is hit.
+    # Pre-populate cache; expensive computation should not run if cache is hit.
     instruments_cache[_CACHE_KEY] = _FAKE_RATIO_DATA
-    mock_t212 = mocker.patch("api.routers.instruments.get_t212")
+    mock_get_ratios = mocker.patch.object(Instruments, "get_default_ratios")
     client.get("/instruments")
-    mock_t212.assert_not_called()
+    mock_get_ratios.assert_not_called()

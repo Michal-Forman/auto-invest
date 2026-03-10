@@ -16,6 +16,7 @@ from core.instruments import Instruments
 from core.mailer import Mailer
 from core.settings import PortfolioSettings
 from core.trading212 import Trading212
+from tests.integration.conftest import make_mailer
 
 
 def _make_transaction_data(amount: float = 0.01) -> dict:
@@ -184,7 +185,7 @@ class TestBtcWithdrawalEmailIntegration:
         self, btc_withdrawal: BtcWithdrawal, mocker: MockerFixture
     ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
-        Mailer().send_btc_withdrawal_confirmation(btc_withdrawal)
+        make_mailer().send_btc_withdrawal_confirmation(btc_withdrawal)
         mock_send.assert_called_once()
 
     def test_email_not_sent_when_withdrawal_none(self, mocker: MockerFixture) -> None:
@@ -192,5 +193,5 @@ class TestBtcWithdrawalEmailIntegration:
         mock_send = mocker.patch.object(Mailer, "_send")
         withdrawal = None
         if withdrawal:
-            Mailer().send_btc_withdrawal_confirmation(withdrawal)
+            make_mailer().send_btc_withdrawal_confirmation(withdrawal)
         mock_send.assert_not_called()

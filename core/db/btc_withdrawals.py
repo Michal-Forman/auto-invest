@@ -19,6 +19,7 @@ class BtcWithdrawal(BaseDBModel):
     # --- Identity ---
     TABLE: ClassVar[str] = "btc_withdrawals"
     id: Optional[UUID] = None
+    user_id: Optional[str] = None
 
     exchange_withdrawal_id: int
 
@@ -44,7 +45,10 @@ class BtcWithdrawal(BaseDBModel):
 
     @staticmethod
     def create_withdrawal(
-        withdrawal_data: Dict[str, Any], amount_czk: Decimal, fee_czk: Decimal
+        withdrawal_data: Dict[str, Any],
+        amount_czk: Decimal,
+        fee_czk: Decimal,
+        user_id: Optional[str] = None,
     ) -> BtcWithdrawal:
         """Build a BtcWithdrawal from btc_withdrawal_data() response, insert it into DB, and return the persisted row."""
         exchange_timestamp = datetime.fromtimestamp(
@@ -62,6 +66,7 @@ class BtcWithdrawal(BaseDBModel):
             transfer_type=withdrawal_data["transfer_type"],
             destination_address=withdrawal_data["destination_adress"],
             exchange_timestamp=exchange_timestamp,
+            user_id=user_id,
         )
 
         try:

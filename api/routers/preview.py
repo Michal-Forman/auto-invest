@@ -2,13 +2,18 @@
 from typing import Dict, List
 
 # Third-party
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 # Local
+from api.dependencies import (
+    get_coinmate_for_user,
+    get_current_user_id,
+    get_t212_for_user,
+    get_user_settings_for_user,
+)
 from api.routers.instruments import build_ratio_data
 from api.schemas import PreviewItemResponse
 from core.instrument_data import INSTRUMENT_NAMES, T212_TO_YF
-from core.settings import settings
 
 router = APIRouter()
 
@@ -17,11 +22,17 @@ _DROP_THRESHOLD = 12.5
 
 
 @router.get("/preview", response_model=List[PreviewItemResponse])
-def preview(amount: float = 0) -> List[PreviewItemResponse]:
+def preview(
+    amount: float = 0,
+    user_id: str = Depends(get_current_user_id),
+) -> List[PreviewItemResponse]:
     """Return a per-instrument distribution preview. Supports ?amount= override."""
-    invest_amount = amount if amount > 0 else settings.portfolio.invest_amount
+    user_settings = get_user_settings_for_user(user_id)
+    invest_amount = amount if amount > 0 else user_settings.portfolio.invest_amount
 
-    data = build_ratio_data()
+    t212 = get_t212_for_user(user_id)
+    coinmate = get_coinmate_for_user(user_id)
+    data = build_ratio_data(user_id, user_settings, t212, coinmate)
     adj_weights: Dict[str, float] = data["adj_weights"]
     target_weights: Dict[str, float] = data["target_weights"]
 

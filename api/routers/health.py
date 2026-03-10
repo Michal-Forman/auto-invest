@@ -1,28 +1,31 @@
 # Third-party
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 # Local
 from api.cache import health_cache
-from api.dependencies import get_coinmate, get_t212
+from api.dependencies import (
+    get_coinmate_for_user,
+    get_current_user_id,
+    get_t212_for_user,
+)
 from api.schemas import HealthResponse
 
 router = APIRouter()
 
-CACHE_KEY = "health"
-
 
 @router.get("/health", response_model=HealthResponse)
-def health() -> HealthResponse:
-    """Ping each exchange to verify connectivity (cached 5 min)."""
-    if CACHE_KEY in health_cache:
-        return health_cache[CACHE_KEY]
+def health(user_id: str = Depends(get_current_user_id)) -> HealthResponse:
+    """Ping each exchange to verify connectivity (cached 5 min per user)."""
+    cache_key = f"health:{user_id}"
+    if cache_key in health_cache:
+        return health_cache[cache_key]  # type: ignore[return-value]
 
     t212_ok = False
     coinmate_ok = False
 
     print("[health] checking T212...", flush=True)
     try:
-        result = get_t212().pies()
+        result = get_t212_for_user(user_id).pies()
         err = result.get("err")
         status_code = (
             (result.get("res") or {}).get("status")
@@ -39,7 +42,7 @@ def health() -> HealthResponse:
 
     print("[health] checking Coinmate...", flush=True)
     try:
-        coinmate_result = get_coinmate().ticker()
+        coinmate_result = get_coinmate_for_user(user_id).ticker()
         print(f"[health] Coinmate result: {coinmate_result}", flush=True)
         coinmate_ok = True
     except Exception as e:
@@ -50,5 +53,5 @@ def health() -> HealthResponse:
     )
     response = HealthResponse(api=True, t212=t212_ok, coinmate=coinmate_ok)
     if t212_ok and coinmate_ok:
-        health_cache[CACHE_KEY] = response
+        health_cache[cache_key] = response
     return response

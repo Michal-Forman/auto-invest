@@ -256,7 +256,10 @@ class Trading212:
 
 
 if __name__ == "__main__":
-    from core.settings import settings
+    from core.db.users import UserRecord
+    from core.settings import UserSettings, settings
 
-    t212 = Trading212(settings.t212_id_key, settings.t212_private_key, env=settings.env)
+    _user = UserRecord.get_cron_users()[0]
+    _us = UserSettings.from_user(_user)
+    t212 = Trading212(_us.t212_id_key, _us.t212_private_key, env=settings.env)
     print(t212.balance())

@@ -2,12 +2,18 @@
 from typing import Any, Dict, List
 
 # Third-party
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 # Local
 from api.cache import instruments_cache
-from api.dependencies import get_coinmate, get_t212
+from api.dependencies import (
+    get_coinmate_for_user,
+    get_current_user_id,
+    get_t212_for_user,
+    get_user_settings_for_user,
+)
 from api.schemas import InstrumentResponse
+from core.coinmate import Coinmate
 from core.instrument_data import (
     INSTRUMENT_CAPS,
     INSTRUMENT_NAMES,
@@ -15,13 +21,13 @@ from core.instrument_data import (
     T212_TO_YF,
 )
 from core.instruments import Instruments
-from core.settings import settings
+from core.settings import UserSettings
+from core.trading212 import Trading212
 
 router = APIRouter()
 
 _SOFT_CAP = 75
 _HARD_CAP_RESET = 90
-_CACHE_KEY = "instruments"
 
 
 def _apply_cap(drop: float, cap_type: str) -> float:
@@ -33,14 +39,18 @@ def _apply_cap(drop: float, cap_type: str) -> float:
     return drop  # "none"
 
 
-def build_ratio_data() -> Dict[str, Any]:
-    """Fetch live prices and compute ATH-adjusted ratios. Results are cached for 15 minutes."""
-    if _CACHE_KEY in instruments_cache:
-        return instruments_cache[_CACHE_KEY]  # type: ignore[return-value]
+def build_ratio_data(
+    user_id: str,
+    user_settings: UserSettings,
+    t212: Trading212,
+    coinmate: Coinmate,
+) -> Dict[str, Any]:
+    """Fetch live prices and compute ATH-adjusted ratios. Results are cached 15 min per user."""
+    cache_key = f"instruments:{user_id}"
+    if cache_key in instruments_cache:
+        return instruments_cache[cache_key]  # type: ignore[return-value]
 
-    t212 = get_t212()
-    coinmate = get_coinmate()
-    instruments_obj = Instruments(t212, coinmate, settings.portfolio)
+    instruments_obj = Instruments(t212, coinmate, user_settings.portfolio)
     default_ratios: Dict[str, float] = instruments_obj.get_default_ratios()
 
     total_default = sum(default_ratios.values())
@@ -75,7 +85,7 @@ def build_ratio_data() -> Dict[str, Any]:
 
     # Compute default-amount CZK distribution
     raw_czk: Dict[str, float] = {
-        t: settings.portfolio.invest_amount * w for t, w in adj_weights.items()
+        t: user_settings.portfolio.invest_amount * w for t, w in adj_weights.items()
     }
     next_czk: Dict[str, float] = {}
     for ticker, czk in raw_czk.items():
@@ -97,14 +107,19 @@ def build_ratio_data() -> Dict[str, Any]:
         "adj_weights": adj_weights,
         "next_czk": next_czk,
     }
-    instruments_cache[_CACHE_KEY] = data
+    instruments_cache[cache_key] = data
     return data
 
 
 @router.get("/instruments", response_model=List[InstrumentResponse])
-def list_instruments() -> List[InstrumentResponse]:
-    """Return live instrument data including ATH drop, multiplier, and next CZK allocation. Cached for 15 minutes."""
-    data = build_ratio_data()
+def list_instruments(
+    user_id: str = Depends(get_current_user_id),
+) -> List[InstrumentResponse]:
+    """Return live instrument data including ATH drop, multiplier, and next CZK allocation. Cached 15 min per user."""
+    user_settings = get_user_settings_for_user(user_id)
+    t212 = get_t212_for_user(user_id)
+    coinmate = get_coinmate_for_user(user_id)
+    data = build_ratio_data(user_id, user_settings, t212, coinmate)
 
     result: List[InstrumentResponse] = []
     for ticker in T212_TO_YF:

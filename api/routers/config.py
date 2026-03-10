@@ -2,9 +2,10 @@
 from typing import List
 
 # Third-party
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 # Local
+from api.dependencies import get_current_user_id, get_user_settings_for_user
 from api.schemas import ConfigResponse, InstrumentRegistryItem
 from core.instrument_data import (
     INSTRUMENT_CAPS,
@@ -13,15 +14,16 @@ from core.instrument_data import (
     INSTRUMENT_TYPES,
     T212_TO_YF,
 )
-from core.settings import settings
+from core.settings import UserSettings, settings
 
 router = APIRouter()
 
 
 @router.get("/config", response_model=ConfigResponse)
-def config() -> ConfigResponse:
+def config(user_id: str = Depends(get_current_user_id)) -> ConfigResponse:
     """Return portfolio settings and the static instrument registry."""
-    p = settings.portfolio
+    user_settings: UserSettings = get_user_settings_for_user(user_id)
+    p = user_settings.portfolio
 
     instruments: List[InstrumentRegistryItem] = [
         InstrumentRegistryItem(

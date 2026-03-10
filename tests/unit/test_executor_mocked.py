@@ -336,13 +336,12 @@ class TestWithdrawBtc:
         assert call_kwargs["amount"] == 0.005
 
     def test_uses_settings_address(
-        self, executor: Executor, mock_coinmate: MagicMock
+        self, mock_t212: MagicMock, mock_coinmate: MagicMock
     ) -> None:
-        from core.settings import settings
-
-        executor.withdraw_btc()
+        ex = Executor(mock_t212, mock_coinmate, btc_external_adress="bc1qtestaddress")
+        ex.withdraw_btc()
         call_kwargs = mock_coinmate.btc_withdraw.call_args.kwargs
-        assert call_kwargs["btc_adress"] == settings.btc_external_adress
+        assert call_kwargs["btc_adress"] == "bc1qtestaddress"
 
     def test_amount_czk_computed_from_actual_amount_and_price(
         self, executor: Executor, mocker: MockerFixture

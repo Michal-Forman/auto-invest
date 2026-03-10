@@ -1,0 +1,7 @@
+.env*
+web/
+tests/
+.git/
+__pycache__/
+*.pyc
+node_modules/

@@ -22,41 +22,46 @@ class Mail(BaseModel):
     """Record of a sent email stored in the mails table."""
 
     id: Optional[UUID] = None
+    user_id: Optional[str] = None
     type: MailType
     subject: str
     sent_at: Optional[datetime] = None
     period: Optional[str] = None
 
     @staticmethod
-    def summary_sent_for_period(period: str) -> bool:
+    def summary_sent_for_period(period: str, user_id: Optional[str] = None) -> bool:
         """Return True if a monthly_summary mail was already sent for the given period (e.g. '2026-02')."""
         try:
-            res = (
+            query = (
                 supabase.table(TABLE)
                 .select("id")
                 .eq("type", "monthly_summary")
                 .eq("period", period)
                 .limit(1)
-                .execute()
             )
+            if user_id:
+                query = query.eq("user_id", user_id)
+            res = query.execute()
             return len(res.data) > 0
         except Exception as e:
             log.error(f"Failed to check mails table for period {period}: {repr(e)}")
             return False
 
     @staticmethod
-    def balance_alert_sent_today() -> bool:
+    def balance_alert_sent_today(user_id: Optional[str] = None) -> bool:
         """Return True if a balance_alert email was already sent today (UTC)."""
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         try:
-            res = (
+            query = (
                 supabase.table(TABLE)
                 .select("id")
                 .eq("type", "balance_alert")
                 .eq("period", today)
                 .limit(1)
-                .execute()
             )
+            if user_id:
+                query = query.eq("user_id", user_id)
+            res = query.execute()
             return len(res.data) > 0
         except Exception as e:
             log.error(f"Failed to check mails table for balance_alert: {repr(e)}")

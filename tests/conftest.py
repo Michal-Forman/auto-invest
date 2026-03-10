@@ -17,18 +17,24 @@ for _key, _val in _env_test.items():
     if _val is not None:
         os.environ.setdefault(_key, _val)
 
+# Ensure SUPABASE_JWT_SECRET is set for tests (api/dependencies.py reads it at call time)
+os.environ.setdefault("SUPABASE_JWT_SECRET", "test-jwt-secret")
+
 # Third-party
 from fastapi.testclient import TestClient
 import pytest
 
 # Local
 from api.cache import health_cache, instruments_cache
-from api.dependencies import get_coinmate, get_t212
+from api.dependencies import get_current_user_id
 from api.main import app
 from core.db.orders import Order
 from core.db.runs import Run
+from core.db.users import UserRecord
 from core.instruments import Instruments
-from core.settings import PortfolioSettings
+from core.settings import PortfolioSettings, UserSettings
+
+TEST_USER_ID = "test-user-id"
 
 
 @pytest.fixture
@@ -42,6 +48,30 @@ def portfolio_settings() -> PortfolioSettings:
         balance_buffer=1.5,
         balance_alert_days=7,
         btc_withdrawal_treshold=500000,
+    )
+
+
+@pytest.fixture
+def user_settings(portfolio_settings: PortfolioSettings) -> UserSettings:
+    return UserSettings(
+        user_id=TEST_USER_ID,
+        t212_id_key="test-t212-key",
+        t212_private_key="test-t212-priv",
+        coinmate_client_id=1,
+        coinmate_public_key="test-pub",
+        coinmate_private_key="test-priv",
+        my_mail="test@example.com",
+        mail_recipient="recipient@example.com",
+        mail_host="smtp.example.com",
+        mail_port=465,
+        mail_password="secret",
+        t212_deposit_account=None,
+        t212_deposit_vs=None,
+        coinmate_deposit_account=None,
+        coinmate_deposit_vs=None,
+        btc_external_adress="bc1qexampleaddressfortesting",
+        portfolio=portfolio_settings,
+        env="dev",
     )
 
 
@@ -94,13 +124,55 @@ def make_order() -> Callable[..., Order]:
     return _factory
 
 
+_TEST_USER_RECORD = UserRecord(
+    id=TEST_USER_ID,
+    t212_id_key="test-t212-key",
+    t212_private_key="test-t212-priv",
+    coinmate_client_id=1,
+    coinmate_public_key="test-pub",
+    coinmate_private_key="test-priv",
+    pie_id=1,
+    t212_weight=95,
+    btc_weight=0.05,
+    invest_amount=5000.0,
+    invest_interval="0 9 * * *",
+    balance_buffer=1.5,
+    balance_alert_days=7,
+    btc_withdrawal_treshold=500000,
+    btc_external_adress="bc1qexampleaddressfortesting",
+    mail_host="smtp.example.com",
+    mail_port=465,
+    mail_password="secret",
+    my_mail="test@example.com",
+    mail_recipient="recipient@example.com",
+    t212_deposit_account=None,
+    t212_deposit_vs=None,
+    coinmate_deposit_account=None,
+    coinmate_deposit_vs=None,
+    cron_enabled=True,
+)
+
+
+@pytest.fixture(autouse=True)
+def override_auth():
+    """Override JWT auth for all tests — returns a fixed test user_id."""
+    app.dependency_overrides[get_current_user_id] = lambda: TEST_USER_ID
+    yield
+    app.dependency_overrides.pop(get_current_user_id, None)
+
+
+@pytest.fixture(autouse=True)
+def override_user_record(monkeypatch):
+    """Patch api.dependencies.get_user_record to avoid Supabase calls in all tests."""
+    import api.dependencies as _deps
+
+    monkeypatch.setattr(_deps, "get_user_record", lambda user_id: _TEST_USER_RECORD)
+
+
 @pytest.fixture
 def api_client(mock_t212: MagicMock, mock_coinmate: MagicMock):  # type: ignore[misc]
-    """TestClient with T212/Coinmate dependency overrides."""
-    app.dependency_overrides[get_t212] = lambda: mock_t212
-    app.dependency_overrides[get_coinmate] = lambda: mock_coinmate
+    """TestClient with T212/Coinmate dependency overrides (legacy fixture)."""
     yield TestClient(app)
-    app.dependency_overrides = {}
 
 
 @pytest.fixture(autouse=True)

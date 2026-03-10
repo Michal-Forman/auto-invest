@@ -4,13 +4,14 @@ from datetime import date, datetime, timedelta
 from typing import Any, Dict, List
 
 # Third-party
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 import numpy as np
 import pandas as pd  # type: ignore[import-untyped]
 import yfinance as yf  # type: ignore[import-untyped]
 
 # Local
 from api.cache import instruments_cache
+from api.dependencies import get_current_user_id
 from api.schemas import (
     AnalyticsAllocationItem,
     AnalyticsRunItem,
@@ -24,9 +25,11 @@ router = APIRouter(prefix="/analytics")
 
 
 @router.get("/runs", response_model=List[AnalyticsRunItem])
-def analytics_runs(limit: int = 10) -> List[AnalyticsRunItem]:
+def analytics_runs(
+    limit: int = 10, user_id: str = Depends(get_current_user_id)
+) -> List[AnalyticsRunItem]:
     """Return the last N runs with their CZK total and status for bar chart display."""
-    runs: List[Run] = Run.get_recent_runs(limit=limit)
+    runs: List[Run] = Run.get_recent_runs(limit=limit, user_id=user_id)
     return [
         AnalyticsRunItem(
             date=run.started_at.date().isoformat(),
@@ -38,9 +41,11 @@ def analytics_runs(limit: int = 10) -> List[AnalyticsRunItem]:
 
 
 @router.get("/allocation", response_model=List[AnalyticsAllocationItem])
-def analytics_allocation(limit: int = 8) -> List[AnalyticsAllocationItem]:
+def analytics_allocation(
+    limit: int = 8, user_id: str = Depends(get_current_user_id)
+) -> List[AnalyticsAllocationItem]:
     """Return per-ticker allocation percentages for the last N FILLED runs."""
-    runs: List[Run] = Run.get_recent_runs(limit=limit)
+    runs: List[Run] = Run.get_recent_runs(limit=limit, user_id=user_id)
     result: List[AnalyticsAllocationItem] = []
 
     for run in runs:
@@ -66,9 +71,11 @@ def analytics_allocation(limit: int = 8) -> List[AnalyticsAllocationItem]:
 
 
 @router.get("/status", response_model=List[AnalyticsStatusItem])
-def analytics_status() -> List[AnalyticsStatusItem]:
+def analytics_status(
+    user_id: str = Depends(get_current_user_id),
+) -> List[AnalyticsStatusItem]:
     """Return run counts grouped by status."""
-    runs: List[Run] = Run.get_all_runs(limit=1000)
+    runs: List[Run] = Run.get_all_runs(limit=1000, user_id=user_id)
     counts: Counter = Counter(run.status for run in runs)
     return [
         AnalyticsStatusItem(status=status, count=count)
@@ -98,18 +105,20 @@ def _get_price(close_series: Dict[str, Any], symbol: str, target: date) -> float
 
 
 @router.get("/portfolio-value", response_model=List[PortfolioValueItem])
-def analytics_portfolio_value() -> List[PortfolioValueItem]:
+def analytics_portfolio_value(
+    user_id: str = Depends(get_current_user_id),
+) -> List[PortfolioValueItem]:
     """Return actual portfolio value (CZK) at each completed run date using historical prices."""
-    cache_key = "portfolio_value"
+    cache_key = f"portfolio_value:{user_id}"
     if cache_key in instruments_cache:
         return instruments_cache[cache_key]  # type: ignore[return-value]
 
-    all_orders: List[Order] = Order.get_orders(status="FILLED")
+    all_orders: List[Order] = Order.get_orders(status="FILLED", user_id=user_id)
     valid_orders = [o for o in all_orders if o.filled_at and o.filled_quantity]
     if not valid_orders:
         return []
 
-    all_runs: List[Run] = Run.get_all_runs(limit=1000)
+    all_runs: List[Run] = Run.get_all_runs(limit=1000, user_id=user_id)
     snapshot_dates = sorted(
         {r.started_at.date() for r in all_runs if r.status in ("FILLED", "FINISHED")}
     )

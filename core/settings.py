@@ -1,9 +1,16 @@
+# Future
+from __future__ import annotations
+
 # Standard library
 from dataclasses import dataclass
 import os
+from typing import TYPE_CHECKING, Optional
 
 # Third-party
 from dotenv import load_dotenv
+
+if TYPE_CHECKING:
+    from core.db.users import UserRecord
 
 ENV: str = os.getenv("ENV", "dev")
 
@@ -14,8 +21,31 @@ else:
 
 
 @dataclass(frozen=True)
+class Settings:
+    """System-level settings loaded from environment (Supabase + env name only)."""
+
+    supabase_url: str
+    supabase_key: str
+    env: str
+
+    @classmethod
+    def from_env(cls) -> "Settings":
+        """Load system settings from environment variables."""
+        return cls(
+            supabase_url=os.environ["SUPABASE_URL"],
+            supabase_key=os.environ["SUPABASE_SERVICE_ROLE_KEY"],
+            env=os.getenv("ENV", "dev"),
+        )
+
+
+settings: Settings = Settings.from_env()
+
+
+@dataclass(frozen=True)
 class PortfolioSettings:
-    pie_id: int
+    """Per-user portfolio configuration."""
+
+    pie_id: Optional[int]
     t212_weight: int
     btc_weight: float
     invest_amount: float
@@ -25,66 +55,63 @@ class PortfolioSettings:
     btc_withdrawal_treshold: int
 
     @classmethod
-    def from_env(cls) -> "PortfolioSettings":
-        """Load portfolio settings from environment variables."""
+    def from_user(cls, user: UserRecord) -> "PortfolioSettings":
+        """Build portfolio settings from a UserRecord."""
         return cls(
-            pie_id=int(os.environ["PIE_ID"]),
-            t212_weight=int(os.environ["T212_WEIGHT"]),
-            btc_weight=float(os.environ["BTC_WEIGHT"]),
-            invest_amount=float(os.environ["INVEST_AMOUNT"]),
-            invest_interval=os.getenv("INVEST_INTERVAL", "monthly"),
-            balance_buffer=float(os.environ["BALANCE_BUFFER"]),
-            balance_alert_days=int(os.environ["BALANCE_ALERT_DAYS"]),
-            btc_withdrawal_treshold=int(os.environ["BTC_WITHDRAWAL_TRESHOLD"]),
+            pie_id=user.pie_id,
+            t212_weight=user.t212_weight,
+            btc_weight=user.btc_weight,
+            invest_amount=user.invest_amount,
+            invest_interval=user.invest_interval,
+            balance_buffer=user.balance_buffer,
+            balance_alert_days=user.balance_alert_days,
+            btc_withdrawal_treshold=user.btc_withdrawal_treshold,
         )
 
 
 @dataclass(frozen=True)
-class Settings:
+class UserSettings:
+    """All per-user settings derived from a UserRecord."""
+
+    user_id: str
     t212_id_key: str
     t212_private_key: str
-    coinmate_client_id: int
+    coinmate_client_id: Optional[int]
     coinmate_public_key: str
     coinmate_private_key: str
-    supabase_url: str
-    supabase_key: str
-    portfolio: PortfolioSettings
-    env: str
     my_mail: str
     mail_recipient: str
     mail_host: str
     mail_port: int
     mail_password: str
-    t212_deposit_account: str | None
-    t212_deposit_vs: str | None
-    coinmate_deposit_account: str | None
-    coinmate_deposit_vs: str | None
+    t212_deposit_account: Optional[str]
+    t212_deposit_vs: Optional[str]
+    coinmate_deposit_account: Optional[str]
+    coinmate_deposit_vs: Optional[str]
     btc_external_adress: str
+    portfolio: PortfolioSettings
+    env: str
 
     @classmethod
-    def from_env(cls) -> "Settings":
-        """Load all application settings (API keys, Supabase, portfolio) from environment variables."""
+    def from_user(cls, user: UserRecord) -> "UserSettings":
+        """Build user-specific settings from a UserRecord."""
         return cls(
-            t212_id_key=os.environ["T212_ID_KEY"],
-            t212_private_key=os.environ["T212_PRIVATE_KEY"],
-            portfolio=PortfolioSettings.from_env(),
-            coinmate_client_id=int(os.environ["COINMATE_CLIENT_ID"]),
-            coinmate_public_key=os.environ["COINMATE_PUBLIC_KEY"],
-            coinmate_private_key=os.environ["COINMATE_PRIVATE_KEY"],
-            supabase_url=os.environ["SUPABASE_URL"],
-            supabase_key=os.environ["SUPABASE_SERVICE_ROLE_KEY"],
-            env=os.getenv("ENV", "dev"),
-            mail_host=os.environ["MAIL_HOST"],
-            mail_port=int(os.environ["MAIL_PORT"]),
-            mail_password=os.environ["MAIL_PASSWORD"],
-            my_mail=os.environ["MY_MAIL"],
-            mail_recipient=os.environ["MAIL_RECIPIENT"],
-            t212_deposit_account=os.getenv("T212_DEPOSIT_ACCOUNT"),
-            t212_deposit_vs=os.getenv("T212_DEPOSIT_VS"),
-            coinmate_deposit_account=os.getenv("COINMATE_DEPOSIT_ACCOUNT"),
-            coinmate_deposit_vs=os.getenv("COINMATE_DEPOSIT_VS"),
-            btc_external_adress=os.environ["BTC_EXTERNAL_ADRESS"],
+            user_id=user.id,
+            t212_id_key=user.t212_id_key,
+            t212_private_key=user.t212_private_key,
+            coinmate_client_id=user.coinmate_client_id,
+            coinmate_public_key=user.coinmate_public_key,
+            coinmate_private_key=user.coinmate_private_key,
+            my_mail=user.my_mail,
+            mail_recipient=user.mail_recipient,
+            mail_host=user.mail_host,
+            mail_port=user.mail_port,
+            mail_password=user.mail_password,
+            t212_deposit_account=user.t212_deposit_account,
+            t212_deposit_vs=user.t212_deposit_vs,
+            coinmate_deposit_account=user.coinmate_deposit_account,
+            coinmate_deposit_vs=user.coinmate_deposit_vs,
+            btc_external_adress=user.btc_external_adress,
+            portfolio=PortfolioSettings.from_user(user),
+            env=settings.env,
         )
-
-
-settings: Settings = Settings.from_env()

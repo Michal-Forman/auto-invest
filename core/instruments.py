@@ -39,7 +39,7 @@ class Instruments:
     def get_t212_ratios(self) -> Dict[str, float]:
         """Fetch per-instrument target weight ratios from the T212 pie API. Returns raw ratios (not yet scaled by T212_WEIGHT)."""
         try:
-            resp: Dict[str, Any] = self.t212.pie(self.portfolio_settings.pie_id)
+            resp: Dict[str, Any] = self.t212.pie(self.portfolio_settings.pie_id or 0)
         except Exception as e:
             raise RuntimeError(f"failed to fetch t212 pie: {e}") from e
 

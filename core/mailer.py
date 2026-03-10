@@ -23,7 +23,7 @@ from core.db.mails import Mail
 from core.db.orders import Order
 from core.db.runs import Run
 from core.log import log
-from core.settings import settings
+from core.settings import UserSettings
 
 _TEMPLATE_DIR = os.path.join(os.path.dirname(__file__), "templates", "emails")
 _ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")
@@ -74,14 +74,14 @@ def _runs_in_next_30_days(cron_expr: str) -> int:
 class Mailer:
     """Sends alert emails for investment lifecycle events."""
 
-    my_mail: str = settings.my_mail
-    mail_recipient: str = settings.mail_recipient
-    mail_host: str = settings.mail_host
-    mail_port: int = settings.mail_port
-    mail_password: str = settings.mail_password
-
-    def __init__(self) -> None:
-        pass
+    def __init__(self, user_settings: UserSettings) -> None:
+        """Initialize with per-user settings."""
+        self.my_mail: str = user_settings.my_mail
+        self.mail_recipient: str = user_settings.mail_recipient
+        self.mail_host: str = user_settings.mail_host
+        self.mail_port: int = user_settings.mail_port
+        self.mail_password: str = user_settings.mail_password
+        self._user_settings: UserSettings = user_settings
 
     @staticmethod
     def _load_template(name: str) -> Template:
@@ -210,8 +210,10 @@ class Mailer:
         addr = withdrawal.destination_address
         destination_short = addr[:8] + "…" + addr[-8:] if len(addr) > 20 else addr
 
-        threshold_fmt = f"{settings.portfolio.btc_withdrawal_treshold:_}".replace(
-            "_", "\u00a0"
+        threshold_fmt = (
+            f"{self._user_settings.portfolio.btc_withdrawal_treshold:_}".replace(
+                "_", "\u00a0"
+            )
         )
 
         plain_lines = [
@@ -623,15 +625,15 @@ class Mailer:
         # Build QR codes and topup section
         deposit_config: Dict[str, Dict[str, Optional[str]]] = {
             "T212": {
-                "account": settings.t212_deposit_account,
-                "vs": settings.t212_deposit_vs,
+                "account": self._user_settings.t212_deposit_account,
+                "vs": self._user_settings.t212_deposit_vs,
             },
             "COINMATE": {
-                "account": settings.coinmate_deposit_account,
-                "vs": settings.coinmate_deposit_vs,
+                "account": self._user_settings.coinmate_deposit_account,
+                "vs": self._user_settings.coinmate_deposit_vs,
             },
         }
-        runs_30 = _runs_in_next_30_days(settings.portfolio.invest_interval)
+        runs_30 = _runs_in_next_30_days(self._user_settings.portfolio.invest_interval)
         extra_images: Dict[str, bytes] = {}
         topup_cards: List[str] = []
 
@@ -692,6 +694,13 @@ class Mailer:
 if __name__ == "__main__":
     from uuid import uuid4
 
+    from core.db.users import UserRecord
+
+    _cron_users = UserRecord.get_cron_users()
+    if not _cron_users:
+        raise SystemExit("No cron-enabled users found in DB")
+    _user_settings = UserSettings.from_user(_cron_users[0])
+
     # ── Pick which emails to send ──────────────────────────────────────────
     SEND = {
         "investment_confirmation": False,
@@ -706,7 +715,7 @@ if __name__ == "__main__":
     REAL_YEAR, REAL_MONTH = 2026, 3  # ← change to the month you want to test
     # ──────────────────────────────────────────────────────────────────────
 
-    mailer = Mailer()
+    mailer = Mailer(_user_settings)
     run_id = uuid4()
     now = datetime.now(timezone.utc)
 
@@ -868,9 +877,9 @@ if __name__ == "__main__":
     if SEND["balance_alert"]:
         from datetime import timezone as _tz
 
-        _invest = settings.portfolio.invest_amount
-        _t212_weight = settings.portfolio.t212_weight
-        _btc_weight = settings.portfolio.btc_weight
+        _invest = _user_settings.portfolio.invest_amount
+        _t212_weight = _user_settings.portfolio.t212_weight
+        _btc_weight = _user_settings.portfolio.btc_weight
         _t212_spend = _invest * _t212_weight / (_t212_weight + _btc_weight)
         _btc_spend = _invest * _btc_weight / (_t212_weight + _btc_weight)
         dummy_alerts: List[Dict[str, Any]] = [

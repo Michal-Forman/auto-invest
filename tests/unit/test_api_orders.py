@@ -26,31 +26,41 @@ def test_returns_orders(mocker, make_order):
 def test_no_filters_passes_none(mocker):
     mock = mocker.patch.object(Order, "get_orders", return_value=[])
     client.get("/orders")
-    mock.assert_called_once_with(ticker=None, exchange=None, status=None)
+    mock.assert_called_once_with(
+        ticker=None, exchange=None, status=None, user_id="test-user-id"
+    )
 
 
 def test_ticker_filter_forwarded(mocker):
     mock = mocker.patch.object(Order, "get_orders", return_value=[])
     client.get("/orders?ticker=VWCEd_EQ")
-    mock.assert_called_once_with(ticker="VWCEd_EQ", exchange=None, status=None)
+    mock.assert_called_once_with(
+        ticker="VWCEd_EQ", exchange=None, status=None, user_id="test-user-id"
+    )
 
 
 def test_exchange_filter_forwarded(mocker):
     mock = mocker.patch.object(Order, "get_orders", return_value=[])
     client.get("/orders?exchange=T212")
-    mock.assert_called_once_with(ticker=None, exchange="T212", status=None)
+    mock.assert_called_once_with(
+        ticker=None, exchange="T212", status=None, user_id="test-user-id"
+    )
 
 
 def test_status_filter_forwarded(mocker):
     mock = mocker.patch.object(Order, "get_orders", return_value=[])
     client.get("/orders?status=FILLED")
-    mock.assert_called_once_with(ticker=None, exchange=None, status="FILLED")
+    mock.assert_called_once_with(
+        ticker=None, exchange=None, status="FILLED", user_id="test-user-id"
+    )
 
 
 def test_all_filters_combined(mocker):
     mock = mocker.patch.object(Order, "get_orders", return_value=[])
     client.get("/orders?ticker=BTC&exchange=COINMATE&status=SUBMITTED")
-    mock.assert_called_once_with(ticker="BTC", exchange="COINMATE", status="SUBMITTED")
+    mock.assert_called_once_with(
+        ticker="BTC", exchange="COINMATE", status="SUBMITTED", user_id="test-user-id"
+    )
 
 
 def test_optional_fields_null_when_none(mocker, make_order):

@@ -49,7 +49,7 @@ def test_analytics_runs_returns_formatted_items(mocker, make_run):
 def test_analytics_runs_default_limit_is_10(mocker):
     mock = mocker.patch.object(Run, "get_recent_runs", return_value=[])
     client.get("/analytics/runs")
-    mock.assert_called_once_with(limit=10)
+    mock.assert_called_once_with(limit=10, user_id="test-user-id")
 
 
 def test_analytics_runs_czk_defaults_zero_when_none(mocker, make_run):
@@ -99,7 +99,7 @@ def test_analytics_allocation_computes_percentage_correctly(mocker, make_run):
 def test_analytics_allocation_default_limit_is_8(mocker):
     mock = mocker.patch.object(Run, "get_recent_runs", return_value=[])
     client.get("/analytics/allocation")
-    mock.assert_called_once_with(limit=8)
+    mock.assert_called_once_with(limit=8, user_id="test-user-id")
 
 
 # ---------------------------------------------------------------------------
@@ -175,7 +175,9 @@ def test_portfolio_value_empty_when_no_filled_orders(mocker):
 
 
 def test_portfolio_value_served_from_cache(mocker):
-    instruments_cache["portfolio_value"] = [{"date": "2026-03-03", "value": 12345.0}]
+    instruments_cache["portfolio_value:test-user-id"] = [
+        {"date": "2026-03-03", "value": 12345.0}
+    ]
     mock_get_orders = mocker.patch.object(Order, "get_orders")
     resp = client.get("/analytics/portfolio-value")
     assert resp.status_code == 200

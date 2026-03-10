@@ -10,9 +10,9 @@ client = TestClient(app)
 
 
 def _patch_health(mocker, t212_result=None, t212_raises=None, coinmate_raises=None):
-    """Patch get_t212 and get_coinmate in the health module. Returns (mock_t212_fn, mock_coinmate_fn)."""
-    mock_t212_fn = mocker.patch("api.routers.health.get_t212")
-    mock_coinmate_fn = mocker.patch("api.routers.health.get_coinmate")
+    """Patch get_t212_for_user and get_coinmate_for_user in the health module. Returns (mock_t212_fn, mock_coinmate_fn)."""
+    mock_t212_fn = mocker.patch("api.routers.health.get_t212_for_user")
+    mock_coinmate_fn = mocker.patch("api.routers.health.get_coinmate_for_user")
 
     if t212_raises:
         mock_t212_fn.return_value.pies.side_effect = t212_raises

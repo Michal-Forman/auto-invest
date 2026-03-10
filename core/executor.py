@@ -25,10 +25,14 @@ class Executor:
         self,
         t212: Trading212,
         coinmate: Coinmate,
+        btc_external_adress: str = "",
+        user_id: Optional[str] = None,
     ) -> None:
-        """Initialize with Trading212 and Coinmate clients plus portfolio configuration."""
+        """Initialize with Trading212 and Coinmate clients, optional BTC address and user_id."""
         self.t212 = t212
         self.coinmate = coinmate
+        self.btc_external_adress = btc_external_adress
+        self.user_id = user_id
 
     def _place_btc_order(self, amount: float, multiplier: float, run_id: UUID) -> Order:
         """Place an instant BTC buy on Coinmate for the given CZK amount, persist the Order to DB, and return it."""
@@ -52,6 +56,7 @@ class Executor:
         # Write the order in database
         order = Order(
             run_id=run_id,
+            user_id=self.user_id,
             exchange="COINMATE",
             instrument_type="CRYPTO",
             t212_ticker="BTC",
@@ -128,6 +133,7 @@ class Executor:
         # Write the order in database
         order = Order(
             run_id=run_id,
+            user_id=self.user_id,
             exchange="T212",
             instrument_type=INSTRUMENT_TYPES[ticker],
             t212_ticker=ticker,
@@ -191,12 +197,15 @@ class Executor:
         """Withdraw the full BTC balance to the external wallet and persist the withdrawal record. Returns the persisted BtcWithdrawal."""
         btc_balance: float = self.coinmate.btc_balance()
         transaction_data: Dict[str, Any] = self.coinmate.btc_withdraw(
-            btc_adress=settings.btc_external_adress, amount=btc_balance
+            btc_adress=self.btc_external_adress, amount=btc_balance
         )
         btc_price = Instruments.get_btc_price()
         actual_amount = float(transaction_data["amount"])
         amount_czk = Decimal(str(round(actual_amount * btc_price, 2)))
         fee_czk = Decimal(str(round(float(transaction_data["fee"]) * btc_price, 2)))
         return BtcWithdrawal.create_withdrawal(
-            withdrawal_data=transaction_data, amount_czk=amount_czk, fee_czk=fee_czk
+            withdrawal_data=transaction_data,
+            amount_czk=amount_czk,
+            fee_czk=fee_czk,
+            user_id=self.user_id,
         )

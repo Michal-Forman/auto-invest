@@ -7,44 +7,51 @@ from core.coinmate import Coinmate
 from core.db.mails import Mail
 from core.db.orders import Order
 from core.db.runs import Run, RunUpdate
+from core.db.users import UserRecord
 from core.executor import Executor
 from core.instruments import Instruments
 from core.log import log
 from core.mailer import Mailer
-from core.settings import settings
+from core.settings import UserSettings
 from core.trading212 import Trading212
 from core.utils import find_balance_exhaustion_date, is_now_cron_time
 
 
-def main() -> None:
-    """Run one full investment cycle: BTC withdrawal check, order updates, balance alerts, new orders, monthly summary."""
-    # ----- Start counting time for a run -----
-    log.info("Starting Main script")
+def run_for_user(user: UserRecord) -> None:
+    """Run one full investment cycle for a single user."""
+    user_settings: UserSettings = UserSettings.from_user(user)
+    user_id: str = user.id
+
+    log.info(f"Starting run for user {user_id}")
     run_start: datetime = datetime.now(timezone.utc)
 
     # ----- Initialization -----
-    log.info("Initializing all classes")
     t212: Trading212 = Trading212(
-        api_id_key=settings.t212_id_key,
-        api_private_key=settings.t212_private_key,
-        env=settings.env,
+        api_id_key=user_settings.t212_id_key,
+        api_private_key=user_settings.t212_private_key,
+        env=user_settings.env,
     )
     coinmate: Coinmate = Coinmate(
-        settings.coinmate_client_id,
-        settings.coinmate_public_key,
-        settings.coinmate_private_key,
+        user_settings.coinmate_client_id or 0,
+        user_settings.coinmate_public_key,
+        user_settings.coinmate_private_key,
     )
     instruments: Instruments = Instruments(
-        t212=t212, coinmate=coinmate, portfolio_settings=settings.portfolio
+        t212=t212, coinmate=coinmate, portfolio_settings=user_settings.portfolio
     )
-    executor: Executor = Executor(t212, coinmate)
-    mailer: Mailer = Mailer()
+    executor: Executor = Executor(
+        t212,
+        coinmate,
+        btc_external_adress=user_settings.btc_external_adress,
+        user_id=user_id,
+    )
+    mailer: Mailer = Mailer(user_settings)
 
     # --- Check if BTC-Withdrawal should be made and if so, make one
     try:
         btc_threshold_exceeded = instruments.is_btc_withdrawal_treshold_exceeded()
     except Exception as e:
-        log.error(f"Failed to check BTC balance threshold: {e}")
+        log.error(f"Failed to check BTC balance threshold for {user_id}: {e}")
         mailer.send_error_alert(e)
         btc_threshold_exceeded = False
 
@@ -53,19 +60,19 @@ def main() -> None:
             withdrawal = executor.withdraw_btc()
             mailer.send_btc_withdrawal_confirmation(withdrawal)
         except Exception as e:
-            log.error(f"Failed to withdraw BTC: {e}")
+            log.error(f"Failed to withdraw BTC for {user_id}: {e}")
             mailer.send_error_alert(e)
     else:
         log.info("No BTC Withdrawal should take place")
 
-    # --- Upate old investment data in db ---
+    # --- Update old investment data in db ---
     log.info("Start updating old Orders and Runs")
-    Order.update_orders(t212, coinmate)
-    Run.update_runs()
+    Order.update_orders(t212, coinmate, user_id=user_id)
+    Run.update_runs(user_id=user_id)
     log.info("Finished updating old Orders and Runs")
 
     # --- Check balances and alert if running low ---
-    if not Mail.balance_alert_sent_today():
+    if not Mail.balance_alert_sent_today(user_id=user_id):
         try:
             adjusted_ratios = instruments.get_adjusted_ratios()
             total_adj = sum(v["adjusted_value"] for v in adjusted_ratios.values())
@@ -73,11 +80,11 @@ def main() -> None:
                 v["adjusted_value"] for k, v in adjusted_ratios.items() if k != "BTC"
             )
             btc_adj = adjusted_ratios.get("BTC", {}).get("adjusted_value", 0.0)
-            invest = settings.portfolio.invest_amount
-            cron = settings.portfolio.invest_interval
+            invest = user_settings.portfolio.invest_amount
+            cron = user_settings.portfolio.invest_interval
 
-            BUFFER: float = settings.portfolio.balance_buffer
-            ALERT_DAYS: int = settings.portfolio.balance_alert_days
+            BUFFER: float = user_settings.portfolio.balance_buffer
+            ALERT_DAYS: int = user_settings.portfolio.balance_alert_days
 
             alerts: List[Dict[str, Any]] = []
             for exchange, adj, get_bal in [
@@ -106,18 +113,15 @@ def main() -> None:
             log.warning(f"Balance check skipped (non-critical): {e}")
 
     # --- Create new orders if they should be made today AND they have not yet been ---
-    if (
-        is_now_cron_time(settings.portfolio.invest_interval)
-        and not Run.run_exists_today()
-    ):
+    if is_now_cron_time(
+        user_settings.portfolio.invest_interval
+    ) and not Run.run_exists_today(user_id=user_id):
         log.info("Starting investment process")
 
-        # Init new run
-        run: Run = Run.create_run(run_start)
+        run: Run = Run.create_run(run_start, user_settings.portfolio, user_id=user_id)
         assert run.id is not None
 
         try:
-            # Actually create the orders
             calculated_investment: Dict[str, Dict[str, float]] = (
                 instruments.distribute_cash()
             )
@@ -130,23 +134,23 @@ def main() -> None:
             )
             log.info("Investment process finished")
 
-            # Update the run data with info about the orders
             run_data_for_update: RunUpdate = Run.process_new_run_data(orders)
             run.update_in_db(run_data_for_update)
             log.info("Run data updated successfully")
 
-            # Send investment confirmation email
             mailer.send_investment_confirmation(
                 run, orders, cash_distribution, multipliers
             )
 
         except Exception as e:
-            log.error(f"Investment run failed: {e}")
+            log.error(f"Investment run failed for {user_id}: {e}")
             mailer.send_error_alert(e, run)
             try:
                 run.update_in_db(RunUpdate(status="FAILED", error=str(e)))
             except Exception as db_err:
-                log.error(f"Also failed to mark run as FAILED in DB: {db_err}")
+                log.error(
+                    f"Also failed to mark run as FAILED in DB for {user_id}: {db_err}"
+                )
     else:
         log.info("No investments / orders were supposed to be made in this run")
 
@@ -154,21 +158,40 @@ def main() -> None:
     prev_year = run_start.year if run_start.month > 1 else run_start.year - 1
     prev_month = run_start.month - 1 if run_start.month > 1 else 12
     period = f"{prev_year}-{prev_month:02d}"
-    if not Mail.summary_sent_for_period(period):
+    if not Mail.summary_sent_for_period(period, user_id=user_id):
         try:
-            last_month_runs: List[Run] = Run.get_runs_for_period(prev_year, prev_month)
+            last_month_runs: List[Run] = Run.get_runs_for_period(
+                prev_year, prev_month, user_id=user_id
+            )
             last_month_failed_runs: List[Run] = Run.get_failed_runs_for_period(
-                prev_year, prev_month
+                prev_year, prev_month, user_id=user_id
             )
             if last_month_runs or last_month_failed_runs:
                 run_ids: List[str] = [str(r.id) for r in last_month_runs]
-                last_month_orders: List[Order] = Order.get_orders_for_runs(run_ids)
+                last_month_orders: List[Order] = Order.get_orders_for_runs(
+                    run_ids, user_id=user_id
+                )
                 mailer.send_monthly_summary(
                     last_month_runs, last_month_orders, last_month_failed_runs
                 )
         except Exception as e:
-            log.error(f"Failed to send monthly summary: {e}")
+            log.error(f"Failed to send monthly summary for {user_id}: {e}")
             mailer.send_error_alert(e)
+
+
+def main() -> None:
+    """Run investment cycle for all cron-enabled users."""
+    log.info("Starting Main script")
+    users: List[UserRecord] = UserRecord.get_cron_users()
+    log.info(f"Found {len(users)} cron-enabled user(s)")
+
+    for user in users:
+        try:
+            run_for_user(user)
+        except Exception as e:
+            log.error(f"Cron failed for user {user.id}: {e}")
+
+    log.info("Main script finished")
 
 
 if __name__ == "__main__":

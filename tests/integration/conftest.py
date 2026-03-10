@@ -1,5 +1,6 @@
 # Standard library
 from types import SimpleNamespace
+from typing import Any, Dict
 from unittest.mock import MagicMock
 
 # Third-party
@@ -8,8 +9,48 @@ from pytest_mock import MockerFixture
 
 # Local
 from core.coinmate import Coinmate
-from core.settings import PortfolioSettings
+from core.mailer import Mailer
+from core.settings import PortfolioSettings, UserSettings
 from core.trading212 import Trading212
+
+
+def _make_user_settings(**overrides: Any) -> UserSettings:
+    defaults: Dict[str, Any] = {
+        "user_id": "test-user-id",
+        "t212_id_key": "test-t212-key",
+        "t212_private_key": "test-t212-priv",
+        "coinmate_client_id": 1,
+        "coinmate_public_key": "test-pub",
+        "coinmate_private_key": "test-priv",
+        "my_mail": "test@example.com",
+        "mail_recipient": "recipient@example.com",
+        "mail_host": "smtp.example.com",
+        "mail_port": 465,
+        "mail_password": "secret",
+        "t212_deposit_account": None,
+        "t212_deposit_vs": None,
+        "coinmate_deposit_account": None,
+        "coinmate_deposit_vs": None,
+        "btc_external_adress": "bc1qexampleaddressfortesting",
+        "portfolio": PortfolioSettings(
+            pie_id=1,
+            t212_weight=95,
+            btc_weight=0.05,
+            invest_amount=5000.0,
+            invest_interval="0 9 * * *",
+            balance_buffer=1.5,
+            balance_alert_days=7,
+            btc_withdrawal_treshold=500000,
+        ),
+        "env": "dev",
+    }
+    defaults.update(overrides)
+    return UserSettings(**defaults)
+
+
+def make_mailer(**overrides: Any) -> Mailer:
+    """Build a Mailer with test user settings."""
+    return Mailer(_make_user_settings(**overrides))
 
 
 def _make_chain() -> MagicMock:
