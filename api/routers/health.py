@@ -24,8 +24,15 @@ def health() -> HealthResponse:
     try:
         result = get_t212().pies()
         err = result.get("err")
-        status_code = (result.get("res") or {}).get("status") if isinstance(result.get("res"), dict) else None
-        print(f"[health] T212 result: err={err!r}  res_type={type(result.get('res')).__name__}  status_code={status_code}", flush=True)
+        status_code = (
+            (result.get("res") or {}).get("status")
+            if isinstance(result.get("res"), dict)
+            else None
+        )
+        print(
+            f"[health] T212 result: err={err!r}  res_type={type(result.get('res')).__name__}  status_code={status_code}",
+            flush=True,
+        )
         t212_ok = not err
     except Exception as e:
         print(f"[health] T212 exception: {type(e).__name__}: {e}", flush=True)
@@ -38,7 +45,9 @@ def health() -> HealthResponse:
     except Exception as e:
         print(f"[health] Coinmate exception: {type(e).__name__}: {e}", flush=True)
 
-    print(f"[health] done → api=True  t212={t212_ok}  coinmate={coinmate_ok}", flush=True)
+    print(
+        f"[health] done → api=True  t212={t212_ok}  coinmate={coinmate_ok}", flush=True
+    )
     response = HealthResponse(api=True, t212=t212_ok, coinmate=coinmate_ok)
     if t212_ok and coinmate_ok:
         health_cache[CACHE_KEY] = response

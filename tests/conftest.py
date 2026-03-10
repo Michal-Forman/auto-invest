@@ -18,9 +18,13 @@ for _key, _val in _env_test.items():
         os.environ.setdefault(_key, _val)
 
 # Third-party
+from fastapi.testclient import TestClient
 import pytest
 
 # Local
+from api.cache import health_cache, instruments_cache
+from api.dependencies import get_coinmate, get_t212
+from api.main import app
 from core.db.orders import Order
 from core.db.runs import Run
 from core.instruments import Instruments
@@ -88,6 +92,22 @@ def make_order() -> Callable[..., Order]:
         return Order(**defaults)
 
     return _factory
+
+
+@pytest.fixture
+def api_client(mock_t212: MagicMock, mock_coinmate: MagicMock):  # type: ignore[misc]
+    """TestClient with T212/Coinmate dependency overrides."""
+    app.dependency_overrides[get_t212] = lambda: mock_t212
+    app.dependency_overrides[get_coinmate] = lambda: mock_coinmate
+    yield TestClient(app)
+    app.dependency_overrides = {}
+
+
+@pytest.fixture(autouse=True)
+def clear_api_caches() -> None:
+    """Clear API caches before every test to prevent state leakage."""
+    health_cache.clear()
+    instruments_cache.clear()
 
 
 @pytest.fixture
