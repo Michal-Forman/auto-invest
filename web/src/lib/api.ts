@@ -9,6 +9,7 @@ import type {
   AnalyticsStatusItem,
   PortfolioValueItem,
 } from "@/types";
+import { supabase } from "@/lib/supabase";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
 
@@ -17,7 +18,20 @@ async function apiFetch<T>(path: string, params?: Record<string, string>): Promi
   if (params) {
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
   }
-  const res = await fetch(url.toString());
+
+  const { data: { session } } = await supabase.auth.getSession();
+  const headers: Record<string, string> = session?.access_token
+    ? { Authorization: `Bearer ${session.access_token}` }
+    : {};
+
+  const res = await fetch(url.toString(), { headers });
+
+  if (res.status === 401) {
+    await supabase.auth.signOut();
+    window.location.href = "/login";
+    throw new Error("Unauthorized");
+  }
+
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json() as Promise<T>;
 }
@@ -56,7 +70,7 @@ export const api = {
     return apiFetch<AnalyticsRunItem[]>("/analytics/runs", params);
   },
 
-  getAnalyticsAllocation(limit?: number): Promise<Array<{ date: string; data: Record<string, number> }>>  {
+  getAnalyticsAllocation(limit?: number): Promise<Array<{ date: string; data: Record<string, number> }>> {
     const params: Record<string, string> = {};
     if (limit !== undefined) params.limit = String(limit);
     return apiFetch<Array<{ date: string; data: Record<string, number> }>>("/analytics/allocation", params);
