@@ -5,13 +5,15 @@ import {
   History,
   ListOrdered,
   PlayCircle,
-  Settings,
   TrendingUp,
+  UserCircle,
 } from "lucide-react";
 import logo from "@/assets/logo_white.png";
+import { useAuth } from "@/lib/auth-context";
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -29,10 +31,17 @@ const navItems = [
   { to: "/instruments", label: "Instruments", icon: TrendingUp },
   { to: "/preview", label: "Next Run Preview", icon: PlayCircle },
   { to: "/analytics", label: "Analytics", icon: BarChart3 },
-  { to: "/config", label: "Configuration", icon: Settings },
 ];
 
 export function AppSidebar() {
+  const { session } = useAuth();
+  const avatarUrl = session?.user.user_metadata?.avatar_url as string | undefined;
+  const displayName =
+    (session?.user.user_metadata?.full_name as string | undefined) ??
+    session?.user.email ??
+    "";
+  const email = session?.user.email ?? "";
+
   return (
     <Sidebar collapsible="offcanvas">
       <SidebarHeader className="px-4 py-4 border-b border-white/10">
@@ -63,6 +72,23 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      <SidebarFooter className="border-t border-white/10 p-3">
+        <NavLink to="/profile">
+          {({ isActive }) => (
+            <SidebarMenuButton isActive={isActive} className="h-auto py-2">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt={displayName} className="h-7 w-7 rounded-full object-cover shrink-0" />
+              ) : (
+                <UserCircle className="h-7 w-7 shrink-0" />
+              )}
+              <div className="flex flex-col min-w-0">
+                <span className="text-sm font-medium truncate">{displayName}</span>
+                <span className="text-xs text-sidebar-foreground/60 truncate">{email}</span>
+              </div>
+            </SidebarMenuButton>
+          )}
+        </NavLink>
+      </SidebarFooter>
     </Sidebar>
   );
 }

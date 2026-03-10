@@ -10,7 +10,7 @@ import { Orders } from "@/pages/Orders";
 import { Instruments } from "@/pages/Instruments";
 import { Preview } from "@/pages/Preview";
 import { Analytics } from "@/pages/Analytics";
-import { Config } from "@/pages/Config";
+import { Profile } from "@/pages/Profile";
 import { Login } from "@/pages/Login";
 
 export default function App() {
@@ -29,7 +29,7 @@ export default function App() {
                 <Route path="instruments" element={<Instruments />} />
                 <Route path="preview" element={<Preview />} />
                 <Route path="analytics" element={<Analytics />} />
-                <Route path="config" element={<Config />} />
+                <Route path="profile" element={<Profile />} />
               </Route>
             </Route>
           </Routes>

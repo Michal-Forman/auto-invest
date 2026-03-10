@@ -8,10 +8,16 @@ import type {
   AnalyticsAllocationItem,
   AnalyticsStatusItem,
   PortfolioValueItem,
+  UserProfile,
 } from "@/types";
 import { supabase } from "@/lib/supabase";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
+
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
+}
 
 async function apiFetch<T>(path: string, params?: Record<string, string>): Promise<T> {
   const url = new URL(`${API_BASE}${path}`);
@@ -19,11 +25,7 @@ async function apiFetch<T>(path: string, params?: Record<string, string>): Promi
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
   }
 
-  const { data: { session } } = await supabase.auth.getSession();
-  const headers: Record<string, string> = session?.access_token
-    ? { Authorization: `Bearer ${session.access_token}` }
-    : {};
-
+  const headers = await getAuthHeaders();
   const res = await fetch(url.toString(), { headers });
 
   if (res.status === 401) {
@@ -31,6 +33,21 @@ async function apiFetch<T>(path: string, params?: Record<string, string>): Promi
     throw new Error("Unauthorized");
   }
 
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  return res.json() as Promise<T>;
+}
+
+async function apiPatch<T>(path: string, body: unknown): Promise<T> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...headers },
+    body: JSON.stringify(body),
+  });
+  if (res.status === 401) {
+    window.location.href = "/login";
+    throw new Error("Unauthorized");
+  }
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json() as Promise<T>;
 }
@@ -85,5 +102,13 @@ export const api = {
 
   getPortfolioValue(): Promise<PortfolioValueItem[]> {
     return apiFetch<PortfolioValueItem[]>("/analytics/portfolio-value");
+  },
+
+  getProfile(): Promise<UserProfile> {
+    return apiFetch<UserProfile>("/profile");
+  },
+
+  updateProfile(data: Partial<UserProfile>): Promise<UserProfile> {
+    return apiPatch<UserProfile>("/profile", data);
   },
 };

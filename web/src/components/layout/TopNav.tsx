@@ -1,5 +1,7 @@
-import { NavLink } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
+import { UserCircle } from "lucide-react";
 import logo from "@/assets/logo_white.png";
+import { useAuth } from "@/lib/auth-context";
 
 const navItems = [
   { to: "/", label: "Overview" },
@@ -8,10 +10,16 @@ const navItems = [
   { to: "/instruments", label: "Instruments" },
   { to: "/preview", label: "Next Run Preview" },
   { to: "/analytics", label: "Analytics" },
-  { to: "/config", label: "Configuration" },
 ];
 
 export function TopNav() {
+  const { session } = useAuth();
+  const avatarUrl = session?.user.user_metadata?.avatar_url as string | undefined;
+  const displayName =
+    (session?.user.user_metadata?.full_name as string | undefined) ??
+    session?.user.email ??
+    "";
+
   return (
     <header className="hidden lg:flex h-14 items-center border-b bg-sidebar px-6 gap-8 shrink-0">
       <div className="flex items-center gap-2.5 shrink-0">
@@ -37,6 +45,17 @@ export function TopNav() {
           </NavLink>
         ))}
       </nav>
+      <Link
+        to="/profile"
+        className="ml-auto flex items-center gap-2 text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors"
+      >
+        {avatarUrl ? (
+          <img src={avatarUrl} alt={displayName} className="h-7 w-7 rounded-full object-cover" />
+        ) : (
+          <UserCircle className="h-7 w-7" />
+        )}
+        <span className="text-sm whitespace-nowrap">{displayName}</span>
+      </Link>
     </header>
   );
 }

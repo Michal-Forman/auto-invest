@@ -97,3 +97,57 @@ class AnalyticsStatusItem(BaseModel):
 class PortfolioValueItem(BaseModel):
     date: str
     value: float
+
+
+class ProfileResponse(BaseModel):
+    t212_id_key: str
+    t212_private_key: str
+    coinmate_client_id: Optional[int]
+    coinmate_public_key: str
+    coinmate_private_key: str
+    pie_id: Optional[int]
+    t212_weight: int
+    btc_weight: float
+    invest_amount: float
+    invest_interval: str
+    balance_buffer: float
+    balance_alert_days: int
+    btc_withdrawal_treshold: int
+    btc_external_adress: str
+    mail_host: str
+    mail_port: int
+    mail_password: str
+    my_mail: str
+    mail_recipient: str
+    t212_deposit_account: Optional[str]
+    t212_deposit_vs: Optional[str]
+    coinmate_deposit_account: Optional[str]
+    coinmate_deposit_vs: Optional[str]
+    cron_enabled: bool
+
+
+class ProfileUpdate(BaseModel):
+    t212_id_key: Optional[str] = None
+    t212_private_key: Optional[str] = None
+    coinmate_client_id: Optional[int] = None
+    coinmate_public_key: Optional[str] = None
+    coinmate_private_key: Optional[str] = None
+    pie_id: Optional[int] = None
+    t212_weight: Optional[int] = None
+    btc_weight: Optional[float] = None
+    invest_amount: Optional[float] = None
+    invest_interval: Optional[str] = None
+    balance_buffer: Optional[float] = None
+    balance_alert_days: Optional[int] = None
+    btc_withdrawal_treshold: Optional[int] = None
+    btc_external_adress: Optional[str] = None
+    mail_host: Optional[str] = None
+    mail_port: Optional[int] = None
+    mail_password: Optional[str] = None
+    my_mail: Optional[str] = None
+    mail_recipient: Optional[str] = None
+    t212_deposit_account: Optional[str] = None
+    t212_deposit_vs: Optional[str] = None
+    coinmate_deposit_account: Optional[str] = None
+    coinmate_deposit_vs: Optional[str] = None
+    cron_enabled: Optional[bool] = None

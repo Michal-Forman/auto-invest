@@ -63,3 +63,8 @@ def get_coinmate_for_user(user_id: str) -> Coinmate:
 def get_user_settings_for_user(user_id: str) -> UserSettings:
     """Return UserSettings for the given user_id."""
     return UserSettings.from_user(get_user_record(user_id))
+
+
+def invalidate_user_record(user_id: str) -> None:
+    """Remove a user record from the TTL cache, forcing a fresh fetch."""
+    _user_record_cache.pop(user_id, None)
