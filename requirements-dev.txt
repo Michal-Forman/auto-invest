@@ -1,4 +1,5 @@
 -r requirements.txt
+-r api/requirements.txt
 
 # Testing
 freezegun==1.5.1
