@@ -9,8 +9,8 @@ import pytest
 from pytest_mock import MockerFixture
 
 # Local
-from instruments import Instruments
-from settings import PortfolioSettings
+from core.instruments import Instruments
+from core.settings import PortfolioSettings
 
 
 class TestAdjustRatio:
@@ -97,7 +97,7 @@ class TestDistributeCash:
 
 class TestGetFxRateToCzk:
     def test_czk_is_one(self, mocker: MockerFixture) -> None:
-        mock_yf_ticker = mocker.patch("instruments.yf.Ticker")
+        mock_yf_ticker = mocker.patch("core.instruments.yf.Ticker")
         result = Instruments.get_fx_rate_to_czk("CZK")
         assert result == 1.0
         mock_yf_ticker.assert_not_called()
@@ -105,28 +105,28 @@ class TestGetFxRateToCzk:
     def test_usd_rate(self, mocker: MockerFixture) -> None:
         mock_ticker = MagicMock()
         mock_ticker.history.return_value = pd.DataFrame({"Close": [25.0]})
-        mocker.patch("instruments.yf.Ticker", return_value=mock_ticker)
+        mocker.patch("core.instruments.yf.Ticker", return_value=mock_ticker)
         result = Instruments.get_fx_rate_to_czk("USD")
         assert result == pytest.approx(25.0)
 
     def test_gbx_divides_by_100(self, mocker: MockerFixture) -> None:
         mock_ticker = MagicMock()
         mock_ticker.history.return_value = pd.DataFrame({"Close": [3000.0]})
-        mocker.patch("instruments.yf.Ticker", return_value=mock_ticker)
+        mocker.patch("core.instruments.yf.Ticker", return_value=mock_ticker)
         result = Instruments.get_fx_rate_to_czk("GBX")
         assert result == pytest.approx(30.0)
 
     def test_eur_rate(self, mocker: MockerFixture) -> None:
         mock_ticker = MagicMock()
         mock_ticker.history.return_value = pd.DataFrame({"Close": [24.5]})
-        mocker.patch("instruments.yf.Ticker", return_value=mock_ticker)
+        mocker.patch("core.instruments.yf.Ticker", return_value=mock_ticker)
         result = Instruments.get_fx_rate_to_czk("EUR")
         assert result == pytest.approx(24.5)
 
     def test_raises_when_no_history(self, mocker: MockerFixture) -> None:
         mock_ticker = MagicMock()
         mock_ticker.history.return_value = pd.DataFrame()
-        mocker.patch("instruments.yf.Ticker", return_value=mock_ticker)
+        mocker.patch("core.instruments.yf.Ticker", return_value=mock_ticker)
         with pytest.raises(ValueError, match="No price data"):
             Instruments.get_fx_rate_to_czk("USD")
 
@@ -191,14 +191,14 @@ class TestGetAth:
         mock_ticker.history.return_value = pd.DataFrame(
             {"Close": [100.0, 200.0, 150.0]}
         )
-        mocker.patch("instruments.yf.Ticker", return_value=mock_ticker)
+        mocker.patch("core.instruments.yf.Ticker", return_value=mock_ticker)
         result = Instruments.get_ath("VWCEd_EQ")
         assert result == pytest.approx(200.0)
 
     def test_raises_on_empty_history(self, mocker: MockerFixture) -> None:
         mock_ticker = MagicMock()
         mock_ticker.history.return_value = pd.DataFrame()
-        mocker.patch("instruments.yf.Ticker", return_value=mock_ticker)
+        mocker.patch("core.instruments.yf.Ticker", return_value=mock_ticker)
         with pytest.raises(ValueError, match="No historical data"):
             Instruments.get_ath("VWCEd_EQ")
 
@@ -217,14 +217,14 @@ class TestGetCurrentPrice:
         mock_ticker.history.return_value = pd.DataFrame(
             {"Close": [100.0, 105.0, 110.0]}
         )
-        mocker.patch("instruments.yf.Ticker", return_value=mock_ticker)
+        mocker.patch("core.instruments.yf.Ticker", return_value=mock_ticker)
         result = Instruments.get_current_price("VWCEd_EQ")
         assert result == pytest.approx(110.0)
 
     def test_raises_on_empty_history(self, mocker: MockerFixture) -> None:
         mock_ticker = MagicMock()
         mock_ticker.history.return_value = pd.DataFrame()
-        mocker.patch("instruments.yf.Ticker", return_value=mock_ticker)
+        mocker.patch("core.instruments.yf.Ticker", return_value=mock_ticker)
         with pytest.raises(ValueError, match="No price data"):
             Instruments.get_current_price("VWCEd_EQ")
 
@@ -242,7 +242,7 @@ class TestGetBtcPrice:
     ) -> None:
         btc_ticker = self._make_ticker({"lastPrice": 85_000.0})
         fx_ticker = self._make_ticker({"lastPrice": 23.5})
-        mocker.patch("instruments.yf.Ticker", side_effect=[btc_ticker, fx_ticker])
+        mocker.patch("core.instruments.yf.Ticker", side_effect=[btc_ticker, fx_ticker])
         result = Instruments.get_btc_price()
         assert result == pytest.approx(85_000.0 * 23.5)
 
@@ -252,14 +252,14 @@ class TestGetBtcPrice:
         btc_hist = pd.DataFrame({"Close": [85_000.0]})
         btc_ticker = self._make_ticker({}, history_data=btc_hist)
         fx_ticker = self._make_ticker({"lastPrice": 23.5})
-        mocker.patch("instruments.yf.Ticker", side_effect=[btc_ticker, fx_ticker])
+        mocker.patch("core.instruments.yf.Ticker", side_effect=[btc_ticker, fx_ticker])
         result = Instruments.get_btc_price()
         assert result == pytest.approx(85_000.0 * 23.5)
 
     def test_converts_using_fx_rate(self, mocker: MockerFixture) -> None:
         btc_ticker = self._make_ticker({"lastPrice": 100_000.0})
         fx_ticker = self._make_ticker({"lastPrice": 22.0})
-        mocker.patch("instruments.yf.Ticker", side_effect=[btc_ticker, fx_ticker])
+        mocker.patch("core.instruments.yf.Ticker", side_effect=[btc_ticker, fx_ticker])
         result = Instruments.get_btc_price()
         assert result == pytest.approx(2_200_000.0)
 
@@ -278,7 +278,7 @@ class TestGetBtcAth:
                 mock.history.return_value = fx_df
             return mock
 
-        mocker.patch("instruments.yf.Ticker", side_effect=mock_ticker)
+        mocker.patch("core.instruments.yf.Ticker", side_effect=mock_ticker)
         result = Instruments._get_btc_ath()
         # max(10000*22, 50000*25) = max(220000, 1250000) = 1250000
         assert result == pytest.approx(1_250_000.0)

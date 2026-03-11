@@ -2,7 +2,7 @@
 import pytest
 
 # Local
-from instruments import Instruments
+from core.instruments import Instruments
 
 
 class TestSoftCap:

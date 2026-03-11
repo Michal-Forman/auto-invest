@@ -9,13 +9,13 @@ import pytest
 from pytest_mock import MockerFixture
 
 # Local
-from db.orders import Order, OrderUpdate
+from core.db.orders import Order, OrderUpdate
 
 
 def _build_supabase_mock(mocker: MockerFixture) -> tuple:
     """Patch db.base.supabase and db.orders.supabase with a fluent mock chain. Returns (mock_sb, mock_chain)."""
-    mock_sb = mocker.patch("db.base.supabase")
-    mocker.patch("db.orders.supabase", mock_sb)
+    mock_sb = mocker.patch("core.db.base.supabase")
+    mocker.patch("core.db.orders.supabase", mock_sb)
     mock_chain = MagicMock()
     mock_sb.table.return_value = mock_chain
     for method in [

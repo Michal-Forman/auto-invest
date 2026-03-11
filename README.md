@@ -1,4 +1,4 @@
-# <img src="assets/logo_trans.png" alt="" height="44" valign="middle" /> auto-invest
+# <img src="core/assets/logo_trans.png" alt="" height="44" valign="middle" /> auto-invest
 
 A self-running investment engine that dollar-cost averages into a multi-asset portfolio — and automatically buys more when markets dip.
 
@@ -31,7 +31,7 @@ Every order, fill, fee, exchange rate, and run summary is recorded in a Supabase
 
 ## Supported instruments
 
-The engine currently supports the following instruments. You don't need to use all of them — pick any subset that fits your strategy. Add or remove instruments in `instrument_data.py`.
+The engine currently supports the following instruments. You don't need to use all of them — pick any subset that fits your strategy. Add or remove instruments in `core/instrument_data.py`.
 
 | Ticker | Name | Type | Currency | Cap |
 |--------|------|------|----------|-----|
@@ -46,7 +46,7 @@ The engine currently supports the following instruments. You don't need to use a
 | `RBOTl_EQ` | iShares Automation & Robotics (Acc) | ETF | USD | `none` |
 | `BTC` | Bitcoin | Crypto | CZK | `hard` |
 
-Each entry in `instrument_data.py` maps a T212 ticker to its Yahoo Finance symbol, currency, type, display name, and cap mode.
+Each entry in `core/instrument_data.py` maps a T212 ticker to its Yahoo Finance symbol, currency, type, display name, and cap mode.
 
 ---
 
@@ -173,13 +173,13 @@ Apply the migrations in `supabase/migrations/` to your Supabase project. There a
 
 ```bash
 # Single run (dev mode, uses demo broker)
-python3 main.py
+python3 -m core.cron
 
 # Production (set ENV=prod in your environment or scheduler)
-ENV=prod python3 main.py
+ENV=prod python3 -m core.cron
 ```
 
-Schedule `main.py` with a system cron job. The script evaluates the `INVEST_INTERVAL` cron expression internally and skips execution if it's not the right time — so it's safe to run it frequently (e.g. every minute).
+Schedule `python3 -m core.cron` with a system cron job. The script evaluates the `INVEST_INTERVAL` cron expression internally and skips execution if it's not the right time — so it's safe to run it frequently (e.g. every minute).
 
 ### GitHub Actions
 
@@ -187,7 +187,7 @@ The production deployment uses two GitHub Actions workflows:
 
 | Workflow | File | Trigger | Purpose |
 |----------|------|---------|---------|
-| **Run** | `actions.yaml` | Daily at 09:00 UTC + manual | Executes `main.py` with production secrets/vars |
+| **Run** | `actions.yaml` | Daily at 09:00 UTC + manual | Executes `python -m core.cron` with production secrets/vars |
 | **CI** | `ci.yaml` | Push/PR to `main` + manual | Runs formatting checks, import sorting, mypy, and the full test suite |
 
 ---
@@ -195,37 +195,40 @@ The production deployment uses two GitHub Actions workflows:
 ## Project structure
 
 ```
-main.py                  — Entry point; orchestrates a full investment run
-instruments.py           — Fetches T212 pie weights, calculates ATH-adjusted ratios
-executor.py              — Places orders on T212 and Coinmate, handles BTC withdrawals
-instrument_data.py       — Static registry: tickers, currencies, names, cap types
-trading212.py            — Trading212 REST API client
-coinmate.py              — Coinmate REST API client (HMAC-SHA256 auth)
-mailer.py                — Email notifications (5 types, HTML templates, QR codes)
-settings.py              — Typed settings loaded from environment variables
-utils.py                 — Cron-time checker, balance exhaustion forecasting
-log.py                   — Logging configuration
-db/
-  client.py              — Supabase client singleton
-  base.py                — Shared Pydantic base model with DB helpers
-  orders.py              — Order model, DB persistence, fill reconciliation
-  runs.py                — Run model, lifecycle management (CREATED→FINISHED→FILLED)
-  mails.py               — Mail record model, deduplication queries
-  btc_withdrawals.py     — BTC withdrawal model and DB persistence
-templates/emails/
-  investment_confirmation.html
-  error_alert.html
-  monthly_summary.html
-  balance_alert.html
-  btc_withdrawal_confirmation.html
+core/                    — All existing Python code (investment engine)
+  main.py                — Entry point; orchestrates a full investment run
+  instruments.py         — Fetches T212 pie weights, calculates ATH-adjusted ratios
+  executor.py            — Places orders on T212 and Coinmate, handles BTC withdrawals
+  instrument_data.py     — Static registry: tickers, currencies, names, cap types
+  trading212.py          — Trading212 REST API client
+  coinmate.py            — Coinmate REST API client (HMAC-SHA256 auth)
+  mailer.py              — Email notifications (5 types, HTML templates, QR codes)
+  settings.py            — Typed settings loaded from environment variables
+  utils.py               — Cron-time checker, balance exhaustion forecasting
+  log.py                 — Logging configuration
+  db/
+    client.py            — Supabase client singleton
+    base.py              — Shared Pydantic base model with DB helpers
+    orders.py            — Order model, DB persistence, fill reconciliation
+    runs.py              — Run model, lifecycle management (CREATED→FINISHED→FILLED)
+    mails.py             — Mail record model, deduplication queries
+    btc_withdrawals.py   — BTC withdrawal model and DB persistence
+  templates/emails/
+    investment_confirmation.html
+    error_alert.html
+    monthly_summary.html
+    balance_alert.html
+    btc_withdrawal_confirmation.html
+  assets/
+    logo_trans.png       — Logo (transparent background, used in README)
+    logo_white.png       — Logo (white background, used in emails)
+api/                     — Placeholder for future FastAPI backend
+web/                     — Placeholder for future Vite+React frontend
 scripts/
   sort_imports.py        — Custom import sorter (isort + Black compatible)
 tests/
   unit/                  — Unit tests (mocked DB and API calls)
   integration/           — Integration tests (full flow with mocked externals)
-assets/
-  logo_trans.png         — Logo (transparent background, used in README)
-  logo_white.png         — Logo (white background, used in emails)
 .github/workflows/
   ci.yaml                — CI pipeline (formatting, types, tests)
   actions.yaml           — Production runner (daily scheduled execution)
@@ -267,11 +270,11 @@ python3 -m pytest tests/unit/test_instruments_pure.py -v
 Each module has a `__main__` block for quick manual testing:
 
 ```bash
-python3 instruments.py   # Test ratio calculation
-python3 trading212.py    # Test T212 API calls
-python3 coinmate.py      # Test Coinmate API calls
-python3 mailer.py        # Send test emails
-python3 db/orders.py     # Test order persistence
+python3 -m core.instruments   # Test ratio calculation
+python3 -m core.trading212    # Test T212 API calls
+python3 -m core.coinmate      # Test Coinmate API calls
+python3 -m core.mailer        # Send test emails
+python3 -m core.db.orders     # Test order persistence
 ```
 
 ---
@@ -291,7 +294,7 @@ Runs on every push and pull request to `main`. Steps:
 
 ### Production runner (`actions.yaml`)
 
-Runs daily at 09:00 UTC (and on manual dispatch). Injects all secrets and environment variables from the GitHub `Main` environment, then executes `python main.py` with `ENV=prod`.
+Runs daily at 09:00 UTC (and on manual dispatch). Injects all secrets and environment variables from the GitHub `Main` environment, then executes `python -m core.cron` with `ENV=prod`.
 
 ---
 

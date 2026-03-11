@@ -8,7 +8,7 @@ import pytest
 from pytest_mock import MockerFixture
 
 # Local
-from db.btc_withdrawals import BtcWithdrawal
+from core.db.btc_withdrawals import BtcWithdrawal
 
 
 @pytest.fixture

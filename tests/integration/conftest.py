@@ -1,5 +1,6 @@
 # Standard library
 from types import SimpleNamespace
+from typing import Any, Dict
 from unittest.mock import MagicMock
 
 # Third-party
@@ -7,9 +8,45 @@ import pytest
 from pytest_mock import MockerFixture
 
 # Local
-from coinmate import Coinmate
-from settings import PortfolioSettings
-from trading212 import Trading212
+from core.coinmate import Coinmate
+from core.mailer import Mailer
+from core.settings import PortfolioSettings, UserSettings
+from core.trading212 import Trading212
+
+
+def _make_user_settings(**overrides: Any) -> UserSettings:
+    defaults: Dict[str, Any] = {
+        "user_id": "test-user-id",
+        "t212_id_key": "test-t212-key",
+        "t212_private_key": "test-t212-priv",
+        "coinmate_client_id": 1,
+        "coinmate_public_key": "test-pub",
+        "coinmate_private_key": "test-priv",
+        "mail_recipient": "test@example.com",
+        "t212_deposit_account": None,
+        "t212_deposit_vs": None,
+        "coinmate_deposit_account": None,
+        "coinmate_deposit_vs": None,
+        "btc_external_adress": "bc1qexampleaddressfortesting",
+        "portfolio": PortfolioSettings(
+            pie_id=1,
+            t212_weight=95,
+            btc_weight=0.05,
+            invest_amount=5000.0,
+            invest_interval="0 9 * * *",
+            balance_buffer=1.5,
+            balance_alert_days=7,
+            btc_withdrawal_treshold=500000,
+        ),
+        "env": "dev",
+    }
+    defaults.update(overrides)
+    return UserSettings(**defaults)
+
+
+def make_mailer(**overrides: Any) -> Mailer:
+    """Build a Mailer with test user settings."""
+    return Mailer(_make_user_settings(**overrides))
 
 
 def _make_chain() -> MagicMock:
@@ -37,8 +74,8 @@ def supabase_mocks(mocker: MockerFixture) -> SimpleNamespace:
     orders_chain = _make_chain()
     runs_chain = _make_chain()
 
-    mock_orders_sb = mocker.patch("db.orders.supabase")
-    mock_runs_sb = mocker.patch("db.runs.supabase")
+    mock_orders_sb = mocker.patch("core.db.orders.supabase")
+    mock_runs_sb = mocker.patch("core.db.runs.supabase")
 
     mock_orders_sb.table.return_value = orders_chain
     mock_runs_sb.table.side_effect = lambda name: (

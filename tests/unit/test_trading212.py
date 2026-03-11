@@ -8,7 +8,7 @@ from pytest_mock import MockerFixture
 import requests
 
 # Local
-from trading212 import Trading212
+from core.trading212 import Trading212
 
 
 @pytest.fixture
@@ -81,7 +81,7 @@ class TestSleepForRetry:
     def test_uses_retry_after_header_when_present(
         self, t212: Trading212, mocker: MockerFixture
     ) -> None:
-        mock_sleep = mocker.patch("trading212.time.sleep")
+        mock_sleep = mocker.patch("core.trading212.time.sleep")
         mock_resp = MagicMock()
         mock_resp.headers.get.return_value = "5"
         t212._sleep_for_retry(mock_resp, attempt=0)
@@ -90,8 +90,8 @@ class TestSleepForRetry:
     def test_uses_exponential_backoff_when_no_header(
         self, t212: Trading212, mocker: MockerFixture
     ) -> None:
-        mock_sleep = mocker.patch("trading212.time.sleep")
-        mocker.patch("trading212.random.random", return_value=0.0)
+        mock_sleep = mocker.patch("core.trading212.time.sleep")
+        mocker.patch("core.trading212.random.random", return_value=0.0)
         mock_resp = MagicMock()
         mock_resp.headers.get.return_value = None
         t212._sleep_for_retry(mock_resp, attempt=2)
@@ -101,8 +101,8 @@ class TestSleepForRetry:
     def test_invalid_retry_after_falls_back_to_backoff(
         self, t212: Trading212, mocker: MockerFixture
     ) -> None:
-        mock_sleep = mocker.patch("trading212.time.sleep")
-        mocker.patch("trading212.random.random", return_value=0.0)
+        mock_sleep = mocker.patch("core.trading212.time.sleep")
+        mocker.patch("core.trading212.random.random", return_value=0.0)
         mock_resp = MagicMock()
         mock_resp.headers.get.return_value = "not-a-number"
         t212._sleep_for_retry(mock_resp, attempt=1)
@@ -115,7 +115,7 @@ class TestGetWithRetry:
         self, t212: Trading212, mocker: MockerFixture
     ) -> None:
         mock_resp = _make_response(200, json_data={"data": "ok"})
-        mocker.patch("trading212.requests.get", return_value=mock_resp)
+        mocker.patch("core.trading212.requests.get", return_value=mock_resp)
         result = t212._get_with_retry("https://demo.trading212.com/api/v0/test")
         assert result["err"] is None
         assert result["res"] == {"data": "ok"}
@@ -127,8 +127,8 @@ class TestGetWithRetry:
         mock_429.headers = MagicMock()
         mock_429.headers.get.return_value = "0"
         mock_200 = _make_response(200, json_data={"data": "ok"})
-        mocker.patch("trading212.requests.get", side_effect=[mock_429, mock_200])
-        mock_sleep = mocker.patch("trading212.time.sleep")
+        mocker.patch("core.trading212.requests.get", side_effect=[mock_429, mock_200])
+        mock_sleep = mocker.patch("core.trading212.time.sleep")
 
         result = t212._get_with_retry("https://demo.trading212.com/api/v0/test")
 
@@ -141,8 +141,8 @@ class TestGetWithRetry:
         mock_429 = _make_response(429)
         mock_429.headers = MagicMock()
         mock_429.headers.get.return_value = "0"
-        mocker.patch("trading212.requests.get", return_value=mock_429)
-        mocker.patch("trading212.time.sleep")
+        mocker.patch("core.trading212.requests.get", return_value=mock_429)
+        mocker.patch("core.trading212.time.sleep")
 
         result = t212._get_with_retry(
             "https://demo.trading212.com/api/v0/test", max_retries=2
@@ -155,7 +155,7 @@ class TestGetWithRetry:
         self, t212: Trading212, mocker: MockerFixture
     ) -> None:
         mocker.patch(
-            "trading212.requests.get",
+            "core.trading212.requests.get",
             side_effect=requests.exceptions.RequestException("connection failed"),
         )
         result = t212._get_with_retry("https://demo.trading212.com/api/v0/test")
