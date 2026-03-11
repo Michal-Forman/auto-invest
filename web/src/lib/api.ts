@@ -5,7 +5,6 @@ import type {
   Config,
   Instrument,
   AnalyticsRunItem,
-  AnalyticsAllocationItem,
   AnalyticsStatusItem,
   PortfolioValueItem,
   UserProfile,
