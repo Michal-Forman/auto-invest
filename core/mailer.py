@@ -23,7 +23,7 @@ from core.db.mails import Mail
 from core.db.orders import Order
 from core.db.runs import Run
 from core.log import log
-from core.settings import UserSettings
+from core.settings import UserSettings, settings
 
 _TEMPLATE_DIR = os.path.join(os.path.dirname(__file__), "templates", "emails")
 _ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")
@@ -75,12 +75,12 @@ class Mailer:
     """Sends alert emails for investment lifecycle events."""
 
     def __init__(self, user_settings: UserSettings) -> None:
-        """Initialize with per-user settings."""
-        self.my_mail: str = user_settings.my_mail
+        """Initialize with per-user settings; mail server config from system env."""
+        self.my_mail: str = settings.my_mail
         self.mail_recipient: str = user_settings.mail_recipient
-        self.mail_host: str = user_settings.mail_host
-        self.mail_port: int = user_settings.mail_port
-        self.mail_password: str = user_settings.mail_password
+        self.mail_host: str = settings.mail_host
+        self.mail_port: int = settings.mail_port
+        self.mail_password: str = settings.mail_password
         self._user_settings: UserSettings = user_settings
 
     @staticmethod

@@ -22,11 +22,15 @@ else:
 
 @dataclass(frozen=True)
 class Settings:
-    """System-level settings loaded from environment (Supabase + env name only)."""
+    """System-level settings loaded from environment."""
 
     supabase_url: str
     supabase_key: str
     env: str
+    my_mail: str
+    mail_host: str
+    mail_port: int
+    mail_password: str
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -35,6 +39,10 @@ class Settings:
             supabase_url=os.environ["SUPABASE_URL"],
             supabase_key=os.environ["SUPABASE_SERVICE_ROLE_KEY"],
             env=os.getenv("ENV", "dev"),
+            my_mail=os.getenv("MY_MAIL", ""),
+            mail_host=os.getenv("MAIL_HOST", ""),
+            mail_port=int(os.getenv("MAIL_PORT", "465")),
+            mail_password=os.getenv("MAIL_PASSWORD", ""),
         )
 
 
@@ -79,11 +87,7 @@ class UserSettings:
     coinmate_client_id: Optional[int]
     coinmate_public_key: str
     coinmate_private_key: str
-    my_mail: str
     mail_recipient: str
-    mail_host: str
-    mail_port: int
-    mail_password: str
     t212_deposit_account: Optional[str]
     t212_deposit_vs: Optional[str]
     coinmate_deposit_account: Optional[str]
@@ -102,11 +106,7 @@ class UserSettings:
             coinmate_client_id=user.coinmate_client_id,
             coinmate_public_key=user.coinmate_public_key,
             coinmate_private_key=user.coinmate_private_key,
-            my_mail=user.my_mail,
-            mail_recipient=user.mail_recipient,
-            mail_host=user.mail_host,
-            mail_port=user.mail_port,
-            mail_password=user.mail_password,
+            mail_recipient=user.email,
             t212_deposit_account=user.t212_deposit_account,
             t212_deposit_vs=user.t212_deposit_vs,
             coinmate_deposit_account=user.coinmate_deposit_account,

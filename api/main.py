@@ -6,7 +6,16 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 # Local
-from api.routers import analytics, config, health, instruments, orders, preview, profile, runs
+from api.routers import (
+    analytics,
+    config,
+    health,
+    instruments,
+    orders,
+    preview,
+    profile,
+    runs,
+)
 
 app = FastAPI(title="auto-invest API", version="1.0.0")
 

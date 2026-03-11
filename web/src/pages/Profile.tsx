@@ -118,15 +118,6 @@ export function Profile() {
   const [portfolioReady, setPortfolioReady] = useState(false);
 
   // Mail form state
-  const [mail, setMail] = useState<{
-    mail_host: string;
-    mail_port: string;
-    mail_password: string;
-    my_mail: string;
-    mail_recipient: string;
-  }>({ mail_host: "", mail_port: "", mail_password: "", my_mail: "", mail_recipient: "" });
-  const [mailReady, setMailReady] = useState(false);
-
   // Deposit form state
   const [deposit, setDeposit] = useState<{
     t212_deposit_account: string;
@@ -171,16 +162,6 @@ export function Profile() {
     });
     setPortfolioReady(true);
   }
-  if (profile && !mailReady) {
-    setMail({
-      mail_host: profile.mail_host,
-      mail_port: String(profile.mail_port),
-      mail_password: profile.mail_password,
-      my_mail: profile.my_mail,
-      mail_recipient: profile.mail_recipient,
-    });
-    setMailReady(true);
-  }
   if (profile && !depositReady) {
     setDeposit({
       t212_deposit_account: profile.t212_deposit_account ?? "",
@@ -215,15 +196,6 @@ export function Profile() {
       balance_alert_days: Number(portfolio.balance_alert_days),
       btc_withdrawal_treshold: Number(portfolio.btc_withdrawal_treshold),
       btc_external_adress: portfolio.btc_external_adress,
-    });
-
-  const saveMail = () =>
-    updateProfile({
-      mail_host: mail.mail_host,
-      mail_port: Number(mail.mail_port),
-      mail_password: mail.mail_password,
-      my_mail: mail.my_mail,
-      mail_recipient: mail.mail_recipient,
     });
 
   const saveDeposit = () =>
@@ -385,53 +357,6 @@ export function Profile() {
             </Field>
           </div>
           <CardSaveButton onClick={savePortfolio} disabled={updating} />
-        </CardContent>
-      </Card>
-
-      {/* Email Notifications */}
-      <Card>
-        <CardHeader className="-mt-4 border-b bg-primary/5 pt-4">
-          <CardTitle className="text-base text-primary">Email Notifications</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 pt-4">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Mail Host">
-              <Input
-                value={mail.mail_host}
-                onChange={(e) => setMail((s) => ({ ...s, mail_host: e.target.value }))}
-                placeholder="smtp.example.com"
-              />
-            </Field>
-            <Field label="Mail Port">
-              <Input
-                value={mail.mail_port}
-                onChange={(e) => setMail((s) => ({ ...s, mail_port: e.target.value }))}
-                placeholder="465"
-              />
-            </Field>
-            <Field label="Mail Password">
-              <SecretInput
-                id="mail_password"
-                value={mail.mail_password}
-                onChange={(v) => setMail((s) => ({ ...s, mail_password: v }))}
-              />
-            </Field>
-            <Field label="From Address">
-              <Input
-                value={mail.my_mail}
-                onChange={(e) => setMail((s) => ({ ...s, my_mail: e.target.value }))}
-                placeholder="me@example.com"
-              />
-            </Field>
-            <Field label="Recipient">
-              <Input
-                value={mail.mail_recipient}
-                onChange={(e) => setMail((s) => ({ ...s, mail_recipient: e.target.value }))}
-                placeholder="you@example.com"
-              />
-            </Field>
-          </div>
-          <CardSaveButton onClick={saveMail} disabled={updating} />
         </CardContent>
       </Card>
 

@@ -114,11 +114,6 @@ class ProfileResponse(BaseModel):
     balance_alert_days: int
     btc_withdrawal_treshold: int
     btc_external_adress: str
-    mail_host: str
-    mail_port: int
-    mail_password: str
-    my_mail: str
-    mail_recipient: str
     t212_deposit_account: Optional[str]
     t212_deposit_vs: Optional[str]
     coinmate_deposit_account: Optional[str]
@@ -141,11 +136,6 @@ class ProfileUpdate(BaseModel):
     balance_alert_days: Optional[int] = None
     btc_withdrawal_treshold: Optional[int] = None
     btc_external_adress: Optional[str] = None
-    mail_host: Optional[str] = None
-    mail_port: Optional[int] = None
-    mail_password: Optional[str] = None
-    my_mail: Optional[str] = None
-    mail_recipient: Optional[str] = None
     t212_deposit_account: Optional[str] = None
     t212_deposit_vs: Optional[str] = None
     coinmate_deposit_account: Optional[str] = None

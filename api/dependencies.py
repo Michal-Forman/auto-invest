@@ -15,7 +15,9 @@ from core.settings import UserSettings, settings
 from core.trading212 import Trading212
 
 _user_record_cache: TTLCache = TTLCache(maxsize=50, ttl=300)
-_jwks_client = PyJWKClient(f"{os.environ['SUPABASE_URL']}/auth/v1/.well-known/jwks.json")
+_jwks_client = PyJWKClient(
+    f"{os.environ['SUPABASE_URL']}/auth/v1/.well-known/jwks.json"
+)
 
 
 async def get_current_user_id(

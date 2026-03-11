@@ -34,12 +34,8 @@ class UserRecord:
     btc_withdrawal_treshold: int
     btc_external_adress: str
 
-    # Mail
-    mail_host: str
-    mail_port: int
-    mail_password: str
-    my_mail: str
-    mail_recipient: str
+    # Synced from auth.users via DB trigger
+    email: str
 
     # Deposit (optional)
     t212_deposit_account: Optional[str]
@@ -64,7 +60,7 @@ class UserRecord:
         response: Any = (
             supabase.table("users").select("*").eq("cron_enabled", True).execute()
         )
-        return [UserRecord._from_row(row) for row in (response.data or [])]
+        return [UserRecord._from_row(row) for row in response.data or []]
 
     @staticmethod
     def _from_row(row: Dict[str, Any]) -> "UserRecord":
@@ -85,11 +81,7 @@ class UserRecord:
             balance_alert_days=int(row.get("balance_alert_days", 5)),
             btc_withdrawal_treshold=int(row.get("btc_withdrawal_treshold", 500000)),
             btc_external_adress=row.get("btc_external_adress") or "",
-            mail_host=row.get("mail_host") or "",
-            mail_port=int(row.get("mail_port", 465)),
-            mail_password=row.get("mail_password") or "",
-            my_mail=row.get("my_mail") or "",
-            mail_recipient=row.get("mail_recipient") or "",
+            email=row.get("email") or "",
             t212_deposit_account=row.get("t212_deposit_account"),
             t212_deposit_vs=row.get("t212_deposit_vs"),
             coinmate_deposit_account=row.get("coinmate_deposit_account"),

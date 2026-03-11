@@ -106,11 +106,6 @@ export interface UserProfile {
   balance_alert_days: number;
   btc_withdrawal_treshold: number;
   btc_external_adress: string;
-  mail_host: string;
-  mail_port: number;
-  mail_password: string;
-  my_mail: string;
-  mail_recipient: string;
   t212_deposit_account: string | null;
   t212_deposit_vs: string | null;
   coinmate_deposit_account: string | null;
