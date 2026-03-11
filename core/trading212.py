@@ -85,6 +85,20 @@ class Trading212:
         return self._process_response(requests.post(url, headers=headers, json=data))
 
     @staticmethod
+    def ping(env: str = "dev") -> bool:
+        """Return True if the T212 host responds to any HTTP request (no auth required)."""
+        host = (
+            "https://live.trading212.com"
+            if env == "prod"
+            else "https://demo.trading212.com"
+        )
+        try:
+            requests.get(f"{host}/api/v0/", timeout=5)
+            return True
+        except RequestException:
+            return False
+
+    @staticmethod
     def _sleep_for_retry(resp: requests.Response, attempt: int) -> None:
         """Sleep before retrying a rate-limited request. Uses Retry-After header if available, otherwise exponential backoff with jitter."""
         retry_after: Optional[str] = resp.headers.get("Retry-After")
