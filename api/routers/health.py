@@ -1,14 +1,14 @@
+# Standard library
 # Third-party
+import requests
 from fastapi import APIRouter, Depends
 
 # Local
 from api.cache import health_cache
-from api.dependencies import (
-    get_coinmate_for_user,
-    get_current_user_id,
-    get_t212_for_user,
-)
+from api.dependencies import get_current_user_id
 from api.schemas import HealthResponse
+from core.settings import settings
+from core.trading212 import Trading212
 
 router = APIRouter()
 
@@ -20,30 +20,18 @@ def health(user_id: str = Depends(get_current_user_id)) -> HealthResponse:
     if cache_key in health_cache:
         return health_cache[cache_key]  # type: ignore[return-value]
 
-    t212_ok = False
-    coinmate_ok = False
-
     print("[health] checking T212...", flush=True)
-    try:
-        result = get_t212_for_user(user_id).pies()
-        err = result.get("err")
-        status_code = (
-            (result.get("res") or {}).get("status")
-            if isinstance(result.get("res"), dict)
-            else None
-        )
-        print(
-            f"[health] T212 result: err={err!r}  res_type={type(result.get('res')).__name__}  status_code={status_code}",
-            flush=True,
-        )
-        t212_ok = not err
-    except Exception as e:
-        print(f"[health] T212 exception: {type(e).__name__}: {e}", flush=True)
+    t212_ok = Trading212.ping(env=settings.env)
+    print(f"[health] T212 ok={t212_ok}", flush=True)
 
     print("[health] checking Coinmate...", flush=True)
+    coinmate_ok = False
     try:
-        coinmate_result = get_coinmate_for_user(user_id).ticker()
-        print(f"[health] Coinmate result: {coinmate_result}", flush=True)
+        requests.get(
+            "https://coinmate.io/api/ticker",
+            params={"currencyPair": "BTC_CZK"},
+            timeout=10,
+        )
         coinmate_ok = True
     except Exception as e:
         print(f"[health] Coinmate exception: {type(e).__name__}: {e}", flush=True)
