@@ -1,6 +1,7 @@
 FROM python:3.11-slim
 WORKDIR /app
-COPY requirements.txt api/requirements.txt ./
+COPY requirements.txt .
+COPY api/requirements.txt api/
 RUN pip install --no-cache-dir -r requirements.txt -r api/requirements.txt
 COPY core/ ./core/
 COPY api/ ./api/
