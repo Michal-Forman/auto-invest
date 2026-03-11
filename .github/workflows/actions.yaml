@@ -27,33 +27,14 @@ jobs:
       - name: execute py script # run main.py
         env:
           # secrets
-          T212_ID_KEY: ${{ secrets.T212_ID_KEY }}
-          T212_PRIVATE_KEY: ${{ secrets.T212_PRIVATE_KEY }}
-          COINMATE_CLIENT_ID: ${{ secrets.COINMATE_CLIENT_ID }}
-          COINMATE_PUBLIC_KEY: ${{ secrets.COINMATE_PUBLIC_KEY }}
-          COINMATE_PRIVATE_KEY: ${{ secrets.COINMATE_PRIVATE_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
 
           # environment variables
-          PIE_ID: ${{ vars.PIE_ID }}
-          T212_WEIGHT: ${{ vars.T212_WEIGHT }}
-          BTC_WEIGHT: ${{ vars.BTC_WEIGHT }}
-          INVEST_AMOUNT: ${{ vars.INVEST_AMOUNT }}
-          INVEST_INTERVAL: ${{ vars.INVEST_INTERVAL }}
           LOG_LEVEL: ${{ vars.LOG_LEVEL }}
           ENV: ${{ vars.ENV }}
           MY_MAIL: ${{ vars.MY_MAIL }}
-          MAIL_RECIPIENT: ${{ vars.MAIL_RECIPIENT }}
           MAIL_HOST: ${{ vars.MAIL_HOST }}
           MAIL_PORT: ${{ vars.MAIL_PORT }}
-          BALANCE_BUFFER: ${{ vars.BALANCE_BUFFER }}
-          BALANCE_ALERT_DAYS: ${{ vars.BALANCE_ALERT_DAYS }}
-          T212_DEPOSIT_ACCOUNT: ${{ vars.T212_DEPOSIT_ACCOUNT }}
-          COINMATE_DEPOSIT_ACCOUNT: ${{ vars.COINMATE_DEPOSIT_ACCOUNT }}
-          T212_DEPOSIT_VS: ${{ vars.T212_DEPOSIT_VS }}
-          COINMATE_DEPOSIT_VS: ${{ vars.COINMATE_DEPOSIT_VS }}
-          BTC_WITHDRAWAL_TRESHOLD: ${{ vars.BTC_WITHDRAWAL_TRESHOLD }}
-          BTC_EXTERNAL_ADRESS: ${{ vars.BTC_EXTERNAL_ADRESS }}
         run: python -m core.cron
