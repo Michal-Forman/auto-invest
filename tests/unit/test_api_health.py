@@ -1,8 +1,9 @@
-# Third-party
+# Standard library
 from unittest.mock import MagicMock
 
-import pytest
+# Third-party
 from fastapi.testclient import TestClient
+import pytest
 
 # Local
 from api.main import app
@@ -54,9 +55,7 @@ def test_both_fail(mocker):
 
 
 def test_successful_response_is_cached(mocker):
-    mock_ping = mocker.patch(
-        "api.routers.health.Trading212.ping", return_value=True
-    )
+    mock_ping = mocker.patch("api.routers.health.Trading212.ping", return_value=True)
     mocker.patch(
         "api.routers.health.requests.get",
         return_value=MagicMock(status_code=200),
@@ -67,9 +66,7 @@ def test_successful_response_is_cached(mocker):
 
 
 def test_failed_response_not_cached(mocker):
-    mock_ping = mocker.patch(
-        "api.routers.health.Trading212.ping", return_value=False
-    )
+    mock_ping = mocker.patch("api.routers.health.Trading212.ping", return_value=False)
     mocker.patch(
         "api.routers.health.requests.get",
         return_value=MagicMock(status_code=200),
@@ -80,9 +77,7 @@ def test_failed_response_not_cached(mocker):
 
 
 def test_partial_success_not_cached(mocker):
-    mock_ping = mocker.patch(
-        "api.routers.health.Trading212.ping", return_value=True
-    )
+    mock_ping = mocker.patch("api.routers.health.Trading212.ping", return_value=True)
     mock_requests_get = mocker.patch(
         "api.routers.health.requests.get",
         side_effect=RuntimeError("boom"),

@@ -1,7 +1,6 @@
-# Standard library
 # Third-party
-import requests
 from fastapi import APIRouter, Depends
+import requests
 
 # Local
 from api.cache import health_cache
