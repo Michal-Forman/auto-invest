@@ -258,7 +258,10 @@ class TestSend:
         mailer._send("Subject", "plain", "<html/>", "monthly_summary", period="2026-02")
 
         mock_mail_cls.assert_called_once_with(
-            type="monthly_summary", subject="Subject", period="2026-02"
+            type="monthly_summary",
+            subject="Subject",
+            period="2026-02",
+            user_id="test-user-id",
         )
         mock_mail_instance.post_to_db.assert_called_once()
 
