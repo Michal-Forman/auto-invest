@@ -1,3 +1,4 @@
+import { AlertTriangle, BarChart2, Bell, Bitcoin, Globe, Lock, RefreshCw, Smartphone, TrendingDown, TrendingUp, Zap } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 const APP_URL = "https://auto-invest-web.vercel.app/app";
@@ -131,7 +132,7 @@ function Hero() {
         {/* Left content */}
         <div ref={ref} className="landing-fade flex-1 max-w-xl">
           <div className="inline-flex items-center gap-2 bg-blue-50 text-blue-900 text-xs font-medium px-3 py-1 rounded-full border border-blue-200 mb-6">
-            🤖 Automatické investování
+            <Zap className="w-3 h-3" /> Automatické investování
           </div>
           <h1 className="text-4xl md:text-5xl font-bold text-slate-900 leading-tight mb-4">
             Investuj pravidelně.<br/>
@@ -155,11 +156,11 @@ function Hero() {
             </a>
           </div>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-500">
-            <span>🔄 Plně automatické</span>
+            <span className="flex items-center gap-1.5"><RefreshCw className="w-3.5 h-3.5" /> Plně automatické</span>
             <span className="text-slate-300">·</span>
-            <span>📈 Trading212 + Coinmate</span>
+            <span className="flex items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5" /> Trading212 + Coinmate</span>
             <span className="text-slate-300">·</span>
-            <span>🔒 Zabezpečené přes Google</span>
+            <span className="flex items-center gap-1.5"><Lock className="w-3.5 h-3.5" /> Zabezpečené přes Google</span>
           </div>
         </div>
 
@@ -222,9 +223,9 @@ function Hero() {
 function Problem() {
   const ref = useFadeIn();
   const problems = [
-    { emoji: "🙈", title: "Zapomínáš", desc: "Chceš investovat každý měsíc, ale v den výplaty na to zapomeneš nebo to odkládáš." },
-    { emoji: "😰", title: "Investuješ z emocí", desc: "Když trhy padají, bojíš se nakoupit. Když rostou, lituješ, že jsi nenakoupil dřív." },
-    { emoji: "📊", title: "Neumíš rozdělit peníze", desc: "Nevíš, kolik dát do ETF, kolik do BTC a kdy přidat víc do toho, co zlevnilo." },
+    { icon: <AlertTriangle className="w-6 h-6 text-amber-500" />, title: "Zapomínáš", desc: "Chceš investovat každý měsíc, ale v den výplaty na to zapomeneš nebo to odkládáš." },
+    { icon: <TrendingDown className="w-6 h-6 text-red-500" />, title: "Investuješ z emocí", desc: "Když trhy padají, bojíš se nakoupit. Když rostou, lituješ, že jsi nenakoupil dřív." },
+    { icon: <BarChart2 className="w-6 h-6 text-blue-500" />, title: "Neumíš rozdělit peníze", desc: "Nevíš, kolik dát do ETF, kolik do BTC a kdy přidat víc do toho, co zlevnilo." },
   ];
 
   return (
@@ -238,7 +239,7 @@ function Problem() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {problems.map((p) => (
               <div key={p.title} className="bg-white rounded-xl border border-slate-200 p-6 text-left shadow-sm">
-                <div className="text-3xl mb-3">{p.emoji}</div>
+                <div className="mb-3">{p.icon}</div>
                 <h3 className="font-semibold text-slate-900 mb-2">{p.title}</h3>
                 <p className="text-sm text-slate-600 leading-relaxed">{p.desc}</p>
               </div>
@@ -286,12 +287,12 @@ function HowItWorks() {
 function Features() {
   const ref = useFadeIn();
   const features = [
-    { icon: "⚡", title: "Automatické spouštění", desc: "Investice probíhají přesně podle tvého rozvrhu, bez jakéhokoliv zásahu z tvé strany." },
-    { icon: "📉", title: "Chytrá alokace dle ATH", desc: "Více peněz tam, kde je cena pod historickým maximem. Automatický contrarian investing." },
-    { icon: "🌍", title: "ETF + Bitcoin", desc: "Trading212 pro diverzifikovaná ETF (VWCE, CSPX, NASDAQ…) a Coinmate pro Bitcoin." },
-    { icon: "📊", title: "Dashboard s analytikou", desc: "Grafy investic v čase, rozdělení portfolia, průběh objednávek — vše přehledně." },
-    { icon: "🔔", title: "E-mailové notifikace", desc: "Dostaneš upozornění, pokud se nákup nezdaří nebo dojde k problému s API." },
-    { icon: "📱", title: "PWA aplikace", desc: "Přidej si auto-invest na plochu telefonu jako nativní aplikaci." },
+    { icon: <Zap className="w-5 h-5 text-blue-600" />, title: "Automatické spouštění", desc: "Investice probíhají přesně podle tvého rozvrhu, bez jakéhokoliv zásahu z tvé strany." },
+    { icon: <TrendingDown className="w-5 h-5 text-blue-600" />, title: "Chytrá alokace dle ATH", desc: "Více peněz tam, kde je cena pod historickým maximem. Automatický contrarian investing." },
+    { icon: <Globe className="w-5 h-5 text-blue-600" />, title: "ETF + Bitcoin", desc: "Trading212 pro diverzifikovaná ETF (VWCE, CSPX, NASDAQ…) a Coinmate pro Bitcoin." },
+    { icon: <BarChart2 className="w-5 h-5 text-blue-600" />, title: "Dashboard s analytikou", desc: "Grafy investic v čase, rozdělení portfolia, průběh objednávek — vše přehledně." },
+    { icon: <Bell className="w-5 h-5 text-blue-600" />, title: "E-mailové notifikace", desc: "Dostaneš upozornění, pokud se nákup nezdaří nebo dojde k problému s API." },
+    { icon: <Smartphone className="w-5 h-5 text-blue-600" />, title: "PWA aplikace", desc: "Přidej si auto-invest na plochu telefonu jako nativní aplikaci." },
   ];
 
   return (
@@ -305,7 +306,7 @@ function Features() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {features.map((f) => (
               <div key={f.title} className="bg-white rounded-xl border border-slate-200 p-6 text-left shadow-sm">
-                <div className="text-2xl mb-3">{f.icon}</div>
+                <div className="mb-3">{f.icon}</div>
                 <h3 className="font-semibold text-slate-900 mb-2">{f.title}</h3>
                 <p className="text-sm text-slate-600 leading-relaxed">{f.desc}</p>
               </div>
@@ -390,14 +391,12 @@ function Platforms() {
           <h2 className="text-lg font-semibold text-slate-700 mb-8">Funguje s těmito platformami</h2>
           <div className="flex flex-col sm:flex-row gap-5 justify-center">
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 flex-1 max-w-xs mx-auto sm:mx-0">
-              <div className="text-2xl font-bold text-orange-500 mb-2">T212</div>
-              <p className="font-semibold text-slate-800 mb-1">Trading212</p>
+              <img src="/trading212-logo.jpg" alt="Trading212" className="h-8 w-auto mx-auto block object-contain mb-3" />
               <p className="text-sm text-slate-500">ETF a akcie</p>
               <p className="text-xs text-slate-400 mt-2">Diverzifikovaná ETF portfolia</p>
             </div>
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 flex-1 max-w-xs mx-auto sm:mx-0">
-              <div className="text-2xl font-bold text-amber-500 mb-2">₿</div>
-              <p className="font-semibold text-slate-800 mb-1">Coinmate</p>
+              <img src="/coinmate-logo.jpg" alt="Coinmate" className="h-8 w-auto mx-auto block object-contain mb-3" />
               <p className="text-sm text-slate-500">Bitcoin</p>
               <p className="text-xs text-slate-400 mt-2">Bitcoin nákupy v CZK</p>
             </div>
