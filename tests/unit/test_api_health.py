@@ -1,6 +1,3 @@
-# Standard library
-from unittest.mock import MagicMock
-
 # Third-party
 from fastapi.testclient import TestClient
 import pytest
@@ -11,16 +8,21 @@ from api.main import app
 client = TestClient(app)
 
 
-def _patch_health(mocker, t212_ok=True, coinmate_raises=None):
-    """Patch Trading212.ping and requests.get in the health module."""
-    mocker.patch("api.routers.health.Trading212.ping", return_value=t212_ok)
-    mock_requests_get = mocker.patch(
-        "api.routers.health.requests.get",
-        return_value=MagicMock(status_code=200),
+def _patch_health(mocker, t212_raises=None, coinmate_raises=None):
+    """Patch get_t212_for_user and get_coinmate_for_user in the health module."""
+    mock_t212 = mocker.MagicMock()
+    if t212_raises:
+        mock_t212.balance.side_effect = t212_raises
+    mock_get_t212 = mocker.patch(
+        "api.routers.health.get_t212_for_user", return_value=mock_t212
     )
+
+    mock_coinmate = mocker.MagicMock()
     if coinmate_raises:
-        mock_requests_get.side_effect = coinmate_raises
-    return mock_requests_get
+        mock_coinmate.balance.side_effect = coinmate_raises
+    mocker.patch("api.routers.health.get_coinmate_for_user", return_value=mock_coinmate)
+
+    return mock_get_t212, mock_t212
 
 
 def test_both_ok_returns_all_true(mocker):
@@ -31,7 +33,7 @@ def test_both_ok_returns_all_true(mocker):
 
 
 def test_t212_raises_exception(mocker):
-    _patch_health(mocker, t212_ok=False)
+    _patch_health(mocker, t212_raises=RuntimeError("auth failed"))
     resp = client.get("/health")
     data = resp.json()
     assert data["t212"] is False
@@ -47,7 +49,11 @@ def test_coinmate_raises(mocker):
 
 
 def test_both_fail(mocker):
-    _patch_health(mocker, t212_ok=False, coinmate_raises=RuntimeError("coinmate down"))
+    _patch_health(
+        mocker,
+        t212_raises=RuntimeError("t212 down"),
+        coinmate_raises=RuntimeError("coinmate down"),
+    )
     resp = client.get("/health")
     data = resp.json()
     assert data["t212"] is False
@@ -55,34 +61,23 @@ def test_both_fail(mocker):
 
 
 def test_successful_response_is_cached(mocker):
-    mock_ping = mocker.patch("api.routers.health.Trading212.ping", return_value=True)
-    mocker.patch(
-        "api.routers.health.requests.get",
-        return_value=MagicMock(status_code=200),
-    )
+    mock_get_t212, mock_t212 = _patch_health(mocker)
     client.get("/health")
     client.get("/health")
-    assert mock_ping.call_count == 1
+    assert mock_t212.balance.call_count == 1
 
 
 def test_failed_response_not_cached(mocker):
-    mock_ping = mocker.patch("api.routers.health.Trading212.ping", return_value=False)
-    mocker.patch(
-        "api.routers.health.requests.get",
-        return_value=MagicMock(status_code=200),
-    )
+    mock_get_t212, mock_t212 = _patch_health(mocker, t212_raises=RuntimeError("down"))
     client.get("/health")
     client.get("/health")
-    assert mock_ping.call_count == 2
+    assert mock_t212.balance.call_count == 2
 
 
 def test_partial_success_not_cached(mocker):
-    mock_ping = mocker.patch("api.routers.health.Trading212.ping", return_value=True)
-    mock_requests_get = mocker.patch(
-        "api.routers.health.requests.get",
-        side_effect=RuntimeError("boom"),
+    mock_get_t212, mock_t212 = _patch_health(
+        mocker, coinmate_raises=RuntimeError("boom")
     )
     client.get("/health")
     client.get("/health")
-    assert mock_ping.call_count == 2
-    assert mock_requests_get.call_count == 2
+    assert mock_t212.balance.call_count == 2
