@@ -139,7 +139,7 @@ class Mailer:
             log.error(f"SMTP error: {repr(e)}")
             raise
 
-        Mail(type=mail_type, subject=subject, period=period).post_to_db()
+        Mail(type=mail_type, subject=subject, period=period, user_id=self._user_settings.user_id).post_to_db()
 
     def send_investment_confirmation(
         self,
