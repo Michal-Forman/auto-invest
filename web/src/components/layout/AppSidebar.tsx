@@ -25,12 +25,12 @@ import {
 } from "@/components/ui/sidebar";
 
 const navItems = [
-  { to: "/", label: "Overview", icon: Gauge },
-  { to: "/runs", label: "Run History", icon: History },
-  { to: "/orders", label: "Orders", icon: ListOrdered },
-  { to: "/instruments", label: "Instruments", icon: TrendingUp },
-  { to: "/preview", label: "Next Run Preview", icon: PlayCircle },
-  { to: "/analytics", label: "Analytics", icon: BarChart3 },
+  { to: "/app", label: "Overview", icon: Gauge },
+  { to: "/app/runs", label: "Run History", icon: History },
+  { to: "/app/orders", label: "Orders", icon: ListOrdered },
+  { to: "/app/instruments", label: "Instruments", icon: TrendingUp },
+  { to: "/app/preview", label: "Next Run Preview", icon: PlayCircle },
+  { to: "/app/analytics", label: "Analytics", icon: BarChart3 },
 ];
 
 export function AppSidebar() {
@@ -58,7 +58,7 @@ export function AppSidebar() {
             <SidebarMenu>
               {navItems.map(({ to, label, icon: Icon }) => (
                 <SidebarMenuItem key={to}>
-                  <NavLink to={to} end={to === "/"}>
+                  <NavLink to={to} end={to === "/app"}>
                     {({ isActive }) => (
                       <SidebarMenuButton isActive={isActive}>
                         <Icon className="h-4 w-4" />
@@ -73,7 +73,7 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="border-t border-white/10 p-3">
-        <NavLink to="/profile">
+        <NavLink to="/app/profile">
           {({ isActive }) => (
             <SidebarMenuButton isActive={isActive} className="h-auto py-2">
               {avatarUrl ? (
