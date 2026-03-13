@@ -1,4 +1,4 @@
-import { AlertTriangle, BarChart2, Bell, Bitcoin, Globe, Lock, RefreshCw, Smartphone, TrendingDown, TrendingUp, Zap } from "lucide-react";
+import { AlertTriangle, BarChart2, Bell, Bitcoin, Globe, Lock, Network, Percent, RefreshCw, Smartphone, TrendingDown, TrendingUp, Zap } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import logo from "@/assets/logo.png";
 
@@ -151,9 +151,9 @@ function Hero() {
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-500">
                         <span className="flex items-center gap-1.5"><RefreshCw className="w-3.5 h-3.5" /> Fully automatic</span>
                         <span className="text-slate-300">·</span>
-                        <span className="flex items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5" /> Trading212 + Coinmate</span>
+                        <span className="flex items-center gap-1.5"><Network className="w-3.5 h-3.5" /> Multi-broker</span>
                         <span className="text-slate-300">·</span>
-                        <span className="flex items-center gap-1.5"><Lock className="w-3.5 h-3.5" /> Secured via Google</span>
+                        <span className="flex items-center gap-1.5"><Percent className="w-3.5 h-3.5" /> No fees</span>
                     </div>
                 </div>
 
@@ -281,10 +281,18 @@ function Features() {
     const ref = useFadeIn();
     const features = [
         { icon: <Zap className="w-5 h-5 text-blue-600" />, title: "Automatic execution", desc: "Investments run exactly on your schedule, without any intervention on your part." },
-        { icon: <TrendingDown className="w-5 h-5 text-blue-600" />, title: "Smart ATH-based allocation", desc: "More money where the price is below its all-time high. Automatic contrarian investing." },
-        { icon: <Globe className="w-5 h-5 text-blue-600" />, title: "ETF + Bitcoin", desc: "Trading212 for diversified ETFs (VWCE, CSPX, NASDAQ…) and Coinmate for Bitcoin." },
+        { icon: <TrendingDown className="w-5 h-5 text-blue-600" />, title: "Smart ATH-based allocation", desc: "More money where the price is below its all-time high. Take advantage of lower prices when others hesitate." },
+        {
+            icon: <Globe className="w-5 h-5 text-blue-600" />,
+            title: "Multi-Broker",
+            desc: "ETFs, stocks, and Bitcoin across multiple brokers — all executed under one strategy."
+        },
         { icon: <BarChart2 className="w-5 h-5 text-blue-600" />, title: "Analytics dashboard", desc: "Investment charts over time, portfolio breakdown, order history — all clearly laid out." },
-        { icon: <Bell className="w-5 h-5 text-blue-600" />, title: "Email notifications", desc: "Get alerted if a purchase fails or there's a problem with your API connection." },
+        {
+            icon: <Bell className="w-5 h-5 text-blue-600" />,
+            title: "Email notifications",
+            desc: "Order confirmations, monthly summaries, and alerts when something needs attention."
+        },
         { icon: <Smartphone className="w-5 h-5 text-blue-600" />, title: "PWA app", desc: "Add auto-invest to your phone's home screen as a native app." },
     ];
 
@@ -331,9 +339,13 @@ function Strategy() {
                             Buy more when prices are down
                         </h2>
                         <div className="space-y-4 text-slate-600 leading-relaxed">
-                            <p>Most people buy less when markets fall — out of fear. auto-invest does the opposite.</p>
+                            <p>Most people buy less when markets fall — out of fear. Auto-invest does the opposite.</p>
+
                             <p>For each instrument in the portfolio, we track how far its price is from its all-time high (ATH). The larger the drop, the higher the weight on the next purchase.</p>
-                            <p>The result? You naturally buy more when things are cheap — and less when they're expensive.</p>
+
+                            <p>You always invest exactly the total amount you configured.</p>
+
+                            <p>The system simply redistributes that amount — allocating more to assets that are cheaper and less to those near their highs.</p>
                         </div>
                     </div>
 
