@@ -421,9 +421,9 @@ function Stats() {
     const ref = useFadeIn();
     const stats = [
         { value: "10+", label: "portfolio instruments" },
-        { value: "2", label: "supported exchanges" },
+        { value: "2", label: "supported brokers" },
         { value: "100%", label: "automatic" },
-        { value: "0 Kč", label: "app fee" },
+        { value: "0 Kč", label: "fees" },
     ];
 
     return (
@@ -450,24 +450,28 @@ function FAQ() {
     const items = [
         {
             q: "Is auto-invest secure?",
-            a: "We only use API keys with trading permissions — no withdrawals are possible through our API. You sign in with your Google account.",
+            a: "Auto-invest connects to platforms using API keys to execute trades on your behalf. Your funds always remain on your broker's account — auto-invest never holds custody of your assets. For Bitcoin, the system can optionally withdraw funds to your preconfigured hardware wallet once a balance threshold is reached.",
         },
         {
             q: "How much does it cost?",
-            a: "auto-invest is free. You only pay the standard fees of your brokers (Trading212 and Coinmate).",
+            a: "Auto-invest is funded through a subscription model. The basic plan costs €4.99 per month. We do not receive any commissions from brokers or exchanges. You can try the service with a 30-day free trial."
         },
         {
-            q: "Which ETFs are in the portfolio?",
-            a: "The instrument selection matches your pie configuration in Trading212. Typically VWCE, CSPX, EMIM, XNAQ, VERG and more.",
+            q: "Is my money held by auto-invest?",
+            a: "No. auto-invest never holds funds. All assets remain on your broker or exchange accounts. The software only sends trading instructions through official APIs.",
         },
         {
-            q: "What happens if a purchase fails?",
-            a: "You'll receive an email notification. We track orders for 14 days — if they don't fill, the run is marked as FAILED.",
+            q: "Why not just use the platform’s built-in recurring investment?",
+            a: "Auto-invest coordinates multiple platforms and asset classes under one strategy and applies the same logic across all of them — removing the need to manually manage investments across different platforms.",
         },
         {
-            q: "Does it work for Bitcoin too?",
-            a: "Yes. We buy BTC automatically via Coinmate alongside ETFs in the same cycle.",
+            q: "Can I change my strategy later?",
+            a: "Yes. You can modify asset weights, schedules, or the total amount at any time. The new configuration will be applied during the next execution cycle.",
         },
+        {
+            q: "How often does it invest?",
+            a: "You choose the schedule. The most frequent option is: Everyday"
+        }
     ];
 
     return (
@@ -516,16 +520,16 @@ function FinalCTA() {
                         Start investing automatically today.
                     </h2>
                     <p className="text-blue-200 mb-8 text-lg">
-                        No credit card. No complex setup. Just a Google account.
+                        Create an account with a 30-day free trial.
                     </p>
                     <a
                         href={APP_URL}
                         className="inline-flex items-center gap-1 bg-white text-blue-900 font-semibold px-8 py-3.5 rounded-md hover:bg-blue-50 transition-colors text-sm"
                     >
-                        Try for free →
+                        Start your free trial →
                     </a>
                     <p className="text-blue-300 text-xs mt-4">
-                        Sign in with Google · Free · Cancel anytime
+                        30-day free trial · Cancel anytime
                     </p>
                 </div>
             </div>
