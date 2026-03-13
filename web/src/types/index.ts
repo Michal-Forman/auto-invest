@@ -111,4 +111,5 @@ export interface UserProfile {
   coinmate_deposit_account: string | null;
   coinmate_deposit_vs: string | null;
   cron_enabled: boolean;
+  notifications_enabled: boolean;
 }

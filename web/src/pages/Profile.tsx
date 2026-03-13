@@ -401,7 +401,7 @@ export function Profile() {
         <CardHeader className="-mt-4 border-b bg-primary/5 pt-4">
           <CardTitle className="text-base text-primary">Automation</CardTitle>
         </CardHeader>
-        <CardContent className="pt-4">
+        <CardContent className="pt-4 space-y-3">
           <div className="flex items-center gap-3">
             <Switch
               id="cron_enabled"
@@ -411,6 +411,17 @@ export function Profile() {
             />
             <Label htmlFor="cron_enabled" className="text-sm">
               Enable scheduled investing (cron)
+            </Label>
+          </div>
+          <div className="flex items-center gap-3">
+            <Switch
+              id="notifications_enabled"
+              checked={profile.notifications_enabled}
+              onCheckedChange={(checked) => updateProfile({ notifications_enabled: checked })}
+              disabled={updating}
+            />
+            <Label htmlFor="notifications_enabled" className="text-sm">
+              Enable email notifications
             </Label>
           </div>
         </CardContent>

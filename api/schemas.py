@@ -119,6 +119,7 @@ class ProfileResponse(BaseModel):
     coinmate_deposit_account: Optional[str]
     coinmate_deposit_vs: Optional[str]
     cron_enabled: bool
+    notifications_enabled: bool
 
 
 class ProfileUpdate(BaseModel):
@@ -141,3 +142,4 @@ class ProfileUpdate(BaseModel):
     coinmate_deposit_account: Optional[str] = None
     coinmate_deposit_vs: Optional[str] = None
     cron_enabled: Optional[bool] = None
+    notifications_enabled: Optional[bool] = None
