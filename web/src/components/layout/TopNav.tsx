@@ -4,12 +4,12 @@ import logo from "@/assets/logo_white.png";
 import { useAuth } from "@/lib/auth-context";
 
 const navItems = [
-  { to: "/", label: "Overview" },
-  { to: "/runs", label: "Run History" },
-  { to: "/orders", label: "Orders" },
-  { to: "/instruments", label: "Instruments" },
-  { to: "/preview", label: "Next Run Preview" },
-  { to: "/analytics", label: "Analytics" },
+  { to: ".", label: "Overview", end: true },
+  { to: "runs", label: "Run History" },
+  { to: "orders", label: "Orders" },
+  { to: "instruments", label: "Instruments" },
+  { to: "preview", label: "Next Run Preview" },
+  { to: "analytics", label: "Analytics" },
 ];
 
 export function TopNav() {
@@ -27,11 +27,11 @@ export function TopNav() {
         <span className="font-semibold text-sm text-sidebar-foreground">auto-invest</span>
       </div>
       <nav className="flex items-center gap-1">
-        {navItems.map(({ to, label }) => (
+        {navItems.map(({ to, label, end }) => (
           <NavLink
             key={to}
             to={to}
-            end={to === "/"}
+            end={!!end}
             className={({ isActive }) =>
               [
                 "px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap",
@@ -46,7 +46,7 @@ export function TopNav() {
         ))}
       </nav>
       <Link
-        to="/profile"
+        to="profile"
         className="ml-auto flex items-center gap-2 text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors"
       >
         {avatarUrl ? (
