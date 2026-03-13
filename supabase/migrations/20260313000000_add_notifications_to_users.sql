@@ -1,0 +1,2 @@
+ALTER TABLE public.users
+  ADD COLUMN IF NOT EXISTS notifications_enabled BOOLEAN NOT NULL DEFAULT TRUE;

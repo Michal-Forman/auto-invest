@@ -142,6 +142,7 @@ _TEST_USER_RECORD = UserRecord(
     coinmate_deposit_account=None,
     coinmate_deposit_vs=None,
     cron_enabled=True,
+    notifications_enabled=True,
 )
 
 

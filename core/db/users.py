@@ -45,6 +45,7 @@ class UserRecord:
 
     # Control
     cron_enabled: bool
+    notifications_enabled: bool
 
     @staticmethod
     def from_db(user_id: str) -> "UserRecord":
@@ -87,6 +88,7 @@ class UserRecord:
             coinmate_deposit_account=row.get("coinmate_deposit_account"),
             coinmate_deposit_vs=row.get("coinmate_deposit_vs"),
             cron_enabled=bool(row.get("cron_enabled", True)),
+            notifications_enabled=bool(row.get("notifications_enabled", True)),
         )
 
 

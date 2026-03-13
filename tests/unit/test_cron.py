@@ -36,6 +36,7 @@ def _make_user(user_id: str) -> UserRecord:
         coinmate_deposit_account=None,
         coinmate_deposit_vs=None,
         cron_enabled=True,
+        notifications_enabled=True,
     )
 
 
