@@ -30,6 +30,20 @@ export function BrokersSection({ profile, updateProfile, updating }: SectionProp
     coinmate_deposit_vs: profile.coinmate_deposit_vs ?? "",
   });
 
+  const t212HasChanges =
+    t212.t212_id_key !== profile.t212_id_key ||
+    t212.t212_private_key !== profile.t212_private_key ||
+    t212.pie_id !== (profile.pie_id != null ? String(profile.pie_id) : "") ||
+    t212.t212_deposit_account !== (profile.t212_deposit_account ?? "") ||
+    t212.t212_deposit_vs !== (profile.t212_deposit_vs ?? "");
+
+  const coinmateHasChanges =
+    coinmate.coinmate_client_id !== (profile.coinmate_client_id != null ? String(profile.coinmate_client_id) : "") ||
+    coinmate.coinmate_public_key !== profile.coinmate_public_key ||
+    coinmate.coinmate_private_key !== profile.coinmate_private_key ||
+    coinmate.coinmate_deposit_account !== (profile.coinmate_deposit_account ?? "") ||
+    coinmate.coinmate_deposit_vs !== (profile.coinmate_deposit_vs ?? "");
+
   const saveT212 = () =>
     updateProfile({
       t212_id_key: t212.t212_id_key,
@@ -104,7 +118,7 @@ export function BrokersSection({ profile, updateProfile, updating }: SectionProp
                 onChange={(e) => setT212((s) => ({ ...s, t212_deposit_vs: e.target.value }))}
               />
             </Field>
-            <CardSaveButton onClick={saveT212} disabled={updating} />
+            <CardSaveButton onClick={saveT212} disabled={updating || !t212HasChanges} />
           </TabsContent>
 
           <TabsContent value="coinmate" className="space-y-3">
@@ -149,7 +163,7 @@ export function BrokersSection({ profile, updateProfile, updating }: SectionProp
                 onChange={(e) => setCoinmate((s) => ({ ...s, coinmate_deposit_vs: e.target.value }))}
               />
             </Field>
-            <CardSaveButton onClick={saveCoinmate} disabled={updating} />
+            <CardSaveButton onClick={saveCoinmate} disabled={updating || !coinmateHasChanges} />
           </TabsContent>
         </Tabs>
       </CardContent>

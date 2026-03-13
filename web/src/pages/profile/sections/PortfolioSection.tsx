@@ -24,6 +24,16 @@ export function PortfolioSection({ profile, updateProfile, updating }: SectionPr
     btc_external_adress: profile.btc_external_adress,
   });
 
+  const hasChanges =
+    portfolio.invest_amount !== String(profile.invest_amount) ||
+    portfolio.t212_weight !== String(profile.t212_weight) ||
+    portfolio.btc_weight !== String(profile.btc_weight) ||
+    portfolio.invest_interval !== profile.invest_interval ||
+    portfolio.balance_buffer !== String(profile.balance_buffer) ||
+    portfolio.balance_alert_days !== String(profile.balance_alert_days) ||
+    portfolio.btc_withdrawal_treshold !== String(profile.btc_withdrawal_treshold) ||
+    portfolio.btc_external_adress !== profile.btc_external_adress;
+
   const save = () =>
     updateProfile({
       invest_amount: Number(portfolio.invest_amount),
@@ -93,7 +103,7 @@ export function PortfolioSection({ profile, updateProfile, updating }: SectionPr
             />
           </Field>
         </div>
-        <CardSaveButton onClick={save} disabled={updating} />
+        <CardSaveButton onClick={save} disabled={updating || !hasChanges} />
       </CardContent>
     </Card>
   );
