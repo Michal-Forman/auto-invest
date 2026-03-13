@@ -550,7 +550,7 @@ function Footer() {
     return (
         <footer className="bg-white border-t border-slate-200">
             <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 flex items-center justify-center text-sm text-slate-500">
-                <span>auto-invest © 2025</span>
+                <span>auto-invest © {new Date().getFullYear()}</span>
             </div>
         </footer>
     );
