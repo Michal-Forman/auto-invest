@@ -14,6 +14,7 @@ import { Profile } from "@/pages/Profile";
 import { Login } from "@/pages/Login";
 import { Signup } from "@/pages/Signup";
 import { ResetPassword } from "@/pages/ResetPassword";
+import { Landing } from "@/pages/Landing";
 
 export default function App() {
   return (
@@ -21,10 +22,11 @@ export default function App() {
       <AuthProvider>
         <BrowserRouter>
           <Routes>
+            <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
             <Route path="/reset-password" element={<ResetPassword />} />
-            <Route element={<ProtectedRoute />}>
+            <Route path="/app" element={<ProtectedRoute />}>
               <Route element={<Layout />}>
                 <Route index element={<Overview />} />
                 <Route path="runs" element={<RunHistory />} />

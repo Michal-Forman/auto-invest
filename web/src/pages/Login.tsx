@@ -13,7 +13,7 @@ export function Login() {
     setError(null);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: window.location.origin },
+      options: { redirectTo: window.location.origin + "/app" },
     });
     if (error) setError(error.message);
   };
@@ -28,7 +28,7 @@ export function Login() {
     if (error) {
       setError(error.message);
     } else {
-      navigate("/");
+      navigate("/app");
     }
 
     setLoading(false);
