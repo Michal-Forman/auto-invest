@@ -66,6 +66,7 @@ function Navbar() {
                 {/* Logo */}
                 <a href="/" className="flex items-center gap-2">
                     <img src={logo} alt="auto-invest" className="h-8 w-auto" />
+                    <span className="font-semibold text-blue-900 text-sm">auto-invest</span>
                 </a>
 
                 {/* Desktop nav */}
@@ -78,6 +79,12 @@ function Navbar() {
 
                 {/* CTA + mobile menu button */}
                 <div className="flex items-center gap-3">
+                    <a
+                        href={APP_URL}
+                        className="hidden sm:inline-flex text-sm text-slate-600 hover:text-blue-900 transition-colors font-medium"
+                    >
+                        Log in
+                    </a>
                     <a
                         href={APP_URL}
                         className="hidden sm:inline-flex items-center gap-1 bg-blue-900 text-white text-sm font-medium px-4 py-2 rounded-md hover:bg-blue-800 transition-colors"
@@ -106,6 +113,7 @@ function Navbar() {
                     <a href="#features" className="text-sm text-slate-600" onClick={() => setMenuOpen(false)}>Features</a>
                     <a href="#strategy" className="text-sm text-slate-600" onClick={() => setMenuOpen(false)}>Strategy</a>
                     <a href="#faq" className="text-sm text-slate-600" onClick={() => setMenuOpen(false)}>FAQ</a>
+                    <a href={APP_URL} className="text-sm text-slate-600">Log in</a>
                     <a href={APP_URL} className="inline-flex items-center gap-1 bg-blue-900 text-white text-sm font-medium px-4 py-2 rounded-md w-fit">
                         Start investing →
                     </a>
@@ -541,11 +549,8 @@ function FinalCTA() {
 function Footer() {
     return (
         <footer className="bg-white border-t border-slate-200">
-            <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-slate-500">
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 flex items-center justify-center text-sm text-slate-500">
                 <span>auto-invest © 2025</span>
-                <a href={APP_URL} className="text-blue-900 hover:underline font-medium">
-                    Go to app →
-                </a>
             </div>
         </footer>
     );
