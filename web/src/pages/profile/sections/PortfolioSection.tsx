@@ -59,13 +59,13 @@ export function PortfolioSection({ profile, updateProfile, updating }: SectionPr
               onChange={(e) => setPortfolio((s) => ({ ...s, invest_amount: e.target.value }))}
             />
           </Field>
-          <Field label="T212 Weight">
+          <Field label="T212 Weight" tooltip="Percentage of your invest amount allocated to Trading212 instruments. The T212 pie ratios are scaled by this weight.">
             <Input
               value={portfolio.t212_weight}
               onChange={(e) => setPortfolio((s) => ({ ...s, t212_weight: e.target.value }))}
             />
           </Field>
-          <Field label="BTC Weight">
+          <Field label="BTC Weight" tooltip="Percentage of your invest amount allocated to Bitcoin via Coinmate.">
             <Input
               value={portfolio.btc_weight}
               onChange={(e) => setPortfolio((s) => ({ ...s, btc_weight: e.target.value }))}
@@ -77,25 +77,25 @@ export function PortfolioSection({ profile, updateProfile, updating }: SectionPr
               onChange={(cron) => setPortfolio((s) => ({ ...s, invest_interval: cron }))}
             />
           </Field>
-          <Field label="Balance Buffer (CZK)">
+          <Field label="Balance Buffer" tooltip="Multiplier applied to your per-run spending when estimating when your balance will run out. Higher values give more conservative estimates.">
             <Input
               value={portfolio.balance_buffer}
               onChange={(e) => setPortfolio((s) => ({ ...s, balance_buffer: e.target.value }))}
             />
           </Field>
-          <Field label="Balance Alert Days">
+          <Field label="Balance Alert Days" tooltip="You'll receive an email alert when your exchange balance is estimated to run out within this many days.">
             <Input
               value={portfolio.balance_alert_days}
               onChange={(e) => setPortfolio((s) => ({ ...s, balance_alert_days: e.target.value }))}
             />
           </Field>
-          <Field label="BTC Withdrawal Threshold (sats)">
+          <Field label="BTC Withdrawal Threshold (CZK)" tooltip="When your total BTC holdings on Coinmate exceed this value in CZK, an automatic withdrawal to your external address is triggered.">
             <Input
               value={portfolio.btc_withdrawal_treshold}
               onChange={(e) => setPortfolio((s) => ({ ...s, btc_withdrawal_treshold: e.target.value }))}
             />
           </Field>
-          <Field label="BTC External Address">
+          <Field label="BTC External Address" tooltip="Bitcoin wallet address where automatic withdrawals are sent when the threshold is exceeded.">
             <Input
               value={portfolio.btc_external_adress}
               onChange={(e) => setPortfolio((s) => ({ ...s, btc_external_adress: e.target.value }))}
