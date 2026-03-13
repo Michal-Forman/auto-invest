@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { SchedulePicker } from "@/components/SchedulePicker";
 import type { UserProfile } from "@/types";
 import { CardSaveButton } from "../shared/CardSaveButton";
 import { Field } from "../shared/Field";
@@ -60,11 +61,10 @@ export function PortfolioSection({ profile, updateProfile, updating }: SectionPr
               onChange={(e) => setPortfolio((s) => ({ ...s, btc_weight: e.target.value }))}
             />
           </Field>
-          <Field label="Invest Interval (cron)">
-            <Input
+          <Field label="Invest Schedule" className="sm:col-span-2">
+            <SchedulePicker
               value={portfolio.invest_interval}
-              onChange={(e) => setPortfolio((s) => ({ ...s, invest_interval: e.target.value }))}
-              placeholder="0 9 1 * *"
+              onChange={(cron) => setPortfolio((s) => ({ ...s, invest_interval: cron }))}
             />
           </Field>
           <Field label="Balance Buffer (CZK)">
