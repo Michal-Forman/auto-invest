@@ -1,4 +1,4 @@
-import { AlertTriangle, BarChart2, Bell, Bitcoin, Globe, Lock, Network, Percent, RefreshCw, ShieldCheck, Smartphone, TrendingDown, TrendingUp, Zap } from "lucide-react";
+import { AlertTriangle, BarChart2, Globe, Network, Percent, RefreshCw, ShieldCheck, Smartphone, TrendingDown, Zap } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import logo from "@/assets/logo.png";
 
