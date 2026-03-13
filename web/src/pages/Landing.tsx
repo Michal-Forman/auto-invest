@@ -1,4 +1,4 @@
-import { AlertTriangle, BarChart2, Bell, Bitcoin, Globe, Lock, Network, Percent, RefreshCw, Smartphone, TrendingDown, TrendingUp, Zap } from "lucide-react";
+import { AlertTriangle, BarChart2, Bell, Bitcoin, Globe, Lock, Network, Percent, RefreshCw, ShieldCheck, Smartphone, TrendingDown, TrendingUp, Zap } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import logo from "@/assets/logo.png";
 
@@ -289,9 +289,9 @@ function Features() {
         },
         { icon: <BarChart2 className="w-5 h-5 text-blue-600" />, title: "Analytics dashboard", desc: "Investment charts over time, portfolio breakdown, order history — all clearly laid out." },
         {
-            icon: <Bell className="w-5 h-5 text-blue-600" />,
-            title: "Email notifications",
-            desc: "Order confirmations, monthly summaries, and alerts when something needs attention."
+            icon: <ShieldCheck className="w-5 h-5 text-blue-600" />,
+            title: "Auto Self-Custody",
+            desc: "BTC is automatically withdrawn to your hardware wallet once your balance exceeds your threshold."
         },
         { icon: <Smartphone className="w-5 h-5 text-blue-600" />, title: "PWA app", desc: "Add auto-invest to your phone's home screen as a native app." },
     ];
@@ -343,7 +343,11 @@ function Strategy() {
 
                             <p>For each instrument in the portfolio, we track how far its price is from its all-time high (ATH). The larger the drop, the higher the weight on the next purchase.</p>
 
-                            <p>You always invest exactly the total amount you configured.</p>
+                            <p className="border-l-[3px] border-blue-600 pl-3 text-slate-700 font-medium">
+                                You always invest{" "}
+                                <span className="italic font-semibold text-blue-600">exactly</span>
+                                {" "}the total amount you configured.
+                            </p>
 
                             <p>The system simply redistributes that amount — allocating more to assets that are cheaper and less to those near their highs.</p>
                         </div>
@@ -398,12 +402,12 @@ function Platforms() {
                         <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 flex-1 max-w-xs mx-auto sm:mx-0">
                             <img src="/trading212-logo.jpg" alt="Trading212" className="h-8 w-auto mx-auto block object-contain mb-3" />
                             <p className="text-sm text-slate-500">ETFs & stocks</p>
-                            <p className="text-xs text-slate-400 mt-2">Diversified ETF portfolios</p>
+                            <p className="text-xs text-slate-400 mt-2">Very low fees, EU-regulated</p>
                         </div>
                         <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 flex-1 max-w-xs mx-auto sm:mx-0">
                             <img src="/coinmate-logo.jpg" alt="Coinmate" className="h-8 w-auto mx-auto block object-contain mb-3" />
                             <p className="text-sm text-slate-500">Bitcoin</p>
-                            <p className="text-xs text-slate-400 mt-2">Bitcoin purchases in CZK</p>
+                            <p className="text-xs text-slate-400 mt-2">Czech-based, excellent customer support</p>
                         </div>
                     </div>
                 </div>
