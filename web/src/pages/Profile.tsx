@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Eye, EyeOff, UserCircle } from "lucide-react";
+import { Eye, EyeOff, LogOut, UserCircle } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useProfile } from "@/hooks/use-profile";
 import { useConfig } from "@/hooks/use-config";
@@ -71,7 +71,7 @@ function CardSaveButton({ onClick, disabled }: { onClick: () => void; disabled?:
 
 export function Profile() {
   usePageTitle("Profile");
-  const { session } = useAuth();
+  const { session, signOut } = useAuth();
   const { data: profile, loading, error, updateProfile, updating } = useProfile();
   const { data: config } = useConfig();
 
@@ -215,19 +215,25 @@ export function Profile() {
 
       {/* Identity card */}
       <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-center gap-4">
-            {avatarUrl ? (
-              <img src={avatarUrl} alt={displayName} className="h-14 w-14 rounded-full object-cover" />
-            ) : (
-              <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center">
-                <UserCircle className="h-9 w-9 text-primary/60" />
+        <CardContent className="py-2 px-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt={displayName} className="h-14 w-14 rounded-full object-cover" />
+              ) : (
+                <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center">
+                  <UserCircle className="h-9 w-9 text-primary/60" />
+                </div>
+              )}
+              <div>
+                <div className="text-base font-semibold">{displayName}</div>
+                <div className="text-sm text-muted-foreground">{email}</div>
               </div>
-            )}
-            <div>
-              <div className="text-base font-semibold">{displayName}</div>
-              <div className="text-sm text-muted-foreground">{email}</div>
             </div>
+            <Button variant="destructive" size="sm" onClick={signOut}>
+              <LogOut className="h-4 w-4 mr-2" />
+              Log out
+            </Button>
           </div>
         </CardContent>
       </Card>
