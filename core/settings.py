@@ -64,16 +64,28 @@ class PortfolioSettings:
 
     @classmethod
     def from_user(cls, user: UserRecord) -> "PortfolioSettings":
-        """Build portfolio settings from a UserRecord."""
+        """Build portfolio settings from a UserRecord. Raises ValueError if required fields are not configured."""
+        required = {
+            "t212_weight": user.t212_weight,
+            "btc_weight": user.btc_weight,
+            "invest_amount": user.invest_amount,
+            "invest_interval": user.invest_interval,
+            "balance_buffer": user.balance_buffer,
+            "balance_alert_days": user.balance_alert_days,
+            "btc_withdrawal_treshold": user.btc_withdrawal_treshold,
+        }
+        missing = [k for k, v in required.items() if v is None]
+        if missing:
+            raise ValueError(f"User {user.id} is missing required portfolio settings: {', '.join(missing)}")
         return cls(
             pie_id=user.pie_id,
-            t212_weight=user.t212_weight,
-            btc_weight=user.btc_weight,
-            invest_amount=user.invest_amount,
-            invest_interval=user.invest_interval,
-            balance_buffer=user.balance_buffer,
-            balance_alert_days=user.balance_alert_days,
-            btc_withdrawal_treshold=user.btc_withdrawal_treshold,
+            t212_weight=int(user.t212_weight),  # type: ignore[arg-type]
+            btc_weight=float(user.btc_weight),  # type: ignore[arg-type]
+            invest_amount=float(user.invest_amount),  # type: ignore[arg-type]
+            invest_interval=str(user.invest_interval),  # type: ignore[arg-type]
+            balance_buffer=float(user.balance_buffer),  # type: ignore[arg-type]
+            balance_alert_days=int(user.balance_alert_days),  # type: ignore[arg-type]
+            btc_withdrawal_treshold=int(user.btc_withdrawal_treshold),  # type: ignore[arg-type]
         )
 
 

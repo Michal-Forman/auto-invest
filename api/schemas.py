@@ -108,13 +108,13 @@ class ProfileResponse(BaseModel):
     coinmate_public_key: str
     coinmate_private_key: str
     pie_id: Optional[int]
-    t212_weight: int
-    btc_weight: float
-    invest_amount: float
-    invest_interval: str
-    balance_buffer: float
-    balance_alert_days: int
-    btc_withdrawal_treshold: int
+    t212_weight: Optional[int]
+    btc_weight: Optional[float]
+    invest_amount: Optional[float]
+    invest_interval: Optional[str]
+    balance_buffer: Optional[float]
+    balance_alert_days: Optional[int]
+    btc_withdrawal_treshold: Optional[int]
     btc_external_adress: str
     t212_deposit_account: Optional[str]
     t212_deposit_vs: Optional[str]

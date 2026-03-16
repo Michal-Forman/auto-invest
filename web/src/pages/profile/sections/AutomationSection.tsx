@@ -17,20 +17,20 @@ interface SectionProps {
 
 export function AutomationSection({ profile, updateProfile, updating }: SectionProps) {
     const [form, setForm] = useState({
-        invest_amount: String(profile.invest_amount),
-        t212_weight: String(profile.t212_weight),
-        btc_weight: String(profile.btc_weight),
-        invest_interval: profile.invest_interval,
-        btc_withdrawal_treshold: String(profile.btc_withdrawal_treshold),
+        invest_amount: profile.invest_amount != null ? String(profile.invest_amount) : "",
+        t212_weight: profile.t212_weight != null ? String(profile.t212_weight) : "",
+        btc_weight: profile.btc_weight != null ? String(profile.btc_weight) : "",
+        invest_interval: profile.invest_interval ?? "",
+        btc_withdrawal_treshold: profile.btc_withdrawal_treshold != null ? String(profile.btc_withdrawal_treshold) : "",
         btc_external_adress: profile.btc_external_adress,
     });
 
     const hasChanges =
-        form.invest_amount !== String(profile.invest_amount) ||
-        form.t212_weight !== String(profile.t212_weight) ||
-        form.btc_weight !== String(profile.btc_weight) ||
-        form.invest_interval !== profile.invest_interval ||
-        form.btc_withdrawal_treshold !== String(profile.btc_withdrawal_treshold) ||
+        form.invest_amount !== (profile.invest_amount != null ? String(profile.invest_amount) : "") ||
+        form.t212_weight !== (profile.t212_weight != null ? String(profile.t212_weight) : "") ||
+        form.btc_weight !== (profile.btc_weight != null ? String(profile.btc_weight) : "") ||
+        form.invest_interval !== (profile.invest_interval ?? "") ||
+        form.btc_withdrawal_treshold !== (profile.btc_withdrawal_treshold != null ? String(profile.btc_withdrawal_treshold) : "") ||
         form.btc_external_adress !== profile.btc_external_adress;
 
     const save = () =>
@@ -85,7 +85,7 @@ export function AutomationSection({ profile, updateProfile, updating }: SectionP
                             </Field>
                             <Field label="Invest Schedule" className="sm:col-span-2">
                                 <SchedulePicker
-                                    value={form.invest_interval}
+                                    value={form.invest_interval || "0 9 1 * *"}
                                     onChange={(cron) => setForm((s) => ({ ...s, invest_interval: cron }))}
                                 />
                             </Field>
