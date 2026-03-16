@@ -36,8 +36,8 @@ export function AutomationSection({ profile, updateProfile, updating }: SectionP
     const save = () =>
         updateProfile({
             invest_amount: Number(form.invest_amount),
-            t212_weight: Number(form.t212_weight),
-            btc_weight: Number(form.btc_weight),
+            t212_weight: profile.trading212_enabled ? Number(form.t212_weight) : 0,
+            btc_weight: profile.coinmate_enabled ? Number(form.btc_weight) : 0,
             invest_interval: form.invest_interval,
             btc_withdrawal_treshold: Number(form.btc_withdrawal_treshold),
             btc_external_adress: form.btc_external_adress,
@@ -71,14 +71,16 @@ export function AutomationSection({ profile, updateProfile, updating }: SectionP
                             </Field>
                             <Field label="T212 Weight" tooltip="Percentage of your invest amount allocated to Trading212 instruments. The T212 pie ratios are scaled by this weight.">
                                 <Input
-                                    value={form.t212_weight}
+                                    value={profile.trading212_enabled ? form.t212_weight : "0"}
                                     onChange={(e) => setForm((s) => ({ ...s, t212_weight: e.target.value }))}
+                                    disabled={!profile.trading212_enabled}
                                 />
                             </Field>
                             <Field label="BTC Weight" tooltip="Percentage of your invest amount allocated to Bitcoin via Coinmate.">
                                 <Input
-                                    value={form.btc_weight}
+                                    value={profile.coinmate_enabled ? form.btc_weight : "0"}
                                     onChange={(e) => setForm((s) => ({ ...s, btc_weight: e.target.value }))}
+                                    disabled={!profile.coinmate_enabled}
                                 />
                             </Field>
                             <Field label="Invest Schedule" className="sm:col-span-2">

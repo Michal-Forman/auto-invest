@@ -81,7 +81,7 @@ export function BrokersSection({ profile, updateProfile, updating }: SectionProp
               <Switch
                 id="trading212_enabled"
                 checked={profile.trading212_enabled}
-                onCheckedChange={(checked) => updateProfile({ trading212_enabled: checked })}
+                onCheckedChange={(checked) => updateProfile({ trading212_enabled: checked, ...(!checked && { t212_weight: 0 }) })}
                 disabled={updating}
               />
               <Label htmlFor="trading212_enabled" className="text-sm">
@@ -143,7 +143,7 @@ export function BrokersSection({ profile, updateProfile, updating }: SectionProp
               <Switch
                 id="coinmate_enabled"
                 checked={profile.coinmate_enabled}
-                onCheckedChange={(checked) => updateProfile({ coinmate_enabled: checked })}
+                onCheckedChange={(checked) => updateProfile({ coinmate_enabled: checked, ...(!checked && { btc_weight: 0 }) })}
                 disabled={updating}
               />
               <Label htmlFor="coinmate_enabled" className="text-sm">

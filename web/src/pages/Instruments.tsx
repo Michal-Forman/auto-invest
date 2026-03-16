@@ -4,6 +4,7 @@ import { useInstruments } from "@/hooks/use-instruments";
 import { formatNumber } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { CapType, Instrument } from "@/types";
 
@@ -28,7 +29,6 @@ export function Instruments() {
 
   const { data: instruments, loading, error } = useInstruments();
 
-  if (loading) return <p className="text-muted-foreground p-6">Loading…</p>;
   if (error) return <p className="text-red-600 p-6">Failed to load data.</p>;
 
   function handleSort(key: SortKey) {
@@ -59,6 +59,13 @@ export function Instruments() {
       <h1 className="text-2xl font-semibold text-primary">Instruments</h1>
       <Card>
         <CardContent className="p-0 overflow-auto -mt-4">
+          {loading ? (
+            <div className="p-4 space-y-2">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <Skeleton key={i} className="h-8 w-full" />
+              ))}
+            </div>
+          ) : (
           <Table>
             <TableHeader>
               <TableRow>
@@ -86,7 +93,7 @@ export function Instruments() {
                       {inst.cap_type}
                     </Badge>
                   </TableCell>
-                  <TableCell>{(inst.target_weight * 100).toFixed(1)}%</TableCell>
+                  <TableCell>{formatNumber(inst.target_weight * 100, 1)}%</TableCell>
                   <TableCell>{formatNumber(inst.ath_price)}</TableCell>
                   <TableCell>{formatNumber(inst.current_price)}</TableCell>
                   <TableCell className={`font-medium ${dropColor(inst.drop_pct)}`}>
@@ -98,6 +105,7 @@ export function Instruments() {
               ))}
             </TableBody>
           </Table>
+          )}
         </CardContent>
       </Card>
     </div>
