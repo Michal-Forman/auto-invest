@@ -27,17 +27,6 @@ export function AutomationSection({ profile, updateProfile, updating }: SectionP
             Enable scheduled investing (cron)
           </Label>
         </div>
-        <div className="flex items-center gap-3">
-          <Switch
-            id="notifications_enabled"
-            checked={profile.notifications_enabled}
-            onCheckedChange={(checked) => updateProfile({ notifications_enabled: checked })}
-            disabled={updating}
-          />
-          <Label htmlFor="notifications_enabled" className="text-sm">
-            Enable email notifications
-          </Label>
-        </div>
       </CardContent>
     </Card>
   );

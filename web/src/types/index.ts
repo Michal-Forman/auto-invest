@@ -112,4 +112,7 @@ export interface UserProfile {
   coinmate_deposit_vs: string | null;
   cron_enabled: boolean;
   notifications_enabled: boolean;
+  btc_withdrawals_enabled: boolean;
+  trading212_enabled: boolean;
+  coinmate_enabled: boolean;
 }

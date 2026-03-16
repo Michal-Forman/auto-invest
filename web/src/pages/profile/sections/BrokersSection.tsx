@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { UserProfile } from "@/types";
 import { CardSaveButton } from "../shared/CardSaveButton";
@@ -75,6 +77,17 @@ export function BrokersSection({ profile, updateProfile, updating }: SectionProp
           </TabsList>
 
           <TabsContent value="trading212" className="space-y-3">
+            <div className="flex items-center gap-3">
+              <Switch
+                id="trading212_enabled"
+                checked={profile.trading212_enabled}
+                onCheckedChange={(checked) => updateProfile({ trading212_enabled: checked })}
+                disabled={updating}
+              />
+              <Label htmlFor="trading212_enabled" className="text-sm">
+                Enable Trading 212 investing
+              </Label>
+            </div>
             <Field label="API ID Key">
               <SecretInput
                 id="t212_id_key"
@@ -122,6 +135,17 @@ export function BrokersSection({ profile, updateProfile, updating }: SectionProp
           </TabsContent>
 
           <TabsContent value="coinmate" className="space-y-3">
+            <div className="flex items-center gap-3">
+              <Switch
+                id="coinmate_enabled"
+                checked={profile.coinmate_enabled}
+                onCheckedChange={(checked) => updateProfile({ coinmate_enabled: checked })}
+                disabled={updating}
+              />
+              <Label htmlFor="coinmate_enabled" className="text-sm">
+                Enable Coinmate investing
+              </Label>
+            </div>
             <Field label="Client ID">
               <Input
                 id="coinmate_client_id"

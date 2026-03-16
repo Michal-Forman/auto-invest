@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { SchedulePicker } from "@/components/SchedulePicker";
 import type { UserProfile } from "@/types";
 import { CardSaveButton } from "../shared/CardSaveButton";
@@ -18,8 +21,6 @@ export function PortfolioSection({ profile, updateProfile, updating }: SectionPr
     t212_weight: String(profile.t212_weight),
     btc_weight: String(profile.btc_weight),
     invest_interval: profile.invest_interval,
-    balance_buffer: String(profile.balance_buffer),
-    balance_alert_days: String(profile.balance_alert_days),
     btc_withdrawal_treshold: String(profile.btc_withdrawal_treshold),
     btc_external_adress: profile.btc_external_adress,
   });
@@ -29,8 +30,6 @@ export function PortfolioSection({ profile, updateProfile, updating }: SectionPr
     portfolio.t212_weight !== String(profile.t212_weight) ||
     portfolio.btc_weight !== String(profile.btc_weight) ||
     portfolio.invest_interval !== profile.invest_interval ||
-    portfolio.balance_buffer !== String(profile.balance_buffer) ||
-    portfolio.balance_alert_days !== String(profile.balance_alert_days) ||
     portfolio.btc_withdrawal_treshold !== String(profile.btc_withdrawal_treshold) ||
     portfolio.btc_external_adress !== profile.btc_external_adress;
 
@@ -40,8 +39,6 @@ export function PortfolioSection({ profile, updateProfile, updating }: SectionPr
       t212_weight: Number(portfolio.t212_weight),
       btc_weight: Number(portfolio.btc_weight),
       invest_interval: portfolio.invest_interval,
-      balance_buffer: Number(portfolio.balance_buffer),
-      balance_alert_days: Number(portfolio.balance_alert_days),
       btc_withdrawal_treshold: Number(portfolio.btc_withdrawal_treshold),
       btc_external_adress: portfolio.btc_external_adress,
     });
@@ -51,7 +48,8 @@ export function PortfolioSection({ profile, updateProfile, updating }: SectionPr
       <CardHeader className="-mt-4 border-b bg-primary/5 pt-4">
         <CardTitle className="text-base text-primary">Portfolio</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3 pt-4">
+      <CardContent className="space-y-4 pt-4">
+        <p className="text-xs font-medium text-muted-foreground">Investment</p>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Invest Amount (CZK)">
             <Input
@@ -77,18 +75,23 @@ export function PortfolioSection({ profile, updateProfile, updating }: SectionPr
               onChange={(cron) => setPortfolio((s) => ({ ...s, invest_interval: cron }))}
             />
           </Field>
-          <Field label="Balance Buffer" tooltip="Multiplier applied to your per-run spending when estimating when your balance will run out. Higher values give more conservative estimates.">
-            <Input
-              value={portfolio.balance_buffer}
-              onChange={(e) => setPortfolio((s) => ({ ...s, balance_buffer: e.target.value }))}
-            />
-          </Field>
-          <Field label="Balance Alert Days" tooltip="You'll receive an email alert when your exchange balance is estimated to run out within this many days.">
-            <Input
-              value={portfolio.balance_alert_days}
-              onChange={(e) => setPortfolio((s) => ({ ...s, balance_alert_days: e.target.value }))}
-            />
-          </Field>
+        </div>
+
+        <Separator />
+
+        <p className="text-xs font-medium text-muted-foreground">BTC Withdrawals</p>
+        <div className="flex items-center gap-3">
+          <Switch
+            id="btc_withdrawals_enabled"
+            checked={profile.btc_withdrawals_enabled}
+            onCheckedChange={(checked) => updateProfile({ btc_withdrawals_enabled: checked })}
+            disabled={updating}
+          />
+          <Label htmlFor="btc_withdrawals_enabled" className="text-sm">
+            Enable automatic BTC withdrawals
+          </Label>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
           <Field label="BTC Withdrawal Threshold (CZK)" tooltip="When your total BTC holdings on Coinmate exceed this value in CZK, an automatic withdrawal to your external address is triggered.">
             <Input
               value={portfolio.btc_withdrawal_treshold}
@@ -103,6 +106,7 @@ export function PortfolioSection({ profile, updateProfile, updating }: SectionPr
             />
           </Field>
         </div>
+
         <CardSaveButton onClick={save} disabled={updating || !hasChanges} />
       </CardContent>
     </Card>

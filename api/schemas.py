@@ -120,6 +120,9 @@ class ProfileResponse(BaseModel):
     coinmate_deposit_vs: Optional[str]
     cron_enabled: bool
     notifications_enabled: bool
+    btc_withdrawals_enabled: bool
+    trading212_enabled: bool
+    coinmate_enabled: bool
 
 
 class ProfileUpdate(BaseModel):
@@ -143,3 +146,6 @@ class ProfileUpdate(BaseModel):
     coinmate_deposit_vs: Optional[str] = None
     cron_enabled: Optional[bool] = None
     notifications_enabled: Optional[bool] = None
+    btc_withdrawals_enabled: Optional[bool] = None
+    trading212_enabled: Optional[bool] = None
+    coinmate_enabled: Optional[bool] = None

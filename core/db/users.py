@@ -46,6 +46,9 @@ class UserRecord:
     # Control
     cron_enabled: bool
     notifications_enabled: bool
+    btc_withdrawals_enabled: bool
+    trading212_enabled: bool
+    coinmate_enabled: bool
 
     @staticmethod
     def from_db(user_id: str) -> "UserRecord":
@@ -89,6 +92,9 @@ class UserRecord:
             coinmate_deposit_vs=row.get("coinmate_deposit_vs"),
             cron_enabled=bool(row.get("cron_enabled", True)),
             notifications_enabled=bool(row.get("notifications_enabled", True)),
+            btc_withdrawals_enabled=bool(row.get("btc_withdrawals_enabled", True)),
+            trading212_enabled=bool(row.get("trading212_enabled", True)),
+            coinmate_enabled=bool(row.get("coinmate_enabled", True)),
         )
 
 
