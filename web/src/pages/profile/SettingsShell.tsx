@@ -8,7 +8,6 @@ import { AutomationSection } from "./sections/AutomationSection";
 import { BrokersSection } from "./sections/BrokersSection";
 import { InstrumentsSection } from "./sections/InstrumentsSection";
 import { NotificationsSection } from "./sections/NotificationsSection";
-import { PortfolioSection } from "./sections/PortfolioSection";
 import { SettingsNav } from "./SettingsNav";
 import { SECTIONS, type SectionId } from "./types";
 
@@ -37,8 +36,6 @@ function SectionContent({
       return <AccountSection />;
     case "brokers":
       return <BrokersSection profile={profile} updateProfile={updateProfile} updating={updating} />;
-    case "portfolio":
-      return <PortfolioSection profile={profile} updateProfile={updateProfile} updating={updating} />;
     case "automation":
       return <AutomationSection profile={profile} updateProfile={updateProfile} updating={updating} />;
     case "notifications":
