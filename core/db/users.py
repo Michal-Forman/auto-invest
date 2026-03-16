@@ -25,13 +25,13 @@ class UserRecord:
 
     # Portfolio
     pie_id: Optional[int]
-    t212_weight: int
-    btc_weight: float
-    invest_amount: float
-    invest_interval: str
-    balance_buffer: float
-    balance_alert_days: int
-    btc_withdrawal_treshold: int
+    t212_weight: Optional[int]
+    btc_weight: Optional[float]
+    invest_amount: Optional[float]
+    invest_interval: Optional[str]
+    balance_buffer: Optional[float]
+    balance_alert_days: Optional[int]
+    btc_withdrawal_treshold: Optional[int]
     btc_external_adress: str
 
     # Synced from auth.users via DB trigger
@@ -77,24 +77,44 @@ class UserRecord:
             coinmate_public_key=row.get("coinmate_public_key") or "",
             coinmate_private_key=row.get("coinmate_private_key") or "",
             pie_id=row.get("pie_id"),
-            t212_weight=int(row.get("t212_weight", 90)),
-            btc_weight=float(row.get("btc_weight", 10.0)),
-            invest_amount=float(row.get("invest_amount", 5000.0)),
-            invest_interval=row.get("invest_interval") or "0 9 1 * *",
-            balance_buffer=float(row.get("balance_buffer", 500.0)),
-            balance_alert_days=int(row.get("balance_alert_days", 5)),
-            btc_withdrawal_treshold=int(row.get("btc_withdrawal_treshold", 500000)),
+            t212_weight=(
+                int(row["t212_weight"]) if row.get("t212_weight") is not None else None
+            ),
+            btc_weight=(
+                float(row["btc_weight"]) if row.get("btc_weight") is not None else None
+            ),
+            invest_amount=(
+                float(row["invest_amount"])
+                if row.get("invest_amount") is not None
+                else None
+            ),
+            invest_interval=row.get("invest_interval") or None,
+            balance_buffer=(
+                float(row["balance_buffer"])
+                if row.get("balance_buffer") is not None
+                else None
+            ),
+            balance_alert_days=(
+                int(row["balance_alert_days"])
+                if row.get("balance_alert_days") is not None
+                else None
+            ),
+            btc_withdrawal_treshold=(
+                int(row["btc_withdrawal_treshold"])
+                if row.get("btc_withdrawal_treshold") is not None
+                else None
+            ),
             btc_external_adress=row.get("btc_external_adress") or "",
             email=row.get("email") or "",
             t212_deposit_account=row.get("t212_deposit_account"),
             t212_deposit_vs=row.get("t212_deposit_vs"),
             coinmate_deposit_account=row.get("coinmate_deposit_account"),
             coinmate_deposit_vs=row.get("coinmate_deposit_vs"),
-            cron_enabled=bool(row.get("cron_enabled", True)),
+            cron_enabled=bool(row.get("cron_enabled", False)),
             notifications_enabled=bool(row.get("notifications_enabled", True)),
-            btc_withdrawals_enabled=bool(row.get("btc_withdrawals_enabled", True)),
-            trading212_enabled=bool(row.get("trading212_enabled", True)),
-            coinmate_enabled=bool(row.get("coinmate_enabled", True)),
+            btc_withdrawals_enabled=bool(row.get("btc_withdrawals_enabled", False)),
+            trading212_enabled=bool(row.get("trading212_enabled", False)),
+            coinmate_enabled=bool(row.get("coinmate_enabled", False)),
         )
 
 

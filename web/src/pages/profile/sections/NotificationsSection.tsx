@@ -16,13 +16,13 @@ interface SectionProps {
 
 export function NotificationsSection({ profile, updateProfile, updating }: SectionProps) {
   const [form, setForm] = useState({
-    balance_buffer: String(profile.balance_buffer),
-    balance_alert_days: String(profile.balance_alert_days),
+    balance_buffer: profile.balance_buffer != null ? String(profile.balance_buffer) : "",
+    balance_alert_days: profile.balance_alert_days != null ? String(profile.balance_alert_days) : "",
   });
 
   const hasChanges =
-    form.balance_buffer !== String(profile.balance_buffer) ||
-    form.balance_alert_days !== String(profile.balance_alert_days);
+    form.balance_buffer !== (profile.balance_buffer != null ? String(profile.balance_buffer) : "") ||
+    form.balance_alert_days !== (profile.balance_alert_days != null ? String(profile.balance_alert_days) : "");
 
   const save = () =>
     updateProfile({

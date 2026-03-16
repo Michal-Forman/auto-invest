@@ -4,6 +4,7 @@ import { useRunDetail } from "@/hooks/use-run-detail";
 import { formatNumber } from "@/lib/utils";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
@@ -16,7 +17,53 @@ export function RunDetail() {
   const navigate = useNavigate();
   const { data: run, loading, error } = useRunDetail(id);
 
-  if (loading) return <p className="text-muted-foreground p-6">Loading…</p>;
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => navigate("/runs")}>
+            <ChevronLeft className="h-4 w-4 mr-1" /> Back
+          </Button>
+          <Skeleton className="h-8 w-32" />
+        </div>
+        <Card>
+          <CardHeader><CardTitle className="text-base">Run Summary</CardTitle></CardHeader>
+          <CardContent className="grid grid-cols-3 gap-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-10 w-full" />
+            ))}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle className="text-base">State Timeline</CardTitle></CardHeader>
+          <CardContent><Skeleton className="h-10 w-full" /></CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle className="text-base">Orders</CardTitle></CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  {Array.from({ length: 6 }).map((__, j) => (
+                    <TableHead key={j}><Skeleton className="h-4 w-full" /></TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    {Array.from({ length: 6 }).map((__, j) => (
+                      <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
   if (error || !run) {
     return (
       <div className="space-y-4">
