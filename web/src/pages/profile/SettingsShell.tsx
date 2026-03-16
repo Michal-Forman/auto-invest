@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ChevronLeft } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
-import type { Config, UserProfile } from "@/types";
+import type { UserProfile } from "@/types";
 import { AccountSection } from "./sections/AccountSection";
 import { AutomationSection } from "./sections/AutomationSection";
 import { BrokersSection } from "./sections/BrokersSection";
@@ -13,7 +13,6 @@ import { SECTIONS, type SectionId } from "./types";
 
 interface SettingsShellProps {
   profile: UserProfile;
-  config: Config | null;
   updateProfile: (updates: Partial<UserProfile>) => Promise<UserProfile>;
   updating: boolean;
 }
@@ -21,13 +20,11 @@ interface SettingsShellProps {
 function SectionContent({
   id,
   profile,
-  config,
   updateProfile,
   updating,
 }: {
   id: SectionId;
   profile: UserProfile;
-  config: Config | null;
   updateProfile: (updates: Partial<UserProfile>) => Promise<UserProfile>;
   updating: boolean;
 }) {
@@ -45,7 +42,7 @@ function SectionContent({
   }
 }
 
-export function SettingsShell({ profile, config, updateProfile, updating }: SettingsShellProps) {
+export function SettingsShell({ profile, updateProfile, updating }: SettingsShellProps) {
   const [selected, setSelected] = useState<SectionId>("account");
   const [mobileView, setMobileView] = useState<"menu" | "detail">("menu");
   const isMobile = useIsMobile();
@@ -77,7 +74,6 @@ export function SettingsShell({ profile, config, updateProfile, updating }: Sett
         <SectionContent
           id={selected}
           profile={profile}
-          config={config}
           updateProfile={updateProfile}
           updating={updating}
         />
@@ -96,7 +92,6 @@ export function SettingsShell({ profile, config, updateProfile, updating }: Sett
           <SectionContent
             id={selected}
             profile={profile}
-            config={config}
             updateProfile={updateProfile}
             updating={updating}
           />

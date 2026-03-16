@@ -10,7 +10,7 @@ export function Field({ label, tooltip, children, className }: { label: string; 
         {label}
         {tooltip && (
           <Tooltip>
-            <TooltipTrigger asChild>
+            <TooltipTrigger>
               <Info className="h-3.5 w-3.5 text-muted-foreground/60 cursor-help" />
             </TooltipTrigger>
             <TooltipContent side="top" className="max-w-xs text-xs">
