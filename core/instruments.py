@@ -73,7 +73,8 @@ class Instruments:
         """Scale T212 ratios by T212_WEIGHT and append BTC at BTC_WEIGHT to produce the full portfolio ratios."""
         ratios: Dict[str, float] = self.get_t212_ratios()
         ratios = {k: v * self.portfolio_settings.t212_weight for k, v in ratios.items()}
-        ratios["BTC"] = self.portfolio_settings.btc_weight
+        if self.portfolio_settings.btc_weight != 0:
+            ratios["BTC"] = self.portfolio_settings.btc_weight
         return ratios
 
     @staticmethod
@@ -316,11 +317,5 @@ class Instruments:
 if __name__ == "__main__":
     from core.instrument_data import INSTRUMENT_CURRENCIES, INSTRUMENT_NAMES, T212_TO_YF
 
-    for ticker in T212_TO_YF:
-        try:
-            ath = Instruments.get_ath(ticker)
-            name = INSTRUMENT_NAMES.get(ticker, ticker)
-            currency = INSTRUMENT_CURRENCIES.get(ticker, "")
-            print(f"{name} ({ticker}): {ath:.2f} {currency}")
-        except Exception as e:
-            print(f"{ticker}: ERROR - {e}")
+    print(0 == 0.0)
+    print(0 == float(0))

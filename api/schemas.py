@@ -52,6 +52,8 @@ class InstrumentResponse(BaseModel):
     display_name: str
     exchange: str
     cap_type: str
+    currency: str
+    instrument_type: str
     target_weight: float
     ath_price: float
     current_price: float
@@ -119,6 +121,10 @@ class ProfileResponse(BaseModel):
     coinmate_deposit_account: Optional[str]
     coinmate_deposit_vs: Optional[str]
     cron_enabled: bool
+    notifications_enabled: bool
+    btc_withdrawals_enabled: bool
+    trading212_enabled: bool
+    coinmate_enabled: bool
 
 
 class ProfileUpdate(BaseModel):
@@ -141,3 +147,7 @@ class ProfileUpdate(BaseModel):
     coinmate_deposit_account: Optional[str] = None
     coinmate_deposit_vs: Optional[str] = None
     cron_enabled: Optional[bool] = None
+    notifications_enabled: Optional[bool] = None
+    btc_withdrawals_enabled: Optional[bool] = None
+    trading212_enabled: Optional[bool] = None
+    coinmate_enabled: Optional[bool] = None

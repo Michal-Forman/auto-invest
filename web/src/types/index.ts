@@ -32,6 +32,8 @@ export interface Instrument {
   display_name: string;
   exchange: Exchange;
   cap_type: CapType;
+  currency: string;
+  instrument_type: string;
   target_weight: number;
   ath_price: number;
   current_price: number;
@@ -111,4 +113,8 @@ export interface UserProfile {
   coinmate_deposit_account: string | null;
   coinmate_deposit_vs: string | null;
   cron_enabled: boolean;
+  notifications_enabled: boolean;
+  btc_withdrawals_enabled: boolean;
+  trading212_enabled: boolean;
+  coinmate_enabled: boolean;
 }

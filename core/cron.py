@@ -1,6 +1,6 @@
 # Standard library
 from datetime import datetime, timezone
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 # Local
 from core.coinmate import Coinmate
@@ -45,23 +45,28 @@ def run_for_user(user: UserRecord) -> None:
         btc_external_adress=user_settings.btc_external_adress,
         user_id=user_id,
     )
-    mailer: Mailer = Mailer(user_settings)
+    mailer: Optional[Mailer] = (
+        Mailer(user_settings) if user.notifications_enabled else None
+    )
 
     # --- Check if BTC-Withdrawal should be made and if so, make one
     try:
         btc_threshold_exceeded = instruments.is_btc_withdrawal_treshold_exceeded()
     except Exception as e:
         log.error(f"Failed to check BTC balance threshold for {user_id}: {e}")
-        mailer.send_error_alert(e)
+        if mailer:
+            mailer.send_error_alert(e)
         btc_threshold_exceeded = False
 
     if btc_threshold_exceeded:
         try:
             withdrawal = executor.withdraw_btc()
-            mailer.send_btc_withdrawal_confirmation(withdrawal)
+            if mailer:
+                mailer.send_btc_withdrawal_confirmation(withdrawal)
         except Exception as e:
             log.error(f"Failed to withdraw BTC for {user_id}: {e}")
-            mailer.send_error_alert(e)
+            if mailer:
+                mailer.send_error_alert(e)
     else:
         log.info("No BTC Withdrawal should take place")
 
@@ -107,7 +112,7 @@ def run_for_user(user: UserRecord) -> None:
                         }
                     )
 
-            if alerts:
+            if alerts and mailer:
                 mailer.send_balance_alert(alerts)
         except Exception as e:
             log.warning(f"Balance check skipped (non-critical): {e}")
@@ -138,13 +143,15 @@ def run_for_user(user: UserRecord) -> None:
             run.update_in_db(run_data_for_update)
             log.info("Run data updated successfully")
 
-            mailer.send_investment_confirmation(
-                run, orders, cash_distribution, multipliers
-            )
+            if mailer:
+                mailer.send_investment_confirmation(
+                    run, orders, cash_distribution, multipliers
+                )
 
         except Exception as e:
             log.error(f"Investment run failed for {user_id}: {e}")
-            mailer.send_error_alert(e, run)
+            if mailer:
+                mailer.send_error_alert(e, run)
             try:
                 run.update_in_db(RunUpdate(status="FAILED", error=str(e)))
             except Exception as db_err:
@@ -171,12 +178,14 @@ def run_for_user(user: UserRecord) -> None:
                 last_month_orders: List[Order] = Order.get_orders_for_runs(
                     run_ids, user_id=user_id
                 )
-                mailer.send_monthly_summary(
-                    last_month_runs, last_month_orders, last_month_failed_runs
-                )
+                if mailer:
+                    mailer.send_monthly_summary(
+                        last_month_runs, last_month_orders, last_month_failed_runs
+                    )
         except Exception as e:
             log.error(f"Failed to send monthly summary for {user_id}: {e}")
-            mailer.send_error_alert(e)
+            if mailer:
+                mailer.send_error_alert(e)
 
 
 def main() -> None:
