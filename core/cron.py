@@ -45,7 +45,9 @@ def run_for_user(user: UserRecord) -> None:
         btc_external_adress=user_settings.btc_external_adress,
         user_id=user_id,
     )
-    mailer: Optional[Mailer] = Mailer(user_settings) if user.notifications_enabled else None
+    mailer: Optional[Mailer] = (
+        Mailer(user_settings) if user.notifications_enabled else None
+    )
 
     # --- Check if BTC-Withdrawal should be made and if so, make one
     try:

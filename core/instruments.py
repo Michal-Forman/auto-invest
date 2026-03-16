@@ -316,6 +316,6 @@ class Instruments:
 
 if __name__ == "__main__":
     from core.instrument_data import INSTRUMENT_CURRENCIES, INSTRUMENT_NAMES, T212_TO_YF
+
     print(0 == 0.0)
     print(0 == float(0))
-
