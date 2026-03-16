@@ -1,7 +1,10 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import type { CapType, Config } from "@/types";
+import { useInstruments } from "@/hooks/use-instruments";
+import { formatNumber } from "@/lib/utils";
+import type { CapType } from "@/types";
 
 const capVariants: Record<CapType, string> = {
   none: "bg-gray-100 text-gray-700 border-gray-200",
@@ -9,8 +12,8 @@ const capVariants: Record<CapType, string> = {
   hard: "bg-purple-100 text-purple-700 border-purple-200",
 };
 
-export function InstrumentsSection({ config }: { config: Config | null }) {
-  if (!config) return null;
+export function InstrumentsSection() {
+  const { data: instruments, loading } = useInstruments();
 
   return (
     <Card>
@@ -18,32 +21,48 @@ export function InstrumentsSection({ config }: { config: Config | null }) {
         <CardTitle className="text-base text-primary">Instrument Registry</CardTitle>
       </CardHeader>
       <CardContent className="p-0 -mt-4">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/40 hover:bg-muted/40">
-              <TableHead>Ticker</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Currency</TableHead>
-              <TableHead>Cap Type</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {config.instruments.map((inst) => (
-              <TableRow key={inst.ticker}>
-                <TableCell className="font-mono text-sm font-medium">{inst.ticker}</TableCell>
-                <TableCell>{inst.display_name}</TableCell>
-                <TableCell>{inst.instrument_type}</TableCell>
-                <TableCell>{inst.currency}</TableCell>
-                <TableCell>
-                  <Badge variant="outline" className={capVariants[inst.cap_type]}>
-                    {inst.cap_type}
-                  </Badge>
-                </TableCell>
-              </TableRow>
+        {loading ? (
+          <div className="p-4 space-y-2">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-8 w-full" />
             ))}
-          </TableBody>
-        </Table>
+          </div>
+        ) : !instruments || instruments.length === 0 ? (
+          <p className="p-6 text-sm text-muted-foreground text-center">
+            No instruments found. Configure your T212 pie to see instruments here.
+          </p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/40 hover:bg-muted/40">
+                <TableHead>Ticker</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Currency</TableHead>
+                <TableHead>Cap Type</TableHead>
+                <TableHead className="text-right">Weight</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {instruments.map((inst) => (
+                <TableRow key={inst.ticker}>
+                  <TableCell className="font-mono text-sm font-medium">{inst.ticker}</TableCell>
+                  <TableCell>{inst.display_name}</TableCell>
+                  <TableCell>{inst.instrument_type}</TableCell>
+                  <TableCell>{inst.currency}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className={capVariants[inst.cap_type]}>
+                      {inst.cap_type}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right font-mono text-sm">
+                    {formatNumber(inst.target_weight * 100, 1)}%
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
       </CardContent>
     </Card>
   );

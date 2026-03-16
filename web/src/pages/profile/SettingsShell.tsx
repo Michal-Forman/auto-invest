@@ -41,7 +41,7 @@ function SectionContent({
     case "notifications":
       return <NotificationsSection profile={profile} updateProfile={updateProfile} updating={updating} />;
     case "instruments":
-      return <InstrumentsSection config={config} />;
+      return <InstrumentsSection />;
   }
 }
 

@@ -16,6 +16,7 @@ from api.schemas import InstrumentResponse
 from core.coinmate import Coinmate
 from core.instrument_data import (
     INSTRUMENT_CAPS,
+    INSTRUMENT_CURRENCIES,
     INSTRUMENT_NAMES,
     INSTRUMENT_TYPES,
     T212_TO_YF,
@@ -132,6 +133,8 @@ def list_instruments(
                 display_name=INSTRUMENT_NAMES.get(ticker, ticker),
                 exchange=exchange,
                 cap_type=INSTRUMENT_CAPS.get(ticker, "none"),
+                currency=INSTRUMENT_CURRENCIES.get(ticker, ""),
+                instrument_type=INSTRUMENT_TYPES.get(ticker, ""),
                 target_weight=data["target_weights"][ticker],
                 ath_price=data["ath_prices"][ticker],
                 current_price=data["current_prices"][ticker],

@@ -52,6 +52,8 @@ class InstrumentResponse(BaseModel):
     display_name: str
     exchange: str
     cap_type: str
+    currency: str
+    instrument_type: str
     target_weight: float
     ath_price: float
     current_price: float

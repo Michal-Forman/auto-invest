@@ -32,6 +32,8 @@ export interface Instrument {
   display_name: string;
   exchange: Exchange;
   cap_type: CapType;
+  currency: string;
+  instrument_type: string;
   target_weight: number;
   ath_price: number;
   current_price: number;
