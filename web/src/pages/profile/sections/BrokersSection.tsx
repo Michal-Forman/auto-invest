@@ -88,50 +88,54 @@ export function BrokersSection({ profile, updateProfile, updating }: SectionProp
                 Enable Trading 212 investing
               </Label>
             </div>
-            <Field label="API ID Key">
-              <SecretInput
-                id="t212_id_key"
-                value={t212.t212_id_key}
-                onChange={(v) => setT212((s) => ({ ...s, t212_id_key: v }))}
-                placeholder="t212_id_key"
-              />
-            </Field>
-            <Field label="Private Key">
-              <SecretInput
-                id="t212_private_key"
-                value={t212.t212_private_key}
-                onChange={(v) => setT212((s) => ({ ...s, t212_private_key: v }))}
-                placeholder="t212_private_key"
-              />
-            </Field>
-            <Field label="Pie ID (optional)">
-              <Input
-                id="pie_id"
-                value={t212.pie_id}
-                onChange={(e) => setT212((s) => ({ ...s, pie_id: e.target.value }))}
-                placeholder="123456"
-              />
-            </Field>
-            <div className="flex items-center gap-2 pt-1">
-              <div className="h-px flex-1 bg-border" />
-              <span className="text-xs font-medium text-muted-foreground">Deposit</span>
-              <div className="h-px flex-1 bg-border" />
-            </div>
-            <Field label="Deposit Account">
-              <Input
-                id="t212_deposit_account"
-                value={t212.t212_deposit_account}
-                onChange={(e) => setT212((s) => ({ ...s, t212_deposit_account: e.target.value }))}
-              />
-            </Field>
-            <Field label="Deposit VS">
-              <Input
-                id="t212_deposit_vs"
-                value={t212.t212_deposit_vs}
-                onChange={(e) => setT212((s) => ({ ...s, t212_deposit_vs: e.target.value }))}
-              />
-            </Field>
-            <CardSaveButton onClick={saveT212} disabled={updating || !t212HasChanges} />
+            {profile.trading212_enabled && (
+              <>
+                <Field label="API ID Key">
+                  <SecretInput
+                    id="t212_id_key"
+                    value={t212.t212_id_key}
+                    onChange={(v) => setT212((s) => ({ ...s, t212_id_key: v }))}
+                    placeholder="t212_id_key"
+                  />
+                </Field>
+                <Field label="Private Key">
+                  <SecretInput
+                    id="t212_private_key"
+                    value={t212.t212_private_key}
+                    onChange={(v) => setT212((s) => ({ ...s, t212_private_key: v }))}
+                    placeholder="t212_private_key"
+                  />
+                </Field>
+                <Field label="Pie ID (optional)">
+                  <Input
+                    id="pie_id"
+                    value={t212.pie_id}
+                    onChange={(e) => setT212((s) => ({ ...s, pie_id: e.target.value }))}
+                    placeholder="123456"
+                  />
+                </Field>
+                <div className="flex items-center gap-2 pt-1">
+                  <div className="h-px flex-1 bg-border" />
+                  <span className="text-xs font-medium text-muted-foreground">Deposit</span>
+                  <div className="h-px flex-1 bg-border" />
+                </div>
+                <Field label="Deposit Account">
+                  <Input
+                    id="t212_deposit_account"
+                    value={t212.t212_deposit_account}
+                    onChange={(e) => setT212((s) => ({ ...s, t212_deposit_account: e.target.value }))}
+                  />
+                </Field>
+                <Field label="Deposit VS">
+                  <Input
+                    id="t212_deposit_vs"
+                    value={t212.t212_deposit_vs}
+                    onChange={(e) => setT212((s) => ({ ...s, t212_deposit_vs: e.target.value }))}
+                  />
+                </Field>
+                <CardSaveButton onClick={saveT212} disabled={updating || !t212HasChanges} />
+              </>
+            )}
           </TabsContent>
 
           <TabsContent value="coinmate" className="space-y-3">
@@ -146,48 +150,52 @@ export function BrokersSection({ profile, updateProfile, updating }: SectionProp
                 Enable Coinmate investing
               </Label>
             </div>
-            <Field label="Client ID">
-              <Input
-                id="coinmate_client_id"
-                value={coinmate.coinmate_client_id}
-                onChange={(e) => setCoinmate((s) => ({ ...s, coinmate_client_id: e.target.value }))}
-                placeholder="12345"
-              />
-            </Field>
-            <Field label="Public Key">
-              <Input
-                id="coinmate_public_key"
-                value={coinmate.coinmate_public_key}
-                onChange={(e) => setCoinmate((s) => ({ ...s, coinmate_public_key: e.target.value }))}
-              />
-            </Field>
-            <Field label="Private Key">
-              <SecretInput
-                id="coinmate_private_key"
-                value={coinmate.coinmate_private_key}
-                onChange={(v) => setCoinmate((s) => ({ ...s, coinmate_private_key: v }))}
-              />
-            </Field>
-            <div className="flex items-center gap-2 pt-1">
-              <div className="h-px flex-1 bg-border" />
-              <span className="text-xs font-medium text-muted-foreground">Deposit</span>
-              <div className="h-px flex-1 bg-border" />
-            </div>
-            <Field label="Deposit Account">
-              <Input
-                id="coinmate_deposit_account"
-                value={coinmate.coinmate_deposit_account}
-                onChange={(e) => setCoinmate((s) => ({ ...s, coinmate_deposit_account: e.target.value }))}
-              />
-            </Field>
-            <Field label="Deposit VS">
-              <Input
-                id="coinmate_deposit_vs"
-                value={coinmate.coinmate_deposit_vs}
-                onChange={(e) => setCoinmate((s) => ({ ...s, coinmate_deposit_vs: e.target.value }))}
-              />
-            </Field>
-            <CardSaveButton onClick={saveCoinmate} disabled={updating || !coinmateHasChanges} />
+            {profile.coinmate_enabled && (
+              <>
+                <Field label="Client ID">
+                  <Input
+                    id="coinmate_client_id"
+                    value={coinmate.coinmate_client_id}
+                    onChange={(e) => setCoinmate((s) => ({ ...s, coinmate_client_id: e.target.value }))}
+                    placeholder="12345"
+                  />
+                </Field>
+                <Field label="Public Key">
+                  <Input
+                    id="coinmate_public_key"
+                    value={coinmate.coinmate_public_key}
+                    onChange={(e) => setCoinmate((s) => ({ ...s, coinmate_public_key: e.target.value }))}
+                  />
+                </Field>
+                <Field label="Private Key">
+                  <SecretInput
+                    id="coinmate_private_key"
+                    value={coinmate.coinmate_private_key}
+                    onChange={(v) => setCoinmate((s) => ({ ...s, coinmate_private_key: v }))}
+                  />
+                </Field>
+                <div className="flex items-center gap-2 pt-1">
+                  <div className="h-px flex-1 bg-border" />
+                  <span className="text-xs font-medium text-muted-foreground">Deposit</span>
+                  <div className="h-px flex-1 bg-border" />
+                </div>
+                <Field label="Deposit Account">
+                  <Input
+                    id="coinmate_deposit_account"
+                    value={coinmate.coinmate_deposit_account}
+                    onChange={(e) => setCoinmate((s) => ({ ...s, coinmate_deposit_account: e.target.value }))}
+                  />
+                </Field>
+                <Field label="Deposit VS">
+                  <Input
+                    id="coinmate_deposit_vs"
+                    value={coinmate.coinmate_deposit_vs}
+                    onChange={(e) => setCoinmate((s) => ({ ...s, coinmate_deposit_vs: e.target.value }))}
+                  />
+                </Field>
+                <CardSaveButton onClick={saveCoinmate} disabled={updating || !coinmateHasChanges} />
+              </>
+            )}
           </TabsContent>
         </Tabs>
       </CardContent>
