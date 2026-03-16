@@ -77,13 +77,33 @@ class UserRecord:
             coinmate_public_key=row.get("coinmate_public_key") or "",
             coinmate_private_key=row.get("coinmate_private_key") or "",
             pie_id=row.get("pie_id"),
-            t212_weight=int(row["t212_weight"]) if row.get("t212_weight") is not None else None,
-            btc_weight=float(row["btc_weight"]) if row.get("btc_weight") is not None else None,
-            invest_amount=float(row["invest_amount"]) if row.get("invest_amount") is not None else None,
+            t212_weight=(
+                int(row["t212_weight"]) if row.get("t212_weight") is not None else None
+            ),
+            btc_weight=(
+                float(row["btc_weight"]) if row.get("btc_weight") is not None else None
+            ),
+            invest_amount=(
+                float(row["invest_amount"])
+                if row.get("invest_amount") is not None
+                else None
+            ),
             invest_interval=row.get("invest_interval") or None,
-            balance_buffer=float(row["balance_buffer"]) if row.get("balance_buffer") is not None else None,
-            balance_alert_days=int(row["balance_alert_days"]) if row.get("balance_alert_days") is not None else None,
-            btc_withdrawal_treshold=int(row["btc_withdrawal_treshold"]) if row.get("btc_withdrawal_treshold") is not None else None,
+            balance_buffer=(
+                float(row["balance_buffer"])
+                if row.get("balance_buffer") is not None
+                else None
+            ),
+            balance_alert_days=(
+                int(row["balance_alert_days"])
+                if row.get("balance_alert_days") is not None
+                else None
+            ),
+            btc_withdrawal_treshold=(
+                int(row["btc_withdrawal_treshold"])
+                if row.get("btc_withdrawal_treshold") is not None
+                else None
+            ),
             btc_external_adress=row.get("btc_external_adress") or "",
             email=row.get("email") or "",
             t212_deposit_account=row.get("t212_deposit_account"),

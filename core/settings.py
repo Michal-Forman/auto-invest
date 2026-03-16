@@ -76,7 +76,9 @@ class PortfolioSettings:
         }
         missing = [k for k, v in required.items() if v is None]
         if missing:
-            raise ValueError(f"User {user.id} is missing required portfolio settings: {', '.join(missing)}")
+            raise ValueError(
+                f"User {user.id} is missing required portfolio settings: {', '.join(missing)}"
+            )
         return cls(
             pie_id=user.pie_id,
             t212_weight=int(user.t212_weight),  # type: ignore[arg-type]
