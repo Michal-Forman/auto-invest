@@ -2,7 +2,7 @@ import { AlertTriangle, BarChart2, Globe, Network, Percent, RefreshCw, ShieldChe
 import { useEffect, useRef, useState } from "react";
 import logo from "@/assets/logo.png";
 
-const APP_URL = "https://auto-invest-web.vercel.app/app";
+const APP_URL = "/app";
 
 // --- Typewriter hook ---
 const TYPEWRITER_OPTIONS = ["Effortlessly.", "Rationally.", "Stress-free.", "Automatically.", "Regularly."];
