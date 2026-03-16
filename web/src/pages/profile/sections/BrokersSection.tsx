@@ -106,7 +106,7 @@ export function BrokersSection({ profile, updateProfile, updating }: SectionProp
                     placeholder="t212_private_key"
                   />
                 </Field>
-                <Field label="Pie ID (optional)">
+                <Field label="Pie ID (optional)" tooltip="The ID of your Trading 212 pie. Used to fetch instrument weights and calculate investment distribution.">
                   <Input
                     id="pie_id"
                     value={t212.pie_id}
@@ -119,14 +119,14 @@ export function BrokersSection({ profile, updateProfile, updating }: SectionProp
                   <span className="text-xs font-medium text-muted-foreground">Deposit</span>
                   <div className="h-px flex-1 bg-border" />
                 </div>
-                <Field label="Deposit Account">
+                <Field label="Deposit Account" tooltip="Czech bank account number for deposits. Used to generate QR payment codes in balance alert emails.">
                   <Input
                     id="t212_deposit_account"
                     value={t212.t212_deposit_account}
                     onChange={(e) => setT212((s) => ({ ...s, t212_deposit_account: e.target.value }))}
                   />
                 </Field>
-                <Field label="Deposit VS">
+                <Field label="Deposit VS" tooltip="Variable symbol for deposits. Used together with the account number to generate QR payment codes.">
                   <Input
                     id="t212_deposit_vs"
                     value={t212.t212_deposit_vs}
@@ -179,14 +179,14 @@ export function BrokersSection({ profile, updateProfile, updating }: SectionProp
                   <span className="text-xs font-medium text-muted-foreground">Deposit</span>
                   <div className="h-px flex-1 bg-border" />
                 </div>
-                <Field label="Deposit Account">
+                <Field label="Deposit Account" tooltip="Czech bank account number for deposits. Used to generate QR payment codes in balance alert emails.">
                   <Input
                     id="coinmate_deposit_account"
                     value={coinmate.coinmate_deposit_account}
                     onChange={(e) => setCoinmate((s) => ({ ...s, coinmate_deposit_account: e.target.value }))}
                   />
                 </Field>
-                <Field label="Deposit VS">
+                <Field label="Deposit VS" tooltip="Variable symbol for deposits. Used together with the account number to generate QR payment codes.">
                   <Input
                     id="coinmate_deposit_vs"
                     value={coinmate.coinmate_deposit_vs}
