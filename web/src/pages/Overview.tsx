@@ -6,6 +6,7 @@ import { useConfig } from "@/hooks/use-config";
 import { formatNumber } from "@/lib/utils";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const CRON_HOUR = import.meta.env.VITE_INVEST_CRON?.split(" ")[1] ?? null;
@@ -85,7 +86,7 @@ export function Overview() {
           </CardHeader>
           <CardContent>
             {runsLoading ? (
-              <div className="text-muted-foreground text-sm">Loading…</div>
+              <Skeleton className="h-8 w-28" />
             ) : (
               <div className="text-2xl font-bold text-primary">{formatNumber(totalInvested)} CZK</div>
             )}
@@ -97,7 +98,7 @@ export function Overview() {
           </CardHeader>
           <CardContent>
             {runsLoading ? (
-              <div className="text-muted-foreground text-sm">Loading…</div>
+              <Skeleton className="h-8 w-28" />
             ) : lastRun ? (
               <StatusBadge status={lastRun.status} />
             ) : (
@@ -111,7 +112,7 @@ export function Overview() {
           </CardHeader>
           <CardContent>
             {runsLoading ? (
-              <div className="text-muted-foreground text-sm">Loading…</div>
+              <Skeleton className="h-8 w-28" />
             ) : (
               <div className="text-2xl font-bold text-primary">{filled}</div>
             )}
@@ -123,7 +124,7 @@ export function Overview() {
           </CardHeader>
           <CardContent>
             {runsLoading ? (
-              <div className="text-muted-foreground text-sm">Loading…</div>
+              <Skeleton className="h-8 w-28" />
             ) : (
               <div className="text-2xl font-bold text-red-600">{failed}</div>
             )}
@@ -145,7 +146,10 @@ export function Overview() {
                 <div className="font-medium">{getNextRunDate(withEnvTime(config.invest_interval))}</div>
               </>
             ) : (
-              <div className="text-muted-foreground text-sm">Loading…</div>
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-5 w-48" />
+              </div>
             )}
           </CardContent>
         </Card>
@@ -176,18 +180,28 @@ export function Overview() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {recent.map((run) => (
-                <TableRow
-                  key={run.id}
-                  className="cursor-pointer"
-                  onClick={() => navigate(`/runs/${run.id}`)}
-                >
-                  <TableCell>{new Date(run.created_at).toLocaleDateString("en-GB")}</TableCell>
-                  <TableCell><StatusBadge status={run.status} /></TableCell>
-                  <TableCell className="text-right">{run.total_czk > 0 ? formatNumber(run.total_czk) : "—"}</TableCell>
-                  <TableCell className="text-right">{run.order_count || "—"}</TableCell>
-                </TableRow>
-              ))}
+              {runsLoading
+                ? Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+                    </TableRow>
+                  ))
+                : recent.map((run) => (
+                    <TableRow
+                      key={run.id}
+                      className="cursor-pointer"
+                      onClick={() => navigate(`/runs/${run.id}`)}
+                    >
+                      <TableCell>{new Date(run.created_at).toLocaleDateString("en-GB")}</TableCell>
+                      <TableCell><StatusBadge status={run.status} /></TableCell>
+                      <TableCell className="text-right">{run.total_czk > 0 ? formatNumber(run.total_czk) : "—"}</TableCell>
+                      <TableCell className="text-right">{run.order_count || "—"}</TableCell>
+                    </TableRow>
+                  ))
+              }
               {!runsLoading && recent.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center text-muted-foreground py-6">No runs yet.</TableCell>

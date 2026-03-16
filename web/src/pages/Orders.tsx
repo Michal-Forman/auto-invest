@@ -5,6 +5,7 @@ import { useRuns } from "@/hooks/use-runs";
 import { formatNumber } from "@/lib/utils";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -21,7 +22,6 @@ export function Orders() {
   const { data: orders, loading: ordersLoading, error: ordersError } = useOrders();
   const { data: runs } = useRuns();
 
-  if (ordersLoading) return <p className="text-muted-foreground p-6">Loading…</p>;
   if (ordersError) return <p className="text-red-600 p-6">Failed to load data.</p>;
 
   const runDateMap = Object.fromEntries((runs ?? []).map((r) => [r.id, r.created_at.slice(0, 10)]));
@@ -86,27 +86,36 @@ export function Orders() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((order) => (
-                <TableRow key={order.id}>
-                  <TableCell className="text-muted-foreground text-sm">
-                    {runDateMap[order.run_id] ?? "—"}
-                  </TableCell>
-                  <TableCell>
-                    <div className="font-medium">{order.ticker}</div>
-                    <div className="text-xs text-muted-foreground">{order.display_name}</div>
-                  </TableCell>
-                  <TableCell>{order.exchange}</TableCell>
-                  <TableCell className="text-right">{formatNumber(order.czk_amount)}</TableCell>
-                  <TableCell className="text-right">
-                    {order.quantity != null ? order.quantity : "—"}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {order.fill_price != null ? formatNumber(order.fill_price) : "—"}
-                  </TableCell>
-                  <TableCell><StatusBadge status={order.status} /></TableCell>
-                </TableRow>
-              ))}
-              {filtered.length === 0 && (
+              {ordersLoading
+                ? Array.from({ length: 8 }).map((_, i) => (
+                    <TableRow key={i}>
+                      {Array.from({ length: 7 }).map((__, j) => (
+                        <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                : filtered.map((order) => (
+                    <TableRow key={order.id}>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {runDateMap[order.run_id] ?? "—"}
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-medium">{order.ticker}</div>
+                        <div className="text-xs text-muted-foreground">{order.display_name}</div>
+                      </TableCell>
+                      <TableCell>{order.exchange}</TableCell>
+                      <TableCell className="text-right">{formatNumber(order.czk_amount)}</TableCell>
+                      <TableCell className="text-right">
+                        {order.quantity != null ? order.quantity : "—"}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {order.fill_price != null ? formatNumber(order.fill_price) : "—"}
+                      </TableCell>
+                      <TableCell><StatusBadge status={order.status} /></TableCell>
+                    </TableRow>
+                  ))
+              }
+              {!ordersLoading && filtered.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                     No orders match the current filters.
