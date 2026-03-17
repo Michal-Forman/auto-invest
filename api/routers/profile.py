@@ -6,6 +6,7 @@ from typing import Any, Dict
 from fastapi import APIRouter, Depends
 
 # Local
+from api.cache import instruments_cache
 from api.dependencies import (
     get_current_user_id,
     get_user_record,
@@ -39,6 +40,7 @@ def update_profile(
     if updates:
         supabase.table("users").update(updates).eq("id", user_id).execute()
     invalidate_user_record(user_id)
+    instruments_cache.pop(f"instruments:{user_id}", None)
     record: UserRecord = UserRecord.from_db(user_id)
     d: Dict[str, Any] = {
         k: v for k, v in dataclasses.asdict(record).items() if k not in ("id", "email")
