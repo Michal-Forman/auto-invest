@@ -56,8 +56,7 @@ def get_run(
     run_id: str, user_id: str = Depends(get_current_user_id)
 ) -> RunDetailResponse:
     """Return a single run with its embedded orders."""
-    runs: List[Run] = Run.get_all_runs(limit=1000, user_id=user_id)
-    run: Optional[Run] = next((r for r in runs if str(r.id) == run_id), None)
+    run: Optional[Run] = Run.get_by_id(run_id, user_id=user_id)
 
     if run is None:
         raise HTTPException(status_code=404, detail="Run not found")

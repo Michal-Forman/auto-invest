@@ -75,8 +75,8 @@ def analytics_status(
     user_id: str = Depends(get_current_user_id),
 ) -> List[AnalyticsStatusItem]:
     """Return run counts grouped by status."""
-    runs: List[Run] = Run.get_all_runs(limit=1000, user_id=user_id)
-    counts: Counter = Counter(run.status for run in runs)
+    rows: List[Dict[str, Any]] = Run.get_status_counts(user_id=user_id)
+    counts: Counter = Counter(row["status"] for row in rows)
     return [
         AnalyticsStatusItem(status=status, count=count)
         for status, count in counts.most_common()
