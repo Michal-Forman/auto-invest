@@ -108,19 +108,19 @@ def test_analytics_allocation_default_limit_is_8(mocker):
 
 
 def test_analytics_status_empty_when_no_runs(mocker):
-    mocker.patch.object(Run, "get_all_runs", return_value=[])
+    mocker.patch.object(Run, "get_status_counts", return_value=[])
     resp = client.get("/analytics/status")
     assert resp.status_code == 200
     assert resp.json() == []
 
 
-def test_analytics_status_counts_statuses_correctly(mocker, make_run):
-    runs = [
-        make_run(status="FILLED"),
-        make_run(status="FILLED"),
-        make_run(status="FAILED"),
+def test_analytics_status_counts_statuses_correctly(mocker):
+    rows = [
+        {"status": "FILLED"},
+        {"status": "FILLED"},
+        {"status": "FAILED"},
     ]
-    mocker.patch.object(Run, "get_all_runs", return_value=runs)
+    mocker.patch.object(Run, "get_status_counts", return_value=rows)
     resp = client.get("/analytics/status")
     counts = {item["status"]: item["count"] for item in resp.json()}
     assert counts["FILLED"] == 2
