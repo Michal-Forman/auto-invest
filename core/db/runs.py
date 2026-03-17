@@ -250,6 +250,32 @@ class Run(BaseDBModel):
         )
 
     @staticmethod
+    def get_by_id(run_id: str, user_id: Optional[str] = None) -> Optional["Run"]:
+        """Fetch a single run by ID directly from the database."""
+        query: Any = supabase.table(Run.TABLE).select("*").eq("id", run_id).limit(1)
+        if user_id:
+            query = query.eq("user_id", user_id)
+        response: Any = query.execute()
+
+        if not response.data:
+            return None
+
+        return Run.model_validate(response.data[0])
+
+    @staticmethod
+    def get_status_counts(user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Fetch only the status column for all runs, returning a list of {status, count} dicts."""
+        query: Any = supabase.table(Run.TABLE).select("status").limit(1000)
+        if user_id:
+            query = query.eq("user_id", user_id)
+        response: Any = query.execute()
+
+        if not response.data:
+            return []
+
+        return [{"status": row["status"]} for row in response.data]
+
+    @staticmethod
     def get_all_runs(
         limit: int = 50,
         status: Optional[str] = None,

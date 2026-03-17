@@ -74,7 +74,7 @@ def test_order_count_defaults_zero_when_none(mocker, make_run):
 
 def test_run_detail_returns_embedded_orders(mocker, make_run, make_order):
     run = make_run(id=UUID(RUN_ID))
-    mocker.patch.object(Run, "get_all_runs", return_value=[run])
+    mocker.patch.object(Run, "get_by_id", return_value=run)
     mocker.patch.object(Order, "get_orders_for_runs", return_value=[make_order()])
     resp = client.get(f"/runs/{RUN_ID}")
     assert resp.status_code == 200
@@ -84,14 +84,14 @@ def test_run_detail_returns_embedded_orders(mocker, make_run, make_order):
 
 
 def test_run_detail_returns_404_when_not_found(mocker):
-    mocker.patch.object(Run, "get_all_runs", return_value=[])
+    mocker.patch.object(Run, "get_by_id", return_value=None)
     resp = client.get(f"/runs/{RUN_ID}")
     assert resp.status_code == 404
 
 
 def test_run_detail_orders_empty_list(mocker, make_run):
     run = make_run(id=UUID(RUN_ID))
-    mocker.patch.object(Run, "get_all_runs", return_value=[run])
+    mocker.patch.object(Run, "get_by_id", return_value=run)
     mocker.patch.object(Order, "get_orders_for_runs", return_value=[])
     resp = client.get(f"/runs/{RUN_ID}")
     assert resp.json()["orders"] == []
@@ -99,7 +99,7 @@ def test_run_detail_orders_empty_list(mocker, make_run):
 
 def test_order_display_name_fallback(mocker, make_run, make_order):
     run = make_run(id=UUID(RUN_ID))
-    mocker.patch.object(Run, "get_all_runs", return_value=[run])
+    mocker.patch.object(Run, "get_by_id", return_value=run)
     mocker.patch.object(
         Order,
         "get_orders_for_runs",

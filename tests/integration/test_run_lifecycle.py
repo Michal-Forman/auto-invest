@@ -53,6 +53,7 @@ class TestRunFillTransition:
         assert update_call["status"] == "FILLED"
         assert update_call["filled_total_czk"] == pytest.approx(4950.0)
 
+    @freeze_time("2026-03-04 09:00:00")
     def test_run_stays_finished_when_orders_still_pending(
         self,
         supabase_mocks: SimpleNamespace,

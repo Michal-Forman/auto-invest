@@ -15,6 +15,9 @@ export function useProfile() {
     mutationFn: (updates: Partial<UserProfile>) => api.updateProfile(updates),
     onSuccess: (updated) => {
       queryClient.setQueryData(["profile"], updated);
+      queryClient.invalidateQueries({ queryKey: ["instruments"] });
+      queryClient.invalidateQueries({ queryKey: ["config"] });
+      queryClient.invalidateQueries({ queryKey: ["health"] });
     },
   });
 
