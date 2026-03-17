@@ -17,6 +17,7 @@ export function useProfile() {
       queryClient.setQueryData(["profile"], updated);
       queryClient.invalidateQueries({ queryKey: ["instruments"] });
       queryClient.invalidateQueries({ queryKey: ["config"] });
+      queryClient.invalidateQueries({ queryKey: ["health"] });
     },
   });
 
