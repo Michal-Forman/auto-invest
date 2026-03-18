@@ -92,12 +92,12 @@ class Instruments:
         symbol = cls.get_yahoo_symbol(t212_ticker)
         ticker: yf.Ticker = yf.Ticker(symbol)
 
-        hist: pd.DataFrame = ticker.history(period="max")
+        ath: float = ticker.history(period="max")["Close"].max()
 
-        if hist.empty:
+        if pd.isna(ath):
             raise ValueError(f"No historical data for {symbol}")
 
-        return hist["Close"].max()
+        return float(ath)
 
     @classmethod
     def get_current_price(cls, t212_ticker: str) -> float:

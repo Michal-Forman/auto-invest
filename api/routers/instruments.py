@@ -68,7 +68,7 @@ def build_ratio_data(
         current: float = Instruments.get_current_price(ticker)
         return ticker, ath, current
 
-    with ThreadPoolExecutor(max_workers=5) as pool:
+    with ThreadPoolExecutor(max_workers=2) as pool:
         futures = {
             pool.submit(_fetch_ticker_data, ticker): ticker for ticker in default_ratios
         }
