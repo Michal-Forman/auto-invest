@@ -121,8 +121,14 @@ class Instruments:
         btc: yf.Ticker = yf.Ticker("BTC-USD")
         fx: yf.Ticker = yf.Ticker("USDCZK=X")
 
-        btc_usd: Any = btc.fast_info.get("lastPrice")
-        usdczk: Any = fx.fast_info.get("lastPrice")
+        try:
+            btc_usd: Any = btc.fast_info.get("lastPrice")
+        except Exception:
+            btc_usd = None
+        try:
+            usdczk: Any = fx.fast_info.get("lastPrice")
+        except Exception:
+            usdczk = None
 
         # Fallback if fast_info missing
         if btc_usd is None:
