@@ -1,5 +1,6 @@
 # Standard library
-from typing import Any, Dict, List
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any, Dict, List, Tuple
 
 # Third-party
 from fastapi import APIRouter, Depends
@@ -62,19 +63,28 @@ def build_ratio_data(
     multipliers: Dict[str, float] = {}
     adjusted_values: Dict[str, float] = {}
 
-    for ticker, base_ratio in default_ratios.items():
-        ath = Instruments.get_ath(ticker)
-        current = Instruments.get_current_price(ticker)
-        raw_drop = (ath - current) / ath * 100
-        cap_type = INSTRUMENT_CAPS.get(ticker, "none")
-        capped_drop = _apply_cap(raw_drop, cap_type)
-        mult = 100 / (100 - capped_drop)
+    def _fetch_ticker_data(ticker: str) -> Tuple[str, float, float]:
+        ath: float = Instruments.get_ath(ticker)
+        current: float = Instruments.get_current_price(ticker)
+        return ticker, ath, current
 
-        ath_prices[ticker] = ath
-        current_prices[ticker] = current
-        drop_pcts[ticker] = raw_drop
-        multipliers[ticker] = mult
-        adjusted_values[ticker] = base_ratio * mult
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        futures = {
+            pool.submit(_fetch_ticker_data, ticker): ticker for ticker in default_ratios
+        }
+        for future in as_completed(futures):
+            ticker, ath, current = future.result()
+            base_ratio: float = default_ratios[ticker]
+            raw_drop = (ath - current) / ath * 100
+            cap_type = INSTRUMENT_CAPS.get(ticker, "none")
+            capped_drop = _apply_cap(raw_drop, cap_type)
+            mult = 100 / (100 - capped_drop)
+
+            ath_prices[ticker] = ath
+            current_prices[ticker] = current
+            drop_pcts[ticker] = raw_drop
+            multipliers[ticker] = mult
+            adjusted_values[ticker] = base_ratio * mult
 
     total_adj = sum(adjusted_values.values())
     adj_weights: Dict[str, float] = {
