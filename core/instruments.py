@@ -97,7 +97,7 @@ class Instruments:
         if hist.empty:
             raise ValueError(f"No historical data for {symbol}")
 
-        return hist["Close"].max()
+        return float(hist["Close"].max())
 
     @classmethod
     def get_current_price(cls, t212_ticker: str) -> float:
