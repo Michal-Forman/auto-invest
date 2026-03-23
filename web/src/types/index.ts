@@ -99,6 +99,11 @@ export interface WarningItem {
   detail: string;
 }
 
+export interface HoldingItem {
+  ticker: string;
+  value_czk: number;
+}
+
 export interface UserProfile {
   t212_id_key: string;
   t212_private_key: string;

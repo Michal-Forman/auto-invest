@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Info } from "lucide-react";
 import { usePageTitle } from "@/hooks/use-page-title";
+import { useHoldings } from "@/hooks/use-holdings";
 import { useInstruments } from "@/hooks/use-instruments";
 import { formatNumber } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { CapType, Instrument } from "@/types";
 
-type SortKey = keyof Instrument;
+type SortKey = keyof Instrument | "holding_czk";
 
 type SortOption = {
   value: string;
@@ -29,6 +30,8 @@ const SORT_OPTIONS: SortOption[] = [
   { value: "multiplier|asc",    label: "Multiplier: Low → High", key: "multiplier",    asc: true  },
   { value: "next_czk|desc",     label: "Next CZK: High → Low",   key: "next_czk",      asc: false },
   { value: "next_czk|asc",      label: "Next CZK: Low → High",   key: "next_czk",      asc: true  },
+  { value: "holding_czk|desc",  label: "Holdings: High → Low",   key: "holding_czk",   asc: false },
+  { value: "holding_czk|asc",   label: "Holdings: Low → High",   key: "holding_czk",   asc: true  },
 ];
 
 function dropColor(drop: number) {
@@ -49,8 +52,11 @@ export function Instruments() {
   const [asc, setAsc] = useState(true);
 
   const { data: instruments, loading, error } = useInstruments();
+  const { data: holdings, loading: holdingsLoading } = useHoldings();
 
   if (error) return <p className="text-red-600 p-6">Failed to load data.</p>;
+
+  const holdingsMap = Object.fromEntries((holdings ?? []).map((h) => [h.ticker, h.value_czk]));
 
   function handleSort(key: SortKey) {
     if (key === sortKey) setAsc(!asc);
@@ -67,13 +73,13 @@ export function Instruments() {
   }
 
   const sorted = [...(instruments ?? [])].sort((a, b) => {
-    const va = a[sortKey];
-    const vb = b[sortKey];
+    const va = sortKey === "holding_czk" ? (holdingsMap[a.ticker] ?? 0) : a[sortKey as keyof Instrument];
+    const vb = sortKey === "holding_czk" ? (holdingsMap[b.ticker] ?? 0) : b[sortKey as keyof Instrument];
     if (typeof va === "number" && typeof vb === "number") return asc ? va - vb : vb - va;
     return asc ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
   });
 
-  function SortHeader({ label, col, tooltip }: { label: string; col: SortKey; tooltip?: string }) {
+  function SortHeader({ label, col, tooltip }: { label: string; col: SortKey; tooltip?: string; }) {
     return (
       <TableHead
         className="cursor-pointer select-none hover:bg-primary/10 text-primary"
@@ -120,7 +126,7 @@ export function Instruments() {
 
         <Card>
           <CardContent className="p-0 overflow-auto -mt-4">
-            {loading ? (
+            {loading || holdingsLoading ? (
               <div className="p-4 space-y-2">
                 {Array.from({ length: 8 }).map((_, i) => (
                   <Skeleton key={i} className="h-8 w-full" />
@@ -159,6 +165,11 @@ export function Instruments() {
                     col="next_czk"
                     tooltip="Estimated CZK amount to be invested in the next scheduled run, after applying the multiplier and normalising across all instruments."
                   />
+                  <SortHeader
+                    label="Holdings CZK"
+                    col="holding_czk"
+                    tooltip="Current value of holdings in this instrument, converted to CZK at latest prices."
+                  />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -182,6 +193,9 @@ export function Instruments() {
                     </TableCell>
                     <TableCell>{inst.multiplier.toFixed(2)}×</TableCell>
                     <TableCell className="font-medium">{formatNumber(inst.next_czk)}</TableCell>
+                    <TableCell className="font-medium">
+                      {holdingsMap[inst.ticker] != null ? formatNumber(holdingsMap[inst.ticker]) : "—"}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

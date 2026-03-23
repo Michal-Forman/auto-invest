@@ -14,6 +14,7 @@ from api.schemas import (
     AnalyticsAllocationItem,
     AnalyticsRunItem,
     AnalyticsStatusItem,
+    HoldingItem,
     PortfolioValueItem,
     WarningItem,
 )
@@ -91,19 +92,16 @@ _FX_SYMBOLS: Dict[str, str] = {
 }
 
 
-@router.get("/portfolio-value", response_model=List[PortfolioValueItem])
-def analytics_portfolio_value(
-    user_id: str = Depends(get_current_user_id),
-) -> List[PortfolioValueItem]:
-    """Return current portfolio value (CZK) based on filled quantities and latest prices."""
-    cache_key = f"portfolio_value:{user_id}"
+def _compute_holdings_czk(user_id: str) -> Dict[str, float]:
+    """Return per-ticker portfolio value in CZK based on filled quantities and latest prices."""
+    cache_key = f"holdings_czk:{user_id}"
     if cache_key in instruments_cache:
         return instruments_cache[cache_key]  # type: ignore[return-value]
 
     all_orders: List[Order] = Order.get_orders(status="FILLED", user_id=user_id)
     valid_orders = [o for o in all_orders if o.filled_at and o.filled_quantity]
     if not valid_orders:
-        return []
+        return {}
 
     holdings: Dict[str, float] = defaultdict(float)
     for o in valid_orders:
@@ -141,7 +139,7 @@ def analytics_portfolio_value(
         clean = series.dropna()
         return float(clean.iloc[-1]) if not clean.empty else 0.0
 
-    total_czk = 0.0
+    per_ticker: Dict[str, float] = {}
     for ticker, qty in holdings.items():
         if qty <= 0:
             continue
@@ -157,13 +155,31 @@ def analytics_portfolio_value(
             price_czk = price * fx * (0.01 if currency == "GBX" else 1.0)
         else:
             price_czk = price
-        total_czk += qty * price_czk
+        per_ticker[ticker] = qty * price_czk
 
-    result: List[PortfolioValueItem] = [
-        PortfolioValueItem(date=date.today().isoformat(), value=round(total_czk, 0))
-    ]
-    instruments_cache[cache_key] = result
-    return result
+    instruments_cache[cache_key] = per_ticker
+    return per_ticker
+
+
+@router.get("/portfolio-value", response_model=List[PortfolioValueItem])
+def analytics_portfolio_value(
+    user_id: str = Depends(get_current_user_id),
+) -> List[PortfolioValueItem]:
+    """Return current portfolio value (CZK) based on filled quantities and latest prices."""
+    per_ticker = _compute_holdings_czk(user_id)
+    if not per_ticker:
+        return []
+    total_czk = sum(per_ticker.values())
+    return [PortfolioValueItem(date=date.today().isoformat(), value=round(total_czk, 0))]
+
+
+@router.get("/holdings", response_model=List[HoldingItem])
+def analytics_holdings(
+    user_id: str = Depends(get_current_user_id),
+) -> List[HoldingItem]:
+    """Return per-ticker holdings value in CZK."""
+    per_ticker = _compute_holdings_czk(user_id)
+    return [HoldingItem(ticker=t, value_czk=round(v, 0)) for t, v in per_ticker.items()]
 
 
 @router.get("/warnings", response_model=List[WarningItem])

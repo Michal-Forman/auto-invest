@@ -1,12 +1,11 @@
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/lib/auth-context";
 import { Layout } from "@/components/layout/Layout";
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
 import { Overview } from "@/pages/Overview";
-import { RunHistory } from "@/pages/RunHistory";
+import { History } from "@/pages/History";
 import { RunDetail } from "@/pages/RunDetail";
-import { Orders } from "@/pages/Orders";
 import { Instruments } from "@/pages/Instruments";
 import { Invest } from "@/pages/Invest";
 import { Analytics } from "@/pages/Analytics";
@@ -29,9 +28,10 @@ export default function App() {
             <Route path="/app" element={<ProtectedRoute />}>
               <Route element={<Layout />}>
                 <Route index element={<Overview />} />
-                <Route path="runs" element={<RunHistory />} />
+                <Route path="history" element={<History />} />
+                <Route path="runs" element={<Navigate to="/app/history" replace />} />
                 <Route path="runs/:id" element={<RunDetail />} />
-                <Route path="orders" element={<Orders />} />
+                <Route path="orders" element={<Navigate to="/app/history" replace />} />
                 <Route path="instruments" element={<Instruments />} />
                 <Route path="invest" element={<Invest />} />
                 <Route path="analytics" element={<Analytics />} />

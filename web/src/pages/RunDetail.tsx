@@ -21,7 +21,7 @@ export function RunDetail() {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/runs")}>
+          <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
             <ChevronLeft className="h-4 w-4 mr-1" /> Back
           </Button>
           <Skeleton className="h-8 w-32" />
@@ -67,7 +67,7 @@ export function RunDetail() {
   if (error || !run) {
     return (
       <div className="space-y-4">
-        <Button variant="ghost" size="sm" onClick={() => navigate("/runs")}>
+        <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
           <ChevronLeft className="h-4 w-4 mr-1" /> Back
         </Button>
         <p className="text-muted-foreground">{error ? "Failed to load data." : "Run not found."}</p>
@@ -80,7 +80,7 @@ export function RunDetail() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={() => navigate("/runs")}>
+        <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
           <ChevronLeft className="h-4 w-4 mr-1" /> Back
         </Button>
         <h1 className="text-2xl font-semibold">Run Detail</h1>

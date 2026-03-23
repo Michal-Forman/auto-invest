@@ -6,6 +6,7 @@ import type {
   Instrument,
   AnalyticsRunItem,
   AnalyticsStatusItem,
+  HoldingItem,
   PortfolioValueItem,
   WarningItem,
   UserProfile,
@@ -112,6 +113,10 @@ export const api = {
 
   getPortfolioValue(): Promise<PortfolioValueItem[]> {
     return apiFetch<PortfolioValueItem[]>("/analytics/portfolio-value");
+  },
+
+  getHoldings(): Promise<HoldingItem[]> {
+    return apiFetch<HoldingItem[]>("/analytics/holdings");
   },
 
   getWarnings(days?: number): Promise<WarningItem[]> {

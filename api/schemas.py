@@ -101,6 +101,11 @@ class PortfolioValueItem(BaseModel):
     value: float
 
 
+class HoldingItem(BaseModel):
+    ticker: str
+    value_czk: float
+
+
 class WarningItem(BaseModel):
     ticker: str
     type: str
