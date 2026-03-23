@@ -50,7 +50,7 @@ export function RunsSection() {
     else { setSortCol(col); setSortAsc(true); }
   }
 
-  function handleDropdownSort(value: string) {
+  function handleDropdownSort(value: string | null) {
     const opt = SORT_OPTIONS.find((o) => o.value === value);
     if (opt) { setSortCol(opt.col); setSortAsc(opt.asc); }
   }

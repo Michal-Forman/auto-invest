@@ -67,7 +67,7 @@ export function Instruments() {
   const currentSortLabel = SORT_OPTIONS.find((o) => o.value === currentSortValue)?.label
     ?? `${sortKey} ${asc ? "↑" : "↓"}`;
 
-  function handleSortSelect(value: string) {
+  function handleSortSelect(value: string | null) {
     const opt = SORT_OPTIONS.find((o) => o.value === value);
     if (opt) { setSortKey(opt.key); setAsc(opt.asc); }
   }

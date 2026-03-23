@@ -12,29 +12,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import type { PortfolioValueItem, WarningItem } from "@/types";
-import type { Run } from "@/types";
+import type { WarningItem } from "@/types";
 
 const CRON_HOUR = import.meta.env.VITE_INVEST_CRON?.split(" ")[1] ?? null;
 
-type Period = "1W" | "1M" | "3M" | "6M" | "1Y" | "All";
-const PERIOD_DAYS: Record<Period, number | null> = { "1W": 7, "1M": 30, "3M": 90, "6M": 180, "1Y": 365, "All": null };
-
-function computeGain(portfolioValue: PortfolioValueItem[], runs: Run[], period: Period): { czk: number; pct: number } | null {
-  if (!portfolioValue.length) return null;
-  const current = portfolioValue[portfolioValue.length - 1].value;
-  const days = PERIOD_DAYS[period];
-  const cutoff = days ? new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10) : null;
-  const candidates = cutoff ? portfolioValue.filter((p) => p.date <= cutoff) : [];
-  const startValue = candidates.length ? candidates[candidates.length - 1].value : portfolioValue[0].value;
-  const investedInPeriod = runs
-    .filter((r) => (r.status === "FILLED" || r.status === "FINISHED") && (!cutoff || r.created_at >= cutoff))
-    .reduce((sum, r) => sum + r.total_czk, 0);
-  const denominator = startValue + investedInPeriod;
-  if (denominator === 0) return null;
-  const czk = current - startValue - investedInPeriod;
-  return { czk, pct: (czk / denominator) * 100 };
-}
 
 function withEnvTime(cron: string): string {
   if (!CRON_HOUR) return cron;
