@@ -5,8 +5,6 @@ from typing import Any, Dict, List
 
 # Third-party
 from fastapi import APIRouter, Depends
-import numpy as np
-import pandas as pd  # type: ignore[import-untyped]
 import yfinance as yf  # type: ignore[import-untyped]
 
 # Local
@@ -93,24 +91,11 @@ _FX_SYMBOLS: Dict[str, str] = {
 }
 
 
-def _get_price(close_series: Dict[str, Any], symbol: str, target: date) -> float:
-    """Return the last available close price for symbol on or before target date."""
-    series = close_series.get(symbol)
-    if series is None or series.empty:
-        return 0.0
-    target_ts = pd.Timestamp(target)
-    filtered = series[series.index.normalize() <= target_ts].dropna()
-    if filtered.empty:
-        fallback = series.dropna()
-        return float(fallback.iloc[0]) if not fallback.empty else 0.0
-    return float(filtered.iloc[-1])
-
-
 @router.get("/portfolio-value", response_model=List[PortfolioValueItem])
 def analytics_portfolio_value(
     user_id: str = Depends(get_current_user_id),
 ) -> List[PortfolioValueItem]:
-    """Return actual portfolio value (CZK) at each completed run date using historical prices."""
+    """Return current portfolio value (CZK) based on filled quantities and latest prices."""
     cache_key = f"portfolio_value:{user_id}"
     if cache_key in instruments_cache:
         return instruments_cache[cache_key]  # type: ignore[return-value]
@@ -120,21 +105,13 @@ def analytics_portfolio_value(
     if not valid_orders:
         return []
 
-    all_runs: List[Run] = Run.get_all_runs(limit=1000, user_id=user_id)
-    snapshot_dates = sorted(
-        {r.started_at.date() for r in all_runs if r.status in ("FILLED", "FINISHED")}
-    )
-    if not snapshot_dates:
-        return []
-
-    valid_orders.sort(key=lambda o: o.filled_at or datetime.min)  # type: ignore[arg-type]
+    holdings: Dict[str, float] = defaultdict(float)
+    for o in valid_orders:
+        holdings[o.t212_ticker] += o.filled_quantity or 0.0
 
     ticker_meta: Dict[str, tuple] = {
         o.t212_ticker: (o.yahoo_symbol, o.currency) for o in valid_orders
     }
-
-    start_date = valid_orders[0].filled_at.date() - timedelta(days=7)  # type: ignore[union-attr]
-    end_date = date.today() + timedelta(days=1)
 
     yahoo_symbols: List[str] = list({meta[0] for meta in ticker_meta.values()})
     fx_needed: List[str] = list(
@@ -148,50 +125,43 @@ def analytics_portfolio_value(
 
     if len(all_dl) == 1:
         hist_raw = yf.download(
-            all_dl[0], start=start_date, end=end_date, auto_adjust=True, progress=False
+            all_dl[0], period="5d", auto_adjust=True, progress=False
         )
         close_series: Dict[str, Any] = {all_dl[0]: hist_raw["Close"]}
     else:
         hist_raw = yf.download(
-            all_dl, start=start_date, end=end_date, auto_adjust=True, progress=False
+            all_dl, period="5d", auto_adjust=True, progress=False
         )
         close_series = {sym: hist_raw["Close"][sym] for sym in all_dl}
 
-    result: List[PortfolioValueItem] = []
-    running_holdings: Dict[str, float] = defaultdict(float)
-    order_idx = 0
+    def _latest_price(symbol: str) -> float:
+        series = close_series.get(symbol)
+        if series is None or series.empty:
+            return 0.0
+        clean = series.dropna()
+        return float(clean.iloc[-1]) if not clean.empty else 0.0
 
-    for snap_date in snapshot_dates:
-        while order_idx < len(valid_orders):
-            o = valid_orders[order_idx]
-            if o.filled_at.date() <= snap_date:  # type: ignore[union-attr]
-                running_holdings[o.t212_ticker] += o.filled_quantity or 0.0
-                order_idx += 1
-            else:
-                break
+    total_czk = 0.0
+    for ticker, qty in holdings.items():
+        if qty <= 0:
+            continue
+        meta = ticker_meta.get(ticker)
+        if not meta:
+            continue
+        yahoo_symbol, currency = meta
+        price = _latest_price(yahoo_symbol)
+        if currency == "CZK":
+            price_czk = price
+        elif currency in _FX_SYMBOLS:
+            fx = _latest_price(_FX_SYMBOLS[currency])
+            price_czk = price * fx * (0.01 if currency == "GBX" else 1.0)
+        else:
+            price_czk = price
+        total_czk += qty * price_czk
 
-        total_czk = 0.0
-        for ticker, qty in running_holdings.items():
-            if qty <= 0:
-                continue
-            meta = ticker_meta.get(ticker)
-            if not meta:
-                continue
-            yahoo_symbol, currency = meta
-            price = _get_price(close_series, yahoo_symbol, snap_date)
-            if currency == "CZK":
-                price_czk = price
-            elif currency in _FX_SYMBOLS:
-                fx = _get_price(close_series, _FX_SYMBOLS[currency], snap_date)
-                price_czk = price * fx * (0.01 if currency == "GBX" else 1.0)
-            else:
-                price_czk = price
-            total_czk += qty * price_czk
-
-        result.append(
-            PortfolioValueItem(date=snap_date.isoformat(), value=round(total_czk, 0))
-        )
-
+    result: List[PortfolioValueItem] = [
+        PortfolioValueItem(date=date.today().isoformat(), value=round(total_czk, 0))
+    ]
     instruments_cache[cache_key] = result
     return result
 

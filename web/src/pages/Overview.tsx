@@ -102,7 +102,10 @@ export function Overview() {
   const recent = runs?.slice(0, 5) ?? [];
 
   const currentValue = portfolioValue?.length ? portfolioValue[portfolioValue.length - 1].value : null;
-  const totalGain = portfolioValue && runs ? computeGain(portfolioValue, runs, "All") : null;
+  const totalGain: number | null =
+    currentValue !== null && totalInvested > 0
+      ? ((currentValue - totalInvested) / totalInvested) * 100
+      : null;
 
   return (
     <div className="space-y-6">
@@ -125,8 +128,8 @@ export function Overview() {
                   <div className="text-xs text-muted-foreground mt-1">
                     Total invested: {formatNumber(totalInvested)} CZK
                     {totalGain !== null && (
-                      <span className={`ml-1.5 font-medium ${totalGain.pct >= 0 ? "text-green-600" : "text-red-500"}`}>
-                        ({totalGain.pct >= 0 ? "+" : ""}{formatNumber(totalGain.pct, 2)}%)
+                      <span className={`ml-1.5 font-medium ${totalGain >= 0 ? "text-green-600" : "text-red-500"}`}>
+                        ({totalGain >= 0 ? "+" : ""}{formatNumber(totalGain, 2)}%)
                       </span>
                     )}
                   </div>
