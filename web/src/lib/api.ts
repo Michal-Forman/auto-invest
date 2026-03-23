@@ -6,7 +6,13 @@ import type {
   Instrument,
   AnalyticsRunItem,
   AnalyticsStatusItem,
+  HoldingItem,
+  HoldingRatioItem,
+  PortfolioHistoryItem,
   PortfolioValueItem,
+  ProfitLossResponse,
+  StrategyComparisonItem,
+  WarningItem,
   UserProfile,
 } from "@/types";
 import { supabase } from "@/lib/supabase";
@@ -32,6 +38,16 @@ async function apiFetch<T>(path: string, params?: Record<string, string>): Promi
     throw new Error("Unauthorized");
   }
 
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  return res.json() as Promise<T>;
+}
+
+async function apiPost<T>(path: string, params?: Record<string, string>): Promise<T> {
+  const url = new URL(`${API_BASE}${path}`);
+  if (params) Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  const headers = await getAuthHeaders();
+  const res = await fetch(url.toString(), { method: "POST", headers });
+  if (res.status === 401) { window.location.href = "/login"; throw new Error("Unauthorized"); }
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json() as Promise<T>;
 }
@@ -103,11 +119,41 @@ export const api = {
     return apiFetch<PortfolioValueItem[]>("/analytics/portfolio-value");
   },
 
+  getHoldings(): Promise<HoldingItem[]> {
+    return apiFetch<HoldingItem[]>("/analytics/holdings");
+  },
+
+  getWarnings(days?: number): Promise<WarningItem[]> {
+    const params: Record<string, string> = {};
+    if (days !== undefined) params.days = String(days);
+    return apiFetch<WarningItem[]>("/analytics/warnings", params);
+  },
+
   getProfile(): Promise<UserProfile> {
     return apiFetch<UserProfile>("/profile");
   },
 
   updateProfile(data: Partial<UserProfile>): Promise<UserProfile> {
     return apiPatch<UserProfile>("/profile", data);
+  },
+
+  placeInvestment(amount: number): Promise<{ run_id: string; total_czk: number }> {
+    return apiPost("/invest", { amount: String(amount) });
+  },
+
+  getProfitLoss(): Promise<ProfitLossResponse> {
+    return apiFetch<ProfitLossResponse>("/analytics/profit-loss");
+  },
+
+  getPortfolioHistory(): Promise<PortfolioHistoryItem[]> {
+    return apiFetch<PortfolioHistoryItem[]>("/analytics/portfolio-history");
+  },
+
+  getStrategyComparison(): Promise<StrategyComparisonItem[]> {
+    return apiFetch<StrategyComparisonItem[]>("/analytics/strategy-comparison");
+  },
+
+  getHoldingsRatio(): Promise<HoldingRatioItem[]> {
+    return apiFetch<HoldingRatioItem[]>("/analytics/holdings-ratio");
   },
 };

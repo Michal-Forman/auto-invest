@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { usePageTitle } from "@/hooks/use-page-title";
 import { useRuns } from "@/hooks/use-runs";
 import { formatNumber } from "@/lib/utils";
 import { StatusBadge } from "@/components/shared/StatusBadge";
@@ -30,8 +29,7 @@ function compareRuns(a: Run, b: Run, col: RunColKey): number {
   }
 }
 
-export function RunHistory() {
-  usePageTitle("Runs");
+export function RunsSection() {
   const navigate = useNavigate();
   const { data: runs, loading, error } = useRuns();
   const [status, setStatus] = useState<RunStatus | typeof ALL>(ALL);
@@ -74,8 +72,6 @@ export function RunHistory() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold text-primary">Run History</h1>
-
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-wrap gap-3">
           <div className="flex flex-col gap-1">
@@ -133,7 +129,7 @@ export function RunHistory() {
                     <TableRow
                       key={run.id}
                       className="cursor-pointer"
-                      onClick={() => navigate(`/runs/${run.id}`)}
+                      onClick={() => navigate(`/app/runs/${run.id}`)}
                     >
                       <TableCell>
                         {new Date(run.created_at).toLocaleDateString("en-GB", {

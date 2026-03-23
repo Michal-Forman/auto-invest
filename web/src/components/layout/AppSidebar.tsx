@@ -3,7 +3,6 @@ import {
   BarChart3,
   Gauge,
   History,
-  ListOrdered,
   PlayCircle,
   TrendingUp,
   UserCircle,
@@ -26,10 +25,9 @@ import {
 
 const navItems = [
   { to: "/app", label: "Overview", icon: Gauge },
-  { to: "/app/runs", label: "Run History", icon: History },
-  { to: "/app/orders", label: "Orders", icon: ListOrdered },
+  { to: "/app/history", label: "History", icon: History },
   { to: "/app/instruments", label: "Instruments", icon: TrendingUp },
-  { to: "/app/preview", label: "Next Run Preview", icon: PlayCircle },
+  { to: "/app/invest", label: "Invest", icon: PlayCircle },
   { to: "/app/analytics", label: "Analytics", icon: BarChart3 },
 ];
 

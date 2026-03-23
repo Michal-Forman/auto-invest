@@ -5,10 +5,9 @@ import { useAuth } from "@/lib/auth-context";
 
 const navItems = [
   { to: ".", label: "Overview", end: true },
-  { to: "runs", label: "Run History" },
-  { to: "orders", label: "Orders" },
+  { to: "history", label: "History" },
   { to: "instruments", label: "Instruments" },
-  { to: "preview", label: "Next Run Preview" },
+  { to: "invest", label: "Invest" },
   { to: "analytics", label: "Analytics" },
 ];
 

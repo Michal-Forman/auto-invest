@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { usePageTitle } from "@/hooks/use-page-title";
 import { useOrders } from "@/hooks/use-orders";
 import { useRuns } from "@/hooks/use-runs";
 import { formatNumber } from "@/lib/utils";
@@ -36,8 +35,7 @@ function compareOrders(a: Order, b: Order, col: OrderColKey, runDateMap: Record<
   }
 }
 
-export function Orders() {
-  usePageTitle("Orders");
+export function OrdersSection() {
   const [search, setSearch] = useState("");
   const [exchange, setExchange] = useState<Exchange | typeof ALL>(ALL);
   const [status, setStatus] = useState<OrderStatus | typeof ALL>(ALL);
@@ -93,8 +91,6 @@ export function Orders() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Orders</h1>
-
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-wrap gap-3">
           <div className="flex flex-col gap-1">

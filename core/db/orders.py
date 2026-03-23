@@ -24,6 +24,7 @@ Side = Literal["BUY", "SELL"]
 Exchange = Literal["T212", "COINMATE"]
 OrderType = Literal["MARKET", "LIMIT", "INSTANT", "QUICK"]
 InstrumentType = Literal["STOCK", "ETF", "CRYPTO"]
+InvestmentType = Literal["dca", "one_time"]
 Status = Literal[
     "SUBMITTED",
     "FILLED",
@@ -65,6 +66,7 @@ class Order(BaseDBModel):
     t212_ticker: str
     yahoo_symbol: str
     name: str
+    investment_type: InvestmentType = "dca"
 
     currency: Currency
     side: Side

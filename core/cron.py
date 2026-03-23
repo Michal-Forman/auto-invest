@@ -135,7 +135,7 @@ def run_for_user(user: UserRecord) -> None:
             ]
             multipliers: Dict[str, float] = calculated_investment["multipliers"]
             orders: List[Order] = executor.place_orders(
-                cash_distribution, multipliers, run_id=run.id
+                cash_distribution, multipliers, run_id=run.id, investment_type="dca"
             )
             log.info("Investment process finished")
 

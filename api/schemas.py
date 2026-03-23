@@ -101,6 +101,17 @@ class PortfolioValueItem(BaseModel):
     value: float
 
 
+class HoldingItem(BaseModel):
+    ticker: str
+    value_czk: float
+
+
+class WarningItem(BaseModel):
+    ticker: str
+    type: str
+    detail: str
+
+
 class ProfileResponse(BaseModel):
     t212_id_key: str
     t212_private_key: str
@@ -125,6 +136,35 @@ class ProfileResponse(BaseModel):
     btc_withdrawals_enabled: bool
     trading212_enabled: bool
     coinmate_enabled: bool
+
+
+class InvestResponse(BaseModel):
+    run_id: str
+    total_czk: float
+
+
+class ProfitLossResponse(BaseModel):
+    filled_run_count: int
+    total_invested_czk: float
+    current_value_czk: float
+    gain_czk: float
+    gain_pct: float
+
+
+class PortfolioHistoryItem(BaseModel):
+    date: str
+    value: float
+
+
+class StrategyComparisonItem(BaseModel):
+    date: str
+    actual_value: float
+    baseline_value: float
+
+
+class HoldingRatioItem(BaseModel):
+    ticker: str
+    ratio_pct: float
 
 
 class ProfileUpdate(BaseModel):

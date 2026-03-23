@@ -19,6 +19,7 @@ from core.settings import PortfolioSettings, settings
 RUN_EXPIRY_DAYS = 14
 
 Status = Literal["CREATED", "FINISHED", "FILLED", "FAILED", "UNKNOWN"]
+InvestmentType = Literal["dca", "one_time"]
 
 
 class RunUpdate(BaseModel):
@@ -52,6 +53,7 @@ class Run(BaseDBModel):
     invest_interval: str
     t212_default_weight: float
     btc_default_weight: float
+    investment_type: InvestmentType = "dca"
 
     # --- Execution summary ---
     planned_total_czk: Optional[float] = None
@@ -102,6 +104,7 @@ class Run(BaseDBModel):
         run_start: datetime,
         portfolio: "PortfolioSettings",
         user_id: Optional[str] = None,
+        investment_type: InvestmentType = "dca",
     ) -> Run:
         """Create a new CREATED run with the given portfolio settings, insert it into DB, and return the persisted Run."""
         run = Run(
@@ -116,6 +119,7 @@ class Run(BaseDBModel):
             failed_orders=0,
             test=False,
             user_id=user_id,
+            investment_type=investment_type,
         )
 
         try:
