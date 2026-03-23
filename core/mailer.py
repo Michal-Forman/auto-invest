@@ -24,7 +24,14 @@ from core.db.orders import Order
 from core.db.runs import Run
 from core.log import log
 from core.settings import UserSettings, settings
-from core.warnings import compute_warnings
+from core.warnings import (
+    _FEE_RATIO_THRESHOLD,
+    _FX_DRIFT_THRESHOLD,
+    _SLIPPAGE_THRESHOLD,
+    compute_warnings,
+)
+
+__all__ = ["_FEE_RATIO_THRESHOLD", "_FX_DRIFT_THRESHOLD", "_SLIPPAGE_THRESHOLD"]
 
 _TEMPLATE_DIR = os.path.join(os.path.dirname(__file__), "templates", "emails")
 _ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")

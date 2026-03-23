@@ -126,14 +126,10 @@ def _compute_holdings_czk(user_id: str) -> Dict[str, float]:
     all_dl = yahoo_symbols + fx_needed
 
     if len(all_dl) == 1:
-        hist_raw = yf.download(
-            all_dl[0], period="5d", auto_adjust=True, progress=False
-        )
+        hist_raw = yf.download(all_dl[0], period="5d", auto_adjust=True, progress=False)
         close_series: Dict[str, Any] = {all_dl[0]: hist_raw["Close"]}
     else:
-        hist_raw = yf.download(
-            all_dl, period="5d", auto_adjust=True, progress=False
-        )
+        hist_raw = yf.download(all_dl, period="5d", auto_adjust=True, progress=False)
         close_series = {sym: hist_raw["Close"][sym] for sym in all_dl}
 
     def _latest_price(symbol: str) -> float:
@@ -170,11 +166,18 @@ def analytics_portfolio_value(
     user_id: str = Depends(get_current_user_id),
 ) -> List[PortfolioValueItem]:
     """Return current portfolio value (CZK) based on filled quantities and latest prices."""
+    cache_key = f"portfolio_value:{user_id}"
+    if cache_key in instruments_cache:
+        return instruments_cache[cache_key]  # type: ignore[return-value]
     per_ticker = _compute_holdings_czk(user_id)
     if not per_ticker:
         return []
     total_czk = sum(per_ticker.values())
-    return [PortfolioValueItem(date=date.today().isoformat(), value=round(total_czk, 0))]
+    result = [
+        PortfolioValueItem(date=date.today().isoformat(), value=round(total_czk, 0))
+    ]
+    instruments_cache[cache_key] = result
+    return result
 
 
 @router.get("/holdings", response_model=List[HoldingItem])
@@ -200,11 +203,20 @@ def _fetch_price_history(
     end_dl = end_date + timedelta(days=1)
 
     if len(all_dl) == 1:
-        hist = yf.download(all_dl[0], start=start_date, end=end_dl, auto_adjust=True, progress=False)
+        hist = yf.download(
+            all_dl[0], start=start_date, end=end_dl, auto_adjust=True, progress=False
+        )
         return {all_dl[0]: hist["Close"]}
     else:
-        hist = yf.download(all_dl, start=start_date, end=end_dl, auto_adjust=True, progress=False)
+        hist = yf.download(
+            all_dl, start=start_date, end=end_dl, auto_adjust=True, progress=False
+        )
         return {sym: hist["Close"][sym] for sym in all_dl}
+
+
+def _get_price(close_series: Dict[str, Any], symbol: str, target: date) -> float:
+    """Return closing price for symbol on or before target date."""
+    return _price_on_date(close_series.get(symbol), target)
 
 
 def _price_on_date(series: Any, target: date) -> float:
@@ -238,7 +250,9 @@ def _to_czk_on_date(
 def analytics_profit_loss(
     user_id: str = Depends(get_current_user_id),
 ) -> ProfitLossResponse:
-    filled_runs: List[Run] = Run.get_all_runs(limit=1000, status="FILLED", user_id=user_id)
+    filled_runs: List[Run] = Run.get_all_runs(
+        limit=1000, status="FILLED", user_id=user_id
+    )
     filled_run_count = len(filled_runs)
     total_invested = sum(
         r.filled_total_czk or r.planned_total_czk or 0.0 for r in filled_runs
@@ -265,7 +279,10 @@ def analytics_holdings_ratio(
     if total == 0:
         return []
     return sorted(
-        [HoldingRatioItem(ticker=t, ratio_pct=round(v / total * 100, 2)) for t, v in per_ticker.items()],
+        [
+            HoldingRatioItem(ticker=t, ratio_pct=round(v / total * 100, 2))
+            for t, v in per_ticker.items()
+        ],
         key=lambda x: x.ratio_pct,
         reverse=True,
     )
@@ -316,7 +333,9 @@ def analytics_portfolio_history(
             price = _price_on_date(close_series.get(yahoo_sym), snap_date)
             total_czk += _to_czk_on_date(price, currency, close_series, snap_date) * qty
 
-        result.append(PortfolioHistoryItem(date=snap_date.isoformat(), value=round(total_czk, 0)))
+        result.append(
+            PortfolioHistoryItem(date=snap_date.isoformat(), value=round(total_czk, 0))
+        )
 
     instruments_cache[cache_key] = result
     return result
@@ -330,8 +349,12 @@ def analytics_strategy_comparison(
     if cache_key in instruments_cache:
         return instruments_cache[cache_key]  # type: ignore[return-value]
 
-    filled_runs: List[Run] = Run.get_all_runs(limit=1000, status="FILLED", user_id=user_id)
-    filled_runs = sorted([r for r in filled_runs if r.distribution], key=lambda r: r.started_at)
+    filled_runs: List[Run] = Run.get_all_runs(
+        limit=1000, status="FILLED", user_id=user_id
+    )
+    filled_runs = sorted(
+        [r for r in filled_runs if r.distribution], key=lambda r: r.started_at
+    )
     if not filled_runs:
         return []
 
@@ -356,7 +379,10 @@ def analytics_strategy_comparison(
     result: List[StrategyComparisonItem] = []
 
     for snap_date in snap_dates:
-        while run_idx < len(filled_runs) and filled_runs[run_idx].started_at.date() <= snap_date:
+        while (
+            run_idx < len(filled_runs)
+            and filled_runs[run_idx].started_at.date() <= snap_date
+        ):
             run = filled_runs[run_idx]
             dist: Dict[str, Any] = run.distribution or {}
             mults: Dict[str, Any] = run.multipliers or {}
@@ -365,7 +391,9 @@ def analytics_strategy_comparison(
             unboost = {t: czk / mults.get(t, 1.0) for t, czk in dist.items()}
             total_unboost = sum(unboost.values())
             if total_unboost > 0:
-                baseline_dist = {t: (v / total_unboost) * planned_total for t, v in unboost.items()}
+                baseline_dist = {
+                    t: (v / total_unboost) * planned_total for t, v in unboost.items()
+                }
             else:
                 baseline_dist = {}
 
@@ -399,11 +427,13 @@ def analytics_strategy_comparison(
                 total += _to_czk_on_date(price, currency, close_series, snap_date) * qty
             return round(total, 0)
 
-        result.append(StrategyComparisonItem(
-            date=snap_date.isoformat(),
-            actual_value=portfolio_value(actual_qty),
-            baseline_value=portfolio_value(baseline_qty),
-        ))
+        result.append(
+            StrategyComparisonItem(
+                date=snap_date.isoformat(),
+                actual_value=portfolio_value(actual_qty),
+                baseline_value=portfolio_value(baseline_qty),
+            )
+        )
 
     instruments_cache[cache_key] = result
     return result

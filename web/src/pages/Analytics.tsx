@@ -14,11 +14,13 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { Info } from "lucide-react";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useAnalytics } from "@/hooks/use-analytics";
 import { formatNumber } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip as UITooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 
 const COLORS = ["#1e3a8a", "#1e40af", "#2563eb", "#3b82f6", "#60a5fa", "#93c5fd", "#f59e0b", "#10b981"];
 const STATUS_COLORS: Record<string, string> = {
@@ -32,7 +34,7 @@ type Period = "1M" | "3M" | "6M" | "1Y" | "All";
 
 function periodCutoff(period: Period): string | null {
   const now = new Date();
-  if (period === "1M") { now.setMonth(now.getMonth() - 1); return now.toISOString().slice(0, 10); }
+if (period === "1M") { now.setMonth(now.getMonth() - 1); return now.toISOString().slice(0, 10); }
   if (period === "3M") { now.setMonth(now.getMonth() - 3); return now.toISOString().slice(0, 10); }
   if (period === "6M") { now.setMonth(now.getMonth() - 6); return now.toISOString().slice(0, 10); }
   if (period === "1Y") { now.setFullYear(now.getFullYear() - 1); return now.toISOString().slice(0, 10); }
@@ -64,6 +66,12 @@ export function Analytics() {
   const filteredComparison = strategyComparison
     ? cutoff ? strategyComparison.filter((d) => d.date >= cutoff) : strategyComparison
     : null;
+
+  const lastPoint = filteredComparison?.at(-1) ?? null;
+  const strategyDelta =
+    lastPoint && lastPoint.baseline_value > 0
+      ? ((lastPoint.actual_value - lastPoint.baseline_value) / lastPoint.baseline_value) * 100
+      : null;
 
   const gainPositive = (profitLoss?.gain_czk ?? 0) >= 0;
 
@@ -162,8 +170,27 @@ export function Analytics() {
       {/* Section 3 — Strategy Comparison */}
       <Card>
         <CardHeader className="-mt-4 border-b bg-primary/5 pt-4">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base text-primary">Strategy Comparison</CardTitle>
+          <div className="flex items-center justify-between gap-2">
+            <div className="inline-flex items-center gap-1">
+              <CardTitle className="text-base text-primary">Strategy Comparison</CardTitle>
+              <TooltipProvider>
+                <UITooltip>
+                  <TooltipTrigger>
+                    <Info className="h-3.5 w-3.5 text-muted-foreground/60 cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-xs text-xs">
+                    Compares your actual portfolio (using the ATH drop multiplier) against what the same invested amounts would be worth under fixed weights. A positive delta means the ATH strategy has outperformed equal-weight allocation.
+                  </TooltipContent>
+                </UITooltip>
+              </TooltipProvider>
+            </div>
+            {strategyComparisonLoading ? (
+              <Skeleton className="h-5 w-24" />
+            ) : (
+              <span className={`text-sm font-semibold ${strategyDelta === null ? "text-muted-foreground" : strategyDelta >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                ATH {strategyDelta === null ? "—" : `${strategyDelta >= 0 ? "+" : ""}${strategyDelta.toFixed(1)}%`} vs Fixed Weights
+              </span>
+            )}
             <div className="flex gap-1">
               {(["1M", "3M", "6M", "1Y", "All"] as Period[]).map((p) => (
                 <button

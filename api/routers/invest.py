@@ -63,4 +63,6 @@ def place_investment(
     run_update: RunUpdate = Run.process_new_run_data(orders)
     run.update_in_db(run_update)
 
-    return InvestResponse(run_id=str(run.id), total_czk=float(sum(o.total_czk for o in orders)))
+    return InvestResponse(
+        run_id=str(run.id), total_czk=float(sum(o.total_czk for o in orders))
+    )

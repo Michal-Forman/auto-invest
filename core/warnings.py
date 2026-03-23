@@ -81,7 +81,9 @@ def compute_warnings(orders: List[Order]) -> List[Dict[str, str]]:
         avg = sum(g["pcts"]) / count
         occurrences = f"{count}×" if count > 1 else ""
         # Extract direction from last detail (they should all agree)
-        direction_word = g["details"][-1].split()[-1]  # "above"/"below"/"better"/"worse"
+        direction_word = g["details"][-1].split()[
+            -1
+        ]  # "above"/"below"/"better"/"worse"
         warnings.append(
             {
                 "ticker": g["ticker"],
