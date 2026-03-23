@@ -1,6 +1,6 @@
 # Standard library
 from collections import Counter, defaultdict
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List
 
 # Third-party
@@ -17,9 +17,11 @@ from api.schemas import (
     AnalyticsRunItem,
     AnalyticsStatusItem,
     PortfolioValueItem,
+    WarningItem,
 )
 from core.db.orders import Order
 from core.db.runs import Run
+from core.warnings import compute_warnings
 
 router = APIRouter(prefix="/analytics")
 
@@ -192,3 +194,14 @@ def analytics_portfolio_value(
 
     instruments_cache[cache_key] = result
     return result
+
+
+@router.get("/warnings", response_model=List[WarningItem])
+def analytics_warnings(
+    days: int = 30,
+    user_id: str = Depends(get_current_user_id),
+) -> List[WarningItem]:
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+    all_orders: List[Order] = Order.get_orders(status="FILLED", user_id=user_id)
+    recent = [o for o in all_orders if o.filled_at and o.filled_at >= since]
+    return [WarningItem(**w) for w in compute_warnings(recent)]

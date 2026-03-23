@@ -7,6 +7,7 @@ import type {
   AnalyticsRunItem,
   AnalyticsStatusItem,
   PortfolioValueItem,
+  WarningItem,
   UserProfile,
 } from "@/types";
 import { supabase } from "@/lib/supabase";
@@ -111,6 +112,12 @@ export const api = {
 
   getPortfolioValue(): Promise<PortfolioValueItem[]> {
     return apiFetch<PortfolioValueItem[]>("/analytics/portfolio-value");
+  },
+
+  getWarnings(days?: number): Promise<WarningItem[]> {
+    const params: Record<string, string> = {};
+    if (days !== undefined) params.days = String(days);
+    return apiFetch<WarningItem[]>("/analytics/warnings", params);
   },
 
   getProfile(): Promise<UserProfile> {

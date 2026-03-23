@@ -93,6 +93,12 @@ export interface PortfolioValueItem {
   value: number;
 }
 
+export interface WarningItem {
+  ticker: string;
+  type: string;
+  detail: string;
+}
+
 export interface UserProfile {
   t212_id_key: string;
   t212_private_key: string;

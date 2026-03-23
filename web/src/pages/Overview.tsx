@@ -1,15 +1,40 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { ChevronDown, ChevronUp, TriangleAlert } from "lucide-react";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useHealth } from "@/hooks/use-health";
 import { useRuns } from "@/hooks/use-runs";
 import { useConfig } from "@/hooks/use-config";
+import { useAnalytics } from "@/hooks/use-analytics";
 import { formatNumber } from "@/lib/utils";
 import { StatusBadge } from "@/components/shared/StatusBadge";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import type { PortfolioValueItem, WarningItem } from "@/types";
+import type { Run } from "@/types";
 
 const CRON_HOUR = import.meta.env.VITE_INVEST_CRON?.split(" ")[1] ?? null;
+
+type Period = "1W" | "1M" | "3M" | "6M" | "1Y" | "All";
+const PERIOD_DAYS: Record<Period, number | null> = { "1W": 7, "1M": 30, "3M": 90, "6M": 180, "1Y": 365, "All": null };
+
+function computeGain(portfolioValue: PortfolioValueItem[], runs: Run[], period: Period): { czk: number; pct: number } | null {
+  if (!portfolioValue.length) return null;
+  const current = portfolioValue[portfolioValue.length - 1].value;
+  const days = PERIOD_DAYS[period];
+  const cutoff = days ? new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10) : null;
+  const candidates = cutoff ? portfolioValue.filter((p) => p.date <= cutoff) : [];
+  const startValue = candidates.length ? candidates[candidates.length - 1].value : portfolioValue[0].value;
+  const investedInPeriod = runs
+    .filter((r) => (r.status === "FILLED" || r.status === "FINISHED") && (!cutoff || r.created_at >= cutoff))
+    .reduce((sum, r) => sum + r.total_czk, 0);
+  const denominator = startValue + investedInPeriod;
+  if (denominator === 0) return null;
+  const czk = current - startValue - investedInPeriod;
+  return { czk, pct: (czk / denominator) * 100 };
+}
 
 function withEnvTime(cron: string): string {
   if (!CRON_HOUR) return cron;
@@ -68,65 +93,62 @@ export function Overview() {
   const health = useHealth();
   const { data: runs, loading: runsLoading, error: runsError } = useRuns();
   const { data: config } = useConfig();
+  const { portfolioValue, warnings } = useAnalytics();
+  const [warningsOpen, setWarningsOpen] = useState<boolean>(false);
 
-  const lastRun = runs?.[0] ?? null;
   const filled = runs?.filter((r) => r.status === "FILLED").length ?? 0;
   const failed = runs?.filter((r) => r.status === "FAILED").length ?? 0;
   const totalInvested = runs?.filter((r) => r.total_czk > 0).reduce((s, r) => s + r.total_czk, 0) ?? 0;
   const recent = runs?.slice(0, 5) ?? [];
 
+  const currentValue = portfolioValue?.length ? portfolioValue[portfolioValue.length - 1].value : null;
+  const totalGain = portfolioValue && runs ? computeGain(portfolioValue, runs, "All") : null;
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold text-primary">Overview</h1>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Card className="border-t-2 border-t-primary">
-          <CardHeader className="pb-1">
-            <CardTitle className="text-sm text-muted-foreground font-normal">Total Invested</CardTitle>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Card>
+          <CardHeader className="-mt-4 border-b bg-primary/5 pt-4">
+            <CardTitle className="text-base text-primary">Portfolio Value</CardTitle>
           </CardHeader>
           <CardContent>
-            {runsLoading ? (
+            {currentValue === null ? (
               <Skeleton className="h-8 w-28" />
             ) : (
-              <div className="text-2xl font-bold text-primary">{formatNumber(totalInvested)} CZK</div>
+              <div>
+                <div className="text-2xl font-bold text-primary">{formatNumber(currentValue)} CZK</div>
+                {runsLoading ? (
+                  <Skeleton className="h-3 w-24 mt-1" />
+                ) : (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Total invested: {formatNumber(totalInvested)} CZK
+                    {totalGain !== null && (
+                      <span className={`ml-1.5 font-medium ${totalGain.pct >= 0 ? "text-green-600" : "text-red-500"}`}>
+                        ({totalGain.pct >= 0 ? "+" : ""}{formatNumber(totalGain.pct, 2)}%)
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
           </CardContent>
         </Card>
-        <Card className="border-t-2 border-t-primary">
-          <CardHeader className="pb-1">
-            <CardTitle className="text-sm text-muted-foreground font-normal">Last Run Status</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {runsLoading ? (
-              <Skeleton className="h-8 w-28" />
-            ) : lastRun ? (
-              <StatusBadge status={lastRun.status} />
-            ) : (
-              <div className="text-muted-foreground text-sm">—</div>
-            )}
-          </CardContent>
-        </Card>
-        <Card className="border-t-2 border-t-primary">
-          <CardHeader className="pb-1">
-            <CardTitle className="text-sm text-muted-foreground font-normal">Completed Runs</CardTitle>
+        <Card>
+          <CardHeader className="-mt-4 border-b bg-primary/5 pt-4">
+            <CardTitle className="text-base text-primary">Completed Runs</CardTitle>
           </CardHeader>
           <CardContent>
             {runsLoading ? (
               <Skeleton className="h-8 w-28" />
             ) : (
-              <div className="text-2xl font-bold text-primary">{filled}</div>
-            )}
-          </CardContent>
-        </Card>
-        <Card className="border-t-2 border-t-primary">
-          <CardHeader className="pb-1">
-            <CardTitle className="text-sm text-muted-foreground font-normal">Failed Runs</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {runsLoading ? (
-              <Skeleton className="h-8 w-28" />
-            ) : (
-              <div className="text-2xl font-bold text-red-600">{failed}</div>
+              <div>
+                <div className="text-2xl font-bold text-primary">{filled}</div>
+                {failed > 0 && (
+                  <div className="text-xs text-red-500 mt-0.5">{failed} failed</div>
+                )}
+              </div>
             )}
           </CardContent>
         </Card>
@@ -211,6 +233,38 @@ export function Overview() {
           </Table>
         </CardContent>
       </Card>
+
+      {warnings && warnings.length > 0 && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30">
+          <button
+            className="flex w-full items-center gap-3 px-4 py-3 text-sm"
+            onClick={() => setWarningsOpen((o) => !o)}
+          >
+            <TriangleAlert className="h-4 w-4 shrink-0 text-amber-500" />
+            <span className="flex-1 text-left font-medium text-amber-900 dark:text-amber-200">
+              {warnings.length} warning{warnings.length !== 1 ? "s" : ""} in last 30 days
+            </span>
+            {warningsOpen ? (
+              <ChevronUp className="h-4 w-4 text-amber-500" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-amber-500" />
+            )}
+          </button>
+          {warningsOpen && (
+            <div className="border-t border-amber-200 dark:border-amber-800">
+              {warnings.map((w: WarningItem, i: number) => (
+                <div key={i} className="flex items-center gap-3 px-4 py-2 text-sm">
+                  <span className="font-medium text-amber-900 dark:text-amber-200">{w.ticker}</span>
+                  <Badge variant="outline" className="border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-300 text-xs">
+                    {w.type}
+                  </Badge>
+                  <span className="text-amber-800 dark:text-amber-300">{w.detail}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

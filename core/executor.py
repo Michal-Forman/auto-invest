@@ -7,7 +7,7 @@ from uuid import UUID
 # Local
 from core.coinmate import Coinmate
 from core.db.btc_withdrawals import BtcWithdrawal
-from core.db.orders import Currency, Order, Status
+from core.db.orders import Currency, InvestmentType, Order, Status
 from core.instrument_data import (
     INSTRUMENT_CURRENCIES,
     INSTRUMENT_NAMES,
@@ -34,7 +34,7 @@ class Executor:
         self.btc_external_adress = btc_external_adress
         self.user_id = user_id
 
-    def _place_btc_order(self, amount: float, multiplier: float, run_id: UUID, investment_type: str = "dca") -> Order:
+    def _place_btc_order(self, amount: float, multiplier: float, run_id: UUID, investment_type: InvestmentType = "dca") -> Order:
         """Place an instant BTC buy on Coinmate for the given CZK amount, persist the Order to DB, and return it."""
         amount = round(
             amount, 2
@@ -93,7 +93,7 @@ class Executor:
         return order
 
     def _place_t212_order(
-        self, ticker: str, amount: float, multiplier: float, run_id: UUID, investment_type: str = "dca"
+        self, ticker: str, amount: float, multiplier: float, run_id: UUID, investment_type: InvestmentType = "dca"
     ) -> Order:
         """Place a T212 market buy for the given CZK amount (converted to the instrument's currency), persist the Order to DB, and return it."""
         instrument_currency: Currency = INSTRUMENT_CURRENCIES[ticker]
@@ -178,7 +178,7 @@ class Executor:
         cash_distribution: Dict[str, float],
         multipliers: Dict[str, float],
         run_id: UUID,
-        investment_type: str = "dca",
+        investment_type: InvestmentType = "dca",
     ) -> List[Order]:
         """Place a buy order for every instrument in the cash distribution. Routes BTC to Coinmate and everything else to T212."""
         orders: List[Order] = []

@@ -101,6 +101,12 @@ class PortfolioValueItem(BaseModel):
     value: float
 
 
+class WarningItem(BaseModel):
+    ticker: str
+    type: str
+    detail: str
+
+
 class ProfileResponse(BaseModel):
     t212_id_key: str
     t212_private_key: str
