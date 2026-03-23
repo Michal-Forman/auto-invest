@@ -143,6 +143,30 @@ class InvestResponse(BaseModel):
     total_czk: float
 
 
+class ProfitLossResponse(BaseModel):
+    filled_run_count: int
+    total_invested_czk: float
+    current_value_czk: float
+    gain_czk: float
+    gain_pct: float
+
+
+class PortfolioHistoryItem(BaseModel):
+    date: str
+    value: float
+
+
+class StrategyComparisonItem(BaseModel):
+    date: str
+    actual_value: float
+    baseline_value: float
+
+
+class HoldingRatioItem(BaseModel):
+    ticker: str
+    ratio_pct: float
+
+
 class ProfileUpdate(BaseModel):
     t212_id_key: Optional[str] = None
     t212_private_key: Optional[str] = None

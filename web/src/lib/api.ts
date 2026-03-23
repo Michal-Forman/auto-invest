@@ -7,7 +7,11 @@ import type {
   AnalyticsRunItem,
   AnalyticsStatusItem,
   HoldingItem,
+  HoldingRatioItem,
+  PortfolioHistoryItem,
   PortfolioValueItem,
+  ProfitLossResponse,
+  StrategyComparisonItem,
   WarningItem,
   UserProfile,
 } from "@/types";
@@ -135,5 +139,21 @@ export const api = {
 
   placeInvestment(amount: number): Promise<{ run_id: string; total_czk: number }> {
     return apiPost("/invest", { amount: String(amount) });
+  },
+
+  getProfitLoss(): Promise<ProfitLossResponse> {
+    return apiFetch<ProfitLossResponse>("/analytics/profit-loss");
+  },
+
+  getPortfolioHistory(): Promise<PortfolioHistoryItem[]> {
+    return apiFetch<PortfolioHistoryItem[]>("/analytics/portfolio-history");
+  },
+
+  getStrategyComparison(): Promise<StrategyComparisonItem[]> {
+    return apiFetch<StrategyComparisonItem[]>("/analytics/strategy-comparison");
+  },
+
+  getHoldingsRatio(): Promise<HoldingRatioItem[]> {
+    return apiFetch<HoldingRatioItem[]>("/analytics/holdings-ratio");
   },
 };

@@ -115,7 +115,7 @@ export function Orders() {
               <SelectContent>
                 <SelectItem value={ALL}>All Exchanges</SelectItem>
                 <SelectItem value="T212">T212</SelectItem>
-                <SelectItem value="Coinmate">Coinmate</SelectItem>
+                <SelectItem value="COINMATE">Coinmate</SelectItem>
               </SelectContent>
             </Select>
           </div>

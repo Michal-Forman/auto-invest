@@ -104,6 +104,30 @@ export interface HoldingItem {
   value_czk: number;
 }
 
+export interface ProfitLossResponse {
+  filled_run_count: number;
+  total_invested_czk: number;
+  current_value_czk: number;
+  gain_czk: number;
+  gain_pct: number;
+}
+
+export interface PortfolioHistoryItem {
+  date: string;
+  value: number;
+}
+
+export interface StrategyComparisonItem {
+  date: string;
+  actual_value: number;
+  baseline_value: number;
+}
+
+export interface HoldingRatioItem {
+  ticker: string;
+  ratio_pct: number;
+}
+
 export interface UserProfile {
   t212_id_key: string;
   t212_private_key: string;

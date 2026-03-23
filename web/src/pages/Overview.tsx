@@ -91,7 +91,7 @@ export function Overview() {
   usePageTitle("Overview");
   const navigate = useNavigate();
   const health = useHealth();
-  const { data: runs, loading: runsLoading, error: runsError } = useRuns();
+  const { data: runs, loading: runsLoading, error: runsError } = useRuns(undefined, "FILLED");
   const { data: config } = useConfig();
   const { portfolioValue, warnings } = useAnalytics();
   const [warningsOpen, setWarningsOpen] = useState<boolean>(false);
