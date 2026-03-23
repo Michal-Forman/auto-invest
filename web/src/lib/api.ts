@@ -36,6 +36,16 @@ async function apiFetch<T>(path: string, params?: Record<string, string>): Promi
   return res.json() as Promise<T>;
 }
 
+async function apiPost<T>(path: string, params?: Record<string, string>): Promise<T> {
+  const url = new URL(`${API_BASE}${path}`);
+  if (params) Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  const headers = await getAuthHeaders();
+  const res = await fetch(url.toString(), { method: "POST", headers });
+  if (res.status === 401) { window.location.href = "/login"; throw new Error("Unauthorized"); }
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  return res.json() as Promise<T>;
+}
+
 async function apiPatch<T>(path: string, body: unknown): Promise<T> {
   const headers = await getAuthHeaders();
   const res = await fetch(`${API_BASE}${path}`, {
@@ -109,5 +119,9 @@ export const api = {
 
   updateProfile(data: Partial<UserProfile>): Promise<UserProfile> {
     return apiPatch<UserProfile>("/profile", data);
+  },
+
+  placeInvestment(amount: number): Promise<{ run_id: string; total_czk: number }> {
+    return apiPost("/invest", { amount: String(amount) });
   },
 };

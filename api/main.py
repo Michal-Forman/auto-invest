@@ -11,6 +11,7 @@ from api.routers import (
     config,
     health,
     instruments,
+    invest,
     orders,
     preview,
     profile,
@@ -38,5 +39,6 @@ app.include_router(runs.router)
 app.include_router(orders.router)
 app.include_router(instruments.router)
 app.include_router(preview.router)
+app.include_router(invest.router)
 app.include_router(analytics.router)
 app.include_router(profile.router)

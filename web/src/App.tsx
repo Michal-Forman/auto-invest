@@ -8,7 +8,7 @@ import { RunHistory } from "@/pages/RunHistory";
 import { RunDetail } from "@/pages/RunDetail";
 import { Orders } from "@/pages/Orders";
 import { Instruments } from "@/pages/Instruments";
-import { Preview } from "@/pages/Preview";
+import { Invest } from "@/pages/Invest";
 import { Analytics } from "@/pages/Analytics";
 import { Profile } from "@/pages/Profile";
 import { Login } from "@/pages/Login";
@@ -33,7 +33,7 @@ export default function App() {
                 <Route path="runs/:id" element={<RunDetail />} />
                 <Route path="orders" element={<Orders />} />
                 <Route path="instruments" element={<Instruments />} />
-                <Route path="preview" element={<Preview />} />
+                <Route path="invest" element={<Invest />} />
                 <Route path="analytics" element={<Analytics />} />
                 <Route path="profile" element={<Profile />} />
               </Route>

@@ -127,6 +127,11 @@ class ProfileResponse(BaseModel):
     coinmate_enabled: bool
 
 
+class InvestResponse(BaseModel):
+    run_id: str
+    total_czk: float
+
+
 class ProfileUpdate(BaseModel):
     t212_id_key: Optional[str] = None
     t212_private_key: Optional[str] = None

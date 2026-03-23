@@ -34,7 +34,7 @@ class Executor:
         self.btc_external_adress = btc_external_adress
         self.user_id = user_id
 
-    def _place_btc_order(self, amount: float, multiplier: float, run_id: UUID) -> Order:
+    def _place_btc_order(self, amount: float, multiplier: float, run_id: UUID, investment_type: str = "dca") -> Order:
         """Place an instant BTC buy on Coinmate for the given CZK amount, persist the Order to DB, and return it."""
         amount = round(
             amount, 2
@@ -78,6 +78,7 @@ class Executor:
             error=str(err) if err else None,
             multiplier=multiplier,
             fx_rate=1,
+            investment_type=investment_type,
         )
 
         try:
@@ -92,7 +93,7 @@ class Executor:
         return order
 
     def _place_t212_order(
-        self, ticker: str, amount: float, multiplier: float, run_id: UUID
+        self, ticker: str, amount: float, multiplier: float, run_id: UUID, investment_type: str = "dca"
     ) -> Order:
         """Place a T212 market buy for the given CZK amount (converted to the instrument's currency), persist the Order to DB, and return it."""
         instrument_currency: Currency = INSTRUMENT_CURRENCIES[ticker]
@@ -156,6 +157,7 @@ class Executor:
             filled_quantity=res.get("filledQuantity") if res else None,
             multiplier=multiplier,
             fx_rate=fx_rate,
+            investment_type=investment_type,
         )
 
         try:
@@ -176,6 +178,7 @@ class Executor:
         cash_distribution: Dict[str, float],
         multipliers: Dict[str, float],
         run_id: UUID,
+        investment_type: str = "dca",
     ) -> List[Order]:
         """Place a buy order for every instrument in the cash distribution. Routes BTC to Coinmate and everything else to T212."""
         orders: List[Order] = []
@@ -183,10 +186,10 @@ class Executor:
         for ticker, amount in cash_distribution.items():
             multiplier = multipliers[ticker]
             if ticker == "BTC":
-                order = self._place_btc_order(amount, multiplier, run_id)
+                order = self._place_btc_order(amount, multiplier, run_id, investment_type=investment_type)
                 orders.append(order)
             else:
-                order = self._place_t212_order(ticker, amount, multiplier, run_id)
+                order = self._place_t212_order(ticker, amount, multiplier, run_id, investment_type=investment_type)
                 orders.append(order)
 
         log.info("All orders placed successfully")

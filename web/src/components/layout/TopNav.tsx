@@ -8,7 +8,7 @@ const navItems = [
   { to: "runs", label: "Run History" },
   { to: "orders", label: "Orders" },
   { to: "instruments", label: "Instruments" },
-  { to: "preview", label: "Next Run Preview" },
+  { to: "invest", label: "Invest" },
   { to: "analytics", label: "Analytics" },
 ];
 
