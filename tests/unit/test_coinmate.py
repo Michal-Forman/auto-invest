@@ -201,9 +201,9 @@ class TestPrivateEndpoints:
         mock_post = mocker.patch.object(
             coinmate, "_post", return_value={"err": None, "res": {}, "req": {}}
         )
-        coinmate.buy_instant(500.0, "BTC_CZK")
+        coinmate.buy_instant(Decimal("500"), "BTC_CZK")
         data = mock_post.call_args.kwargs["data"]
-        assert data["total"] == "500.0"
+        assert data["total"] == "500"
         assert data["currencyPair"] == "BTC_CZK"
 
     def test_buy_instant_includes_client_order_id_when_provided(
@@ -212,7 +212,7 @@ class TestPrivateEndpoints:
         mock_post = mocker.patch.object(
             coinmate, "_post", return_value={"err": None, "res": {}, "req": {}}
         )
-        coinmate.buy_instant(500.0, "BTC_CZK", client_order_id=42)
+        coinmate.buy_instant(Decimal("500"), "BTC_CZK", client_order_id=42)
         data = mock_post.call_args.kwargs["data"]
         assert data["clientOrderId"] == "42"
 
@@ -222,7 +222,7 @@ class TestPrivateEndpoints:
         mock_post = mocker.patch.object(
             coinmate, "_post", return_value={"err": None, "res": {}, "req": {}}
         )
-        coinmate.buy_instant(500.0, "BTC_CZK", client_order_id=None)
+        coinmate.buy_instant(Decimal("500"), "BTC_CZK", client_order_id=None)
         data = mock_post.call_args.kwargs["data"]
         assert "clientOrderId" not in data
 
@@ -276,7 +276,7 @@ class TestBtcWithdraw:
                 "transfer_type": "WITHDRAWAL",
             },
         )
-        result = coinmate.btc_withdraw("bc1qtest", 0.00123)
+        result = coinmate.btc_withdraw("bc1qtest", Decimal("0.00123"))
         assert "destination_adress" in result
         assert result["destination_adress"] == "bc1qtest"
 
@@ -289,7 +289,7 @@ class TestBtcWithdraw:
             return_value={"err": "insufficient funds", "req": {}, "res": None},
         )
         with pytest.raises(RequestException, match="insufficient funds"):
-            coinmate.btc_withdraw("bc1qtest", 0.00123)
+            coinmate.btc_withdraw("bc1qtest", Decimal("0.00123"))
 
     def test_calls_btc_withdrawal_data_with_transaction_id(
         self, coinmate: Coinmate, mocker: MockerFixture
@@ -312,7 +312,7 @@ class TestBtcWithdraw:
                 "transfer_type": "WITHDRAWAL",
             },
         )
-        coinmate.btc_withdraw("bc1qtest", 0.00123)
+        coinmate.btc_withdraw("bc1qtest", Decimal("0.00123"))
         mock_data.assert_called_once_with("17751183")
 
 

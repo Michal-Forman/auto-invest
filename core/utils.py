@@ -1,16 +1,21 @@
 # Standard library
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 from typing import Optional
 
 # Third-party
 from croniter import croniter  # type: ignore[import-untyped]
 
 # Local
+from core.precision import to_decimal
 from core.settings import settings
 
 
 def find_balance_exhaustion_date(
-    cron_expr: str, spend_per_run: float, current_balance: float, buffer: float = 1.1
+    cron_expr: str,
+    spend_per_run: Decimal,
+    current_balance: Decimal,
+    buffer: float = 1.1,
 ) -> Optional[datetime]:
     """Return the datetime of the first future cron run where balance (with buffer) runs out.
 
@@ -28,7 +33,7 @@ def find_balance_exhaustion_date(
         if nxt.date() in seen_dates:
             continue
         seen_dates.add(nxt.date())
-        balance -= spend_per_run * buffer
+        balance -= spend_per_run * to_decimal(buffer)
         if balance < 0:
             return nxt
 
@@ -51,4 +56,4 @@ def is_now_cron_time(cron_expr: str) -> bool:
 
 
 if __name__ == "__main__":
-    print(find_balance_exhaustion_date("* * * * 1", 500, 15000))
+    print(find_balance_exhaustion_date("* * * * 1", Decimal("500"), Decimal("15000")))

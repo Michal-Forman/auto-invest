@@ -16,6 +16,7 @@ from core.instrument_data import (
 )
 from core.instruments import Instruments
 from core.log import log
+from core.precision import quantize_btc, quantize_czk, quantize_shares, to_decimal
 from core.settings import settings
 from core.trading212 import Trading212
 
@@ -36,15 +37,13 @@ class Executor:
 
     def _place_btc_order(
         self,
-        amount: float,
-        multiplier: float,
+        amount: Decimal,
+        multiplier: Decimal,
         run_id: UUID,
         investment_type: InvestmentType = "dca",
     ) -> Order:
         """Place an instant BTC buy on Coinmate for the given CZK amount, persist the Order to DB, and return it."""
-        amount = round(
-            amount, 2
-        )  # Coinmate requires amounts to have at most 2 decimal places
+        amount = quantize_czk(amount)  # Coinmate requires amounts to have at most 2 decimal places
         # Place the order on Coinmate
         response_data: Dict[str, Any] = self.coinmate.buy_instant(amount, "BTC_CZK")
         req: Any = response_data.get("req")
@@ -57,7 +56,7 @@ class Executor:
         else:
             status = "FAILED"
 
-        btc_price = Instruments.get_btc_price()
+        btc_price: Decimal = Instruments.get_btc_price()
 
         # Write the order in database
         order = Order(
@@ -72,9 +71,9 @@ class Executor:
             side="BUY",
             order_type="INSTANT",
             price=btc_price,
-            quantity=round(amount / btc_price, 8),
-            total=round(amount, 2),
-            total_czk=round(amount, 2),
+            quantity=quantize_btc(amount / btc_price),
+            total=quantize_czk(amount),
+            total_czk=quantize_czk(amount),
             extended_hours=False,
             submitted_at=datetime.now(timezone.utc),
             status=status,
@@ -83,7 +82,7 @@ class Executor:
             response=res,
             error=str(err) if err else None,
             multiplier=multiplier,
-            fx_rate=1,
+            fx_rate=Decimal("1"),
             investment_type=investment_type,
         )
 
@@ -101,8 +100,8 @@ class Executor:
     def _place_t212_order(
         self,
         ticker: str,
-        amount: float,
-        multiplier: float,
+        amount: Decimal,
+        multiplier: Decimal,
         run_id: UUID,
         investment_type: InvestmentType = "dca",
     ) -> Order:
@@ -110,15 +109,15 @@ class Executor:
         instrument_currency: Currency = INSTRUMENT_CURRENCIES[ticker]
         if not instrument_currency:
             raise ValueError(f"Unknown currency for ticker {ticker}")
-        fx_rate = Instruments.get_fx_rate_to_czk(instrument_currency)
-        amount_in_correct_currency: float = amount / fx_rate
+        fx_rate: Decimal = Instruments.get_fx_rate_to_czk(instrument_currency)
+        amount_in_correct_currency: Decimal = amount / fx_rate
 
-        current_price: float = Instruments.get_current_price(ticker)
-        amount_in_shares = amount_in_correct_currency / current_price
+        current_price: Decimal = Instruments.get_current_price(ticker)
+        amount_in_shares: Decimal = amount_in_correct_currency / current_price
 
-        # Place the order
+        # Place the order — T212 wire requires float quantity at 3 dp
         response_data: Dict[str, Any] = self.t212.equity_order_place_market(
-            ticker, round(amount_in_shares, 3)
+            ticker, float(quantize_shares(amount_in_shares))
         )
         req: Any = response_data.get("req")
         res: Any = response_data.get("res")
@@ -142,7 +141,7 @@ class Executor:
         else:
             status = "FAILED"
 
-        # Write the order in database
+        # Write the order in database (quantity stored at 8 dp)
         order = Order(
             run_id=run_id,
             user_id=self.user_id,
@@ -155,9 +154,9 @@ class Executor:
             side="BUY",
             order_type="MARKET",
             price=current_price,
-            quantity=round(amount_in_shares, 8),
-            total=round(amount_in_correct_currency, 2),
-            total_czk=round(amount, 2),
+            quantity=quantize_btc(amount_in_shares),
+            total=quantize_czk(amount_in_correct_currency),
+            total_czk=quantize_czk(amount),
             extended_hours=res.get("extendedHours") if res else False,
             status=status,
             submitted_at=datetime.now(timezone.utc),
@@ -165,7 +164,7 @@ class Executor:
             response=res,
             error=str(error),
             external_order_id=str(res.get("id")) if res else None,
-            filled_quantity=res.get("filledQuantity") if res else None,
+            filled_quantity=to_decimal(res.get("filledQuantity")) if res else None,
             multiplier=multiplier,
             fx_rate=fx_rate,
             investment_type=investment_type,
@@ -186,8 +185,8 @@ class Executor:
 
     def place_orders(
         self,
-        cash_distribution: Dict[str, float],
-        multipliers: Dict[str, float],
+        cash_distribution: Dict[str, Decimal],
+        multipliers: Dict[str, Decimal],
         run_id: UUID,
         investment_type: InvestmentType = "dca",
     ) -> List[Order]:
@@ -213,14 +212,14 @@ class Executor:
 
     def withdraw_btc(self) -> BtcWithdrawal:
         """Withdraw the full BTC balance to the external wallet and persist the withdrawal record. Returns the persisted BtcWithdrawal."""
-        btc_balance: float = self.coinmate.btc_balance()
+        btc_balance: Decimal = self.coinmate.btc_balance()
         transaction_data: Dict[str, Any] = self.coinmate.btc_withdraw(
             btc_adress=self.btc_external_adress, amount=btc_balance
         )
-        btc_price = Instruments.get_btc_price()
-        actual_amount = float(transaction_data["amount"])
-        amount_czk = Decimal(str(round(actual_amount * btc_price, 2)))
-        fee_czk = Decimal(str(round(float(transaction_data["fee"]) * btc_price, 2)))
+        btc_price: Decimal = Instruments.get_btc_price()
+        actual_amount: Decimal = transaction_data["amount"]
+        amount_czk = quantize_czk(actual_amount * btc_price)
+        fee_czk = quantize_czk(transaction_data["fee"] * btc_price)
         return BtcWithdrawal.create_withdrawal(
             withdrawal_data=transaction_data,
             amount_czk=amount_czk,

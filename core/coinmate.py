@@ -15,6 +15,7 @@ from requests.exceptions import RequestException
 
 # Local
 from core.log import log
+from core.precision import to_decimal
 
 
 class Coinmate:
@@ -124,7 +125,7 @@ class Coinmate:
 
     def buy_instant(
         self,
-        total: float,
+        total: Decimal,
         currency_pair: str = "BTC_CZK",
         client_order_id: Optional[int] = None,
     ) -> Dict[str, Any]:
@@ -150,28 +151,28 @@ class Coinmate:
         )
         return self._post("/tradeHistory", data=payload)
 
-    def balance(self) -> float:
+    def balance(self) -> Decimal:
         """Fetch the available CZK balance for the authenticated account."""
         wrapped: Dict[str, Any] = self._post("/balances", data=self._private_payload())
         if wrapped.get("err"):
             raise RuntimeError(f"Could not fetch balance: {wrapped['err']}")
         try:
-            return float(wrapped["res"]["data"]["CZK"]["balance"])
+            return to_decimal(float(wrapped["res"]["data"]["CZK"]["balance"]))
         except (KeyError, TypeError) as e:
             raise RuntimeError(f"Unexpected balance response structure: {e}")
 
-    def btc_balance(self) -> float:
+    def btc_balance(self) -> Decimal:
         """Fetch the available BTC balance for the authenticated account."""
         wrapped: Dict[str, Any] = self._post("/balances", data=self._private_payload())
         if wrapped.get("err"):
             raise RuntimeError(f"Could not fetch balance: {wrapped['err']}")
         try:
-            return float(wrapped["res"]["data"]["BTC"]["balance"])
+            return to_decimal(float(wrapped["res"]["data"]["BTC"]["balance"]))
         except (KeyError, TypeError) as e:
             raise RuntimeError(f"Unexpected balance response structure: {e}")
 
     def btc_withdraw(
-        self, btc_adress: str, amount: float, fee_priority: str = "LOW"
+        self, btc_adress: str, amount: Decimal, fee_priority: str = "LOW"
     ) -> Dict[str, Any]:
         """Withdraw amount of BTC (units are btc) to external wallet and return order id as a string"""
         extra: Dict[str, Any] = {

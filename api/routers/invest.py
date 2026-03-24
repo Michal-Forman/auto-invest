@@ -1,5 +1,6 @@
 # Standard library
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Dict, List
 
 # Third-party
@@ -40,14 +41,14 @@ def place_investment(
     adj_weights: Dict[str, float] = data["adj_weights"]
     multipliers_map: Dict[str, float] = data["multipliers"]
 
-    cash_distribution: Dict[str, float] = {}
-    multipliers: Dict[str, float] = {}
+    cash_distribution: Dict[str, Decimal] = {}
+    multipliers: Dict[str, Decimal] = {}
     for ticker, weight in adj_weights.items():
         raw_czk = invest_amount * weight
         if raw_czk < _DROP_THRESHOLD:
             continue
-        cash_distribution[ticker] = max(raw_czk, _MIN_ORDER)
-        multipliers[ticker] = multipliers_map[ticker]
+        cash_distribution[ticker] = Decimal(str(max(raw_czk, _MIN_ORDER)))
+        multipliers[ticker] = Decimal(str(multipliers_map[ticker]))
 
     run_start = datetime.now(timezone.utc)
     run = Run.create_run(

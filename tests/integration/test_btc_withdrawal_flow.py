@@ -57,8 +57,8 @@ class TestBtcWithdrawalThresholdCheck:
         mocker: MockerFixture,
         portfolio_settings: PortfolioSettings,
     ) -> None:
-        mocker.patch.object(Instruments, "get_btc_price", return_value=2_000_000.0)
-        mocker.patch.object(instruments.coinmate, "btc_balance", return_value=0.01)
+        mocker.patch.object(Instruments, "get_btc_price", return_value=Decimal("2000000"))
+        mocker.patch.object(instruments.coinmate, "btc_balance", return_value=Decimal("0.01"))
         # 0.01 * 2_000_000 = 20_000 > 10_000
         instruments.portfolio_settings = replace(
             portfolio_settings, btc_withdrawal_treshold=10_000
@@ -71,8 +71,8 @@ class TestBtcWithdrawalThresholdCheck:
         mocker: MockerFixture,
         portfolio_settings: PortfolioSettings,
     ) -> None:
-        mocker.patch.object(Instruments, "get_btc_price", return_value=2_000_000.0)
-        mocker.patch.object(instruments.coinmate, "btc_balance", return_value=0.01)
+        mocker.patch.object(Instruments, "get_btc_price", return_value=Decimal("2000000"))
+        mocker.patch.object(instruments.coinmate, "btc_balance", return_value=Decimal("0.01"))
         # 0.01 * 2_000_000 = 20_000 < 25_000
         instruments.portfolio_settings = replace(
             portfolio_settings, btc_withdrawal_treshold=25_000
@@ -85,8 +85,8 @@ class TestBtcWithdrawalThresholdCheck:
         mocker: MockerFixture,
         portfolio_settings: PortfolioSettings,
     ) -> None:
-        mocker.patch.object(Instruments, "get_btc_price", return_value=2_000_000.0)
-        mocker.patch.object(instruments.coinmate, "btc_balance", return_value=0.01)
+        mocker.patch.object(Instruments, "get_btc_price", return_value=Decimal("2000000"))
+        mocker.patch.object(instruments.coinmate, "btc_balance", return_value=Decimal("0.01"))
         # 0.01 * 2_000_000 = 20_000 == 20_000 → True (>=)
         instruments.portfolio_settings = replace(
             portfolio_settings, btc_withdrawal_treshold=20_000
@@ -102,11 +102,11 @@ class TestBtcWithdrawalExecution:
         db_row: dict,
         mocker: MockerFixture,
     ) -> None:
-        mocker.patch.object(coinmate, "btc_balance", return_value=0.01)
+        mocker.patch.object(coinmate, "btc_balance", return_value=Decimal("0.01"))
         mocker.patch.object(
             coinmate, "btc_withdraw", return_value=_make_transaction_data(0.01)
         )
-        mocker.patch.object(Instruments, "get_btc_price", return_value=2_000_000.0)
+        mocker.patch.object(Instruments, "get_btc_price", return_value=Decimal("2000000"))
         mocker.patch.object(BtcWithdrawal, "post_to_db", return_value=db_row)
 
         executor = Executor(t212, coinmate)
@@ -121,11 +121,11 @@ class TestBtcWithdrawalExecution:
         t212: Trading212,
         mocker: MockerFixture,
     ) -> None:
-        mocker.patch.object(coinmate, "btc_balance", return_value=0.01)
+        mocker.patch.object(coinmate, "btc_balance", return_value=Decimal("0.01"))
         mocker.patch.object(
             coinmate, "btc_withdraw", side_effect=RequestException("network error")
         )
-        mocker.patch.object(Instruments, "get_btc_price", return_value=2_000_000.0)
+        mocker.patch.object(Instruments, "get_btc_price", return_value=Decimal("2000000"))
 
         executor = Executor(t212, coinmate)
         with pytest.raises(RequestException):
@@ -137,11 +137,11 @@ class TestBtcWithdrawalExecution:
         t212: Trading212,
         mocker: MockerFixture,
     ) -> None:
-        mocker.patch.object(coinmate, "btc_balance", return_value=0.01)
+        mocker.patch.object(coinmate, "btc_balance", return_value=Decimal("0.01"))
         mocker.patch.object(
             coinmate, "btc_withdraw", return_value=_make_transaction_data(0.01)
         )
-        mocker.patch.object(Instruments, "get_btc_price", return_value=2_000_000.0)
+        mocker.patch.object(Instruments, "get_btc_price", return_value=Decimal("2000000"))
         mocker.patch.object(
             BtcWithdrawal, "post_to_db", side_effect=Exception("DB error")
         )
@@ -157,11 +157,11 @@ class TestBtcWithdrawalExecution:
         db_row: dict,
         mocker: MockerFixture,
     ) -> None:
-        mocker.patch.object(coinmate, "btc_balance", return_value=0.01)
+        mocker.patch.object(coinmate, "btc_balance", return_value=Decimal("0.01"))
         mocker.patch.object(
             coinmate, "btc_withdraw", return_value=_make_transaction_data(0.01)
         )
-        mocker.patch.object(Instruments, "get_btc_price", return_value=2_000_000.0)
+        mocker.patch.object(Instruments, "get_btc_price", return_value=Decimal("2000000"))
         mock_create = mocker.patch.object(
             BtcWithdrawal,
             "create_withdrawal",

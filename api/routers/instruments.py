@@ -53,7 +53,9 @@ def build_ratio_data(
         return instruments_cache[cache_key]  # type: ignore[return-value]
 
     instruments_obj = Instruments(t212, coinmate, user_settings.portfolio)
-    default_ratios: Dict[str, float] = instruments_obj.get_default_ratios()
+    default_ratios: Dict[str, float] = {
+        k: float(v) for k, v in instruments_obj.get_default_ratios().items()
+    }
 
     total_default = sum(default_ratios.values())
 
@@ -64,8 +66,8 @@ def build_ratio_data(
     adjusted_values: Dict[str, float] = {}
 
     def _fetch_ticker_data(ticker: str) -> Tuple[str, float, float]:
-        ath: float = Instruments.get_ath(ticker)
-        current: float = Instruments.get_current_price(ticker)
+        ath: float = float(Instruments.get_ath(ticker))
+        current: float = float(Instruments.get_current_price(ticker))
         return ticker, ath, current
 
     with ThreadPoolExecutor(max_workers=2) as pool:

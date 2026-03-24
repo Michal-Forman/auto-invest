@@ -1,5 +1,6 @@
 # Standard library
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Any, Callable, Dict
 from uuid import UUID
 
@@ -66,7 +67,7 @@ class TestProcessNewCoinmateData:
         update = Order._process_new_coinmate_data(
             self._make_data(amount=0.001, price=2_000_000.0, fee=50.0)
         )
-        assert update.filled_total == pytest.approx(1950.0)
+        assert update.filled_total == Decimal("1950")
 
     def test_timestamp_converted_to_utc_datetime(self) -> None:
         expected_dt = datetime(2026, 3, 3, 9, 0, 0, tzinfo=timezone.utc)
@@ -100,10 +101,10 @@ class TestProcessNewT212Data:
         }
         update = Order._process_new_t212_data(item)
         assert update.status == "FILLED"
-        assert update.fill_fx_rate == pytest.approx(25.0)  # 1 / 0.04
-        assert update.filled_total_czk == 250.0
-        assert update.filled_total == pytest.approx(10.0)  # 250.0 / 25.0
-        assert update.fee == 10.0
+        assert update.fill_fx_rate == Decimal("25")  # 1 / 0.04
+        assert update.filled_total_czk == Decimal("250")
+        assert update.filled_total == Decimal("10")  # 250 / 25
+        assert update.fee == Decimal("10")
         assert update.fee_currency == "CZK"
 
     def test_submitted_status_without_fill(self) -> None:

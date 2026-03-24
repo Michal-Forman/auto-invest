@@ -1,4 +1,5 @@
 # Standard library
+from decimal import Decimal
 from datetime import datetime, timedelta, timezone
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
@@ -154,11 +155,11 @@ class Mailer:
         self,
         run: Run,
         orders: List[Order],
-        cash_distribution: Dict[str, float],
-        multipliers: Dict[str, float],
+        cash_distribution: Dict[str, Decimal],
+        multipliers: Dict[str, Decimal],
     ) -> None:
         """Send confirmation email after a successful investment run."""
-        total_czk = sum(cash_distribution.values())
+        total_czk = sum(cash_distribution.values(), Decimal("0"))
         exchange_map: Dict[str, str] = {o.t212_ticker: o.exchange for o in orders}
 
         # Plain text
@@ -173,10 +174,11 @@ class Mailer:
             f"{'-' * 46}",
         ]
         for ticker, czk in sorted(cash_distribution.items(), key=lambda x: -x[1]):
-            mult = multipliers.get(ticker, 1.0)
+            czk_f = float(czk)
+            mult_f = float(multipliers.get(ticker, Decimal("1")))
             exchange = exchange_map.get(ticker, "")
             plain_lines.append(
-                f"{ticker:<12} {czk:>10.2f} {mult:>12.2f} {exchange:>10}"
+                f"{ticker:<12} {czk_f:>10.2f} {mult_f:>12.2f} {exchange:>10}"
             )
 
         # HTML rows
@@ -184,16 +186,17 @@ class Mailer:
         for i, (ticker, czk) in enumerate(
             sorted(cash_distribution.items(), key=lambda x: -x[1])
         ):
-            mult = multipliers.get(ticker, 1.0)
+            czk_f = float(czk)
+            mult_f = float(multipliers.get(ticker, Decimal("1")))
             exchange = exchange_map.get(ticker, "—")
             bg = "#f8faff" if i % 2 == 0 else "#ffffff"
-            mult_color = "#16a34a" if mult > 1.0 else "#1e293b"
-            czk_str = f"{czk:_.2f}".replace("_", "\u00a0")
+            mult_color = "#16a34a" if mult_f > 1.0 else "#1e293b"
+            czk_str = f"{czk_f:_.2f}".replace("_", "\u00a0")
             row_html.append(
                 f'<tr style="background-color:{bg};">'
                 f'<td style="padding:10px 14px;font-size:13px;color:#1e293b;font-weight:600;">{ticker}</td>'
                 f'<td style="padding:10px 14px;font-size:13px;color:#1e293b;text-align:right;">{czk_str}</td>'
-                f'<td style="padding:10px 14px;font-size:13px;color:{mult_color};text-align:right;font-weight:600;">{mult:.2f}×</td>'
+                f'<td style="padding:10px 14px;font-size:13px;color:{mult_color};text-align:right;font-weight:600;">{mult_f:.2f}×</td>'
                 f'<td style="padding:10px 14px;font-size:12px;color:#6b7280;text-align:right;">{exchange}</td>'
                 f"</tr>"
             )
@@ -340,7 +343,7 @@ class Mailer:
         ticker_totals: Dict[str, float] = {}
         for o in successful_orders:
             ticker_totals[o.t212_ticker] = (
-                ticker_totals.get(o.t212_ticker, 0.0) + o.total_czk
+                ticker_totals.get(o.t212_ticker, 0.0) + float(o.total_czk)
             )
         total_czk = sum(ticker_totals.values())
 
@@ -651,11 +654,11 @@ if __name__ == "__main__":
         started_at=now,
         finished_at=now,
         status="FINISHED",
-        invest_amount=5000.0,
+        invest_amount=Decimal("5000"),
         invest_interval="monthly",
-        t212_default_weight=90,
-        btc_default_weight=10.0,
-        planned_total_czk=5000.0,
+        t212_default_weight=Decimal("90"),
+        btc_default_weight=Decimal("10"),
+        planned_total_czk=Decimal("5000"),
         total_orders=3,
         successful_orders=3,
         failed_orders=0,
@@ -663,7 +666,7 @@ if __name__ == "__main__":
     )
 
     def _make_order(
-        ticker: str, total_czk: float, exchange: str, multiplier: float
+        ticker: str, total_czk: Decimal, exchange: str, multiplier: Decimal
     ) -> Order:
         """Build a minimal dummy Order for manual testing."""
         return Order(
@@ -676,9 +679,9 @@ if __name__ == "__main__":
             currency="CZK",
             side="BUY",
             order_type="MARKET",
-            fx_rate=1.0,
+            fx_rate=Decimal("1"),
             price=total_czk,
-            quantity=1.0,
+            quantity=Decimal("1"),
             total=total_czk,
             total_czk=total_czk,
             extended_hours=False,
@@ -688,14 +691,14 @@ if __name__ == "__main__":
         )
 
     dummy_orders = [
-        _make_order("VWCE", 3000.0, "T212", 1.0),
-        _make_order("CSPX", 1500.0, "T212", 1.2),
-        _make_order("BTC", 500.0, "COINMATE", 1.5),
+        _make_order("VWCE", Decimal("3000"), "T212", Decimal("1")),
+        _make_order("CSPX", Decimal("1500"), "T212", Decimal("1.2")),
+        _make_order("BTC", Decimal("500"), "COINMATE", Decimal("1.5")),
     ]
-    dummy_distribution: Dict[str, float] = {
+    dummy_distribution: Dict[str, Decimal] = {
         o.t212_ticker: o.total_czk for o in dummy_orders
     }
-    dummy_multipliers: Dict[str, float] = {
+    dummy_multipliers: Dict[str, Decimal] = {
         o.t212_ticker: o.multiplier for o in dummy_orders
     }
 
@@ -704,11 +707,11 @@ if __name__ == "__main__":
         started_at=now,
         finished_at=now,
         status="FILLED",
-        invest_amount=5000.0,
+        invest_amount=Decimal("5000"),
         invest_interval="monthly",
-        t212_default_weight=90,
-        btc_default_weight=10.0,
-        planned_total_czk=5000.0,
+        t212_default_weight=Decimal("90"),
+        btc_default_weight=Decimal("10"),
+        planned_total_czk=Decimal("5000"),
         test=True,
     )
 
@@ -740,14 +743,14 @@ if __name__ == "__main__":
         started_at=now,
         finished_at=now,
         status="FAILED",
-        invest_amount=5000.0,
+        invest_amount=Decimal("5000"),
         invest_interval="monthly",
-        t212_default_weight=90,
-        btc_default_weight=10.0,
+        t212_default_weight=Decimal("90"),
+        btc_default_weight=Decimal("10"),
         error="Order placement timed out after 14 days",
         test=True,
     )
-    dummy_failed_order = _make_order("IWDA", 800.0, "T212", 1.0)
+    dummy_failed_order = _make_order("IWDA", Decimal("800"), "T212", Decimal("1"))
     dummy_failed_order.status = "FAILED"  # type: ignore[assignment]
     dummy_failed_order.error = "Insufficient funds"
 

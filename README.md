@@ -265,6 +265,22 @@ python3 -m pytest tests/unit/ -v
 python3 -m pytest tests/unit/test_instruments_pure.py -v
 ```
 
+### Numeric precision
+
+All monetary and financial values in the Python codebase use `decimal.Decimal` — never `float`. This avoids IEEE 754 rounding errors (e.g. `0.1 + 0.2 ≠ 0.3`) in code that places real orders.
+
+| Domain | Decimal places | Example |
+|--------|---------------|---------|
+| CZK amounts | 2 | `5 000.00 CZK` |
+| BTC quantity | 8 | `0.00123456 BTC` |
+| Share quantity | 3 | `2.500 shares` (T212 wire only) |
+| FX rates & prices | 4 | `23.4521 CZK/USD` |
+| Internal ratios / multipliers | unrounded | used only in intermediate maths |
+
+Helpers live in `core/precision.py`: `to_decimal()`, `quantize_czk()`, `quantize_btc()`, `quantize_shares()`, `quantize_fx()`. Quantization happens only at exchange API call boundaries and DB model validators — internal calculations keep full Decimal precision throughout.
+
+---
+
 ### Ad-hoc testing
 
 Each module has a `__main__` block for quick manual testing:

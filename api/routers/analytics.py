@@ -39,7 +39,7 @@ def analytics_runs(
     return [
         AnalyticsRunItem(
             date=run.started_at.date().isoformat(),
-            czk=run.planned_total_czk or 0.0,
+            czk=float(run.planned_total_czk or 0),
             status=run.status,
         )
         for run in runs
@@ -58,13 +58,13 @@ def analytics_allocation(
         if run.status != "FILLED" or not run.distribution:
             continue
 
-        dist: Dict[str, Any] = run.distribution
-        total = sum(dist.values())
+        dist_f: Dict[str, float] = {k: float(v) for k, v in run.distribution.items()}
+        total = sum(dist_f.values())
         if total == 0:
             continue
 
         pct: Dict[str, float] = {
-            ticker: round(czk / total * 100, 2) for ticker, czk in dist.items()
+            ticker: round(czk / total * 100, 2) for ticker, czk in dist_f.items()
         }
         result.append(
             AnalyticsAllocationItem(
@@ -116,7 +116,7 @@ def _compute_holdings_czk(user_id: str) -> Dict[str, float]:
 
     holdings: Dict[str, float] = defaultdict(float)
     for o in valid_orders:
-        holdings[o.t212_ticker] += o.filled_quantity or 0.0
+        holdings[o.t212_ticker] += float(o.filled_quantity) if o.filled_quantity else 0.0
 
     ticker_meta: Dict[str, tuple] = {
         o.t212_ticker: (o.yahoo_symbol, o.currency) for o in valid_orders
@@ -269,7 +269,7 @@ def analytics_profit_loss(
     )
     filled_run_count = len(filled_runs)
     total_invested = sum(
-        r.filled_total_czk or r.planned_total_czk or 0.0 for r in filled_runs
+        float(r.filled_total_czk or r.planned_total_czk or 0) for r in filled_runs
     )
     per_ticker = _compute_holdings_czk(user_id)
     current_value = sum(per_ticker.values())
@@ -333,7 +333,7 @@ def analytics_portfolio_history(
     for snap_date in snap_dates:
         while order_idx < len(valid_orders) and valid_orders[order_idx].filled_at.date() <= snap_date:  # type: ignore[union-attr]
             o = valid_orders[order_idx]
-            cumulative[o.t212_ticker] += o.filled_quantity or 0.0
+            cumulative[o.t212_ticker] += float(o.filled_quantity) if o.filled_quantity else 0.0
             order_idx += 1
 
         total_czk = 0.0
@@ -399,9 +399,9 @@ def analytics_strategy_comparison(
             and filled_runs[run_idx].started_at.date() <= snap_date
         ):
             run = filled_runs[run_idx]
-            dist: Dict[str, Any] = run.distribution or {}
-            mults: Dict[str, Any] = run.multipliers or {}
-            planned_total = run.planned_total_czk or sum(dist.values())
+            dist: Dict[str, float] = {k: float(v) for k, v in (run.distribution or {}).items()}
+            mults: Dict[str, float] = {k: float(v) for k, v in (run.multipliers or {}).items()}
+            planned_total = float(run.planned_total_czk or sum(dist.values()))
 
             unboost = {t: czk / mults.get(t, 1.0) for t, czk in dist.items()}
             total_unboost = sum(unboost.values())
@@ -427,7 +427,7 @@ def analytics_strategy_comparison(
 
         while order_idx < len(valid_orders) and valid_orders[order_idx].filled_at.date() <= snap_date:  # type: ignore[union-attr]
             o = valid_orders[order_idx]
-            actual_qty[o.t212_ticker] += o.filled_quantity or 0.0
+            actual_qty[o.t212_ticker] += float(o.filled_quantity) if o.filled_quantity else 0.0
             order_idx += 1
 
         def portfolio_value(qty_map: Dict[str, float]) -> float:

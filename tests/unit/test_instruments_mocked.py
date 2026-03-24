@@ -1,5 +1,6 @@
 # Standard library
 from dataclasses import replace
+from decimal import Decimal
 from typing import Any, Dict, cast
 from unittest.mock import MagicMock
 
@@ -16,31 +17,31 @@ from core.settings import PortfolioSettings
 class TestAdjustRatio:
     def test_no_cap_25pct_drop(self, mocker: MockerFixture) -> None:
         # VWCEd_EQ has cap "none": drop 25% → multiplier = 100/75 ≈ 1.333
-        mocker.patch.object(Instruments, "get_ath", return_value=200.0)
-        mocker.patch.object(Instruments, "get_current_price", return_value=150.0)
-        result = Instruments._adjust_ratio("VWCEd_EQ", 1.0)
-        assert result["multiplier"] == pytest.approx(100 / 75)
+        mocker.patch.object(Instruments, "get_ath", return_value=Decimal("200"))
+        mocker.patch.object(Instruments, "get_current_price", return_value=Decimal("150"))
+        result = Instruments._adjust_ratio("VWCEd_EQ", Decimal("1"))
+        assert result["multiplier"] == pytest.approx(Decimal("100") / Decimal("75"))
 
     def test_soft_cap_clamps_at_75pct(self, mocker: MockerFixture) -> None:
         # SC0Ud_EQ has cap "soft": drop 90% → capped to 75% → multiplier = 100/25 = 4.0
-        mocker.patch.object(Instruments, "get_ath", return_value=200.0)
-        mocker.patch.object(Instruments, "get_current_price", return_value=20.0)
-        result = Instruments._adjust_ratio("SC0Ud_EQ", 1.0)
-        assert result["multiplier"] == pytest.approx(4.0)
+        mocker.patch.object(Instruments, "get_ath", return_value=Decimal("200"))
+        mocker.patch.object(Instruments, "get_current_price", return_value=Decimal("20"))
+        result = Instruments._adjust_ratio("SC0Ud_EQ", Decimal("1"))
+        assert result["multiplier"] == pytest.approx(Decimal("4"))
 
     def test_hard_cap_resets_above_90pct(self, mocker: MockerFixture) -> None:
         # BTC has cap "hard": drop 95% → reset to 0% → multiplier = 1.0
-        mocker.patch.object(Instruments, "get_ath", return_value=200.0)
-        mocker.patch.object(Instruments, "get_current_price", return_value=10.0)
-        result = Instruments._adjust_ratio("BTC", 1.0)
-        assert result["multiplier"] == pytest.approx(1.0)
+        mocker.patch.object(Instruments, "get_ath", return_value=Decimal("200"))
+        mocker.patch.object(Instruments, "get_current_price", return_value=Decimal("10"))
+        result = Instruments._adjust_ratio("BTC", Decimal("1"))
+        assert result["multiplier"] == pytest.approx(Decimal("1"))
 
     def test_adjusted_value_scales_with_multiplier(self, mocker: MockerFixture) -> None:
         # VWCEd_EQ, drop 50% → multiplier = 2.0 → adjusted_value = 10.0 * 2.0 = 20.0
-        mocker.patch.object(Instruments, "get_ath", return_value=200.0)
-        mocker.patch.object(Instruments, "get_current_price", return_value=100.0)
-        result = Instruments._adjust_ratio("VWCEd_EQ", 10.0)
-        assert result["adjusted_value"] == pytest.approx(20.0)
+        mocker.patch.object(Instruments, "get_ath", return_value=Decimal("200"))
+        mocker.patch.object(Instruments, "get_current_price", return_value=Decimal("100"))
+        result = Instruments._adjust_ratio("VWCEd_EQ", Decimal("10"))
+        assert result["adjusted_value"] == pytest.approx(Decimal("20"))
 
 
 class TestDistributeCash:
@@ -51,16 +52,16 @@ class TestDistributeCash:
             instruments,
             "get_adjusted_ratios",
             return_value={
-                "VWCEd_EQ": {"multiplier": 1.0, "adjusted_value": 1.0},
-                "BTC": {"multiplier": 2.0, "adjusted_value": 3.0},
+                "VWCEd_EQ": {"multiplier": Decimal("1"), "adjusted_value": Decimal("1")},
+                "BTC": {"multiplier": Decimal("2"), "adjusted_value": Decimal("3")},
             },
         )
         result = instruments.distribute_cash()
         dist = result["cash_distribution"]
         # total adjusted = 4.0; VWCEd_EQ → 1/4 of 5000 = 1250, BTC → 3/4 = 3750
-        assert dist["VWCEd_EQ"] == pytest.approx(1250.0)
-        assert dist["BTC"] == pytest.approx(3750.0)
-        assert sum(dist.values()) == pytest.approx(5000.0)
+        assert dist["VWCEd_EQ"] == pytest.approx(Decimal("1250"))
+        assert dist["BTC"] == pytest.approx(Decimal("3750"))
+        assert sum(dist.values(), Decimal("0")) == pytest.approx(Decimal("5000"))
 
     def test_instrument_below_min_dropped(
         self, instruments: Instruments, mocker: MockerFixture
@@ -69,8 +70,8 @@ class TestDistributeCash:
             instruments,
             "get_adjusted_ratios",
             return_value={
-                "VWCEd_EQ": {"multiplier": 1.0, "adjusted_value": 1000.0},
-                "SC0Ud_EQ": {"multiplier": 1.0, "adjusted_value": 0.001},
+                "VWCEd_EQ": {"multiplier": Decimal("1"), "adjusted_value": Decimal("1000")},
+                "SC0Ud_EQ": {"multiplier": Decimal("1"), "adjusted_value": Decimal("0.001")},
             },
         )
         result = instruments.distribute_cash()
@@ -85,8 +86,8 @@ class TestDistributeCash:
             instruments,
             "get_adjusted_ratios",
             return_value={
-                "VWCEd_EQ": {"multiplier": 1.5, "adjusted_value": 2500.0},
-                "BTC": {"multiplier": 2.0, "adjusted_value": 2500.0},
+                "VWCEd_EQ": {"multiplier": Decimal("1.5"), "adjusted_value": Decimal("2500")},
+                "BTC": {"multiplier": Decimal("2"), "adjusted_value": Decimal("2500")},
             },
         )
         result = instruments.distribute_cash()
@@ -99,7 +100,7 @@ class TestGetFxRateToCzk:
     def test_czk_is_one(self, mocker: MockerFixture) -> None:
         mock_yf_ticker = mocker.patch("core.instruments.yf.Ticker")
         result = Instruments.get_fx_rate_to_czk("CZK")
-        assert result == 1.0
+        assert result == Decimal("1")
         mock_yf_ticker.assert_not_called()
 
     def test_usd_rate(self, mocker: MockerFixture) -> None:
@@ -107,21 +108,21 @@ class TestGetFxRateToCzk:
         mock_ticker.history.return_value = pd.DataFrame({"Close": [25.0]})
         mocker.patch("core.instruments.yf.Ticker", return_value=mock_ticker)
         result = Instruments.get_fx_rate_to_czk("USD")
-        assert result == pytest.approx(25.0)
+        assert result == pytest.approx(Decimal("25"))
 
     def test_gbx_divides_by_100(self, mocker: MockerFixture) -> None:
         mock_ticker = MagicMock()
         mock_ticker.history.return_value = pd.DataFrame({"Close": [3000.0]})
         mocker.patch("core.instruments.yf.Ticker", return_value=mock_ticker)
         result = Instruments.get_fx_rate_to_czk("GBX")
-        assert result == pytest.approx(30.0)
+        assert result == pytest.approx(Decimal("30"))
 
     def test_eur_rate(self, mocker: MockerFixture) -> None:
         mock_ticker = MagicMock()
         mock_ticker.history.return_value = pd.DataFrame({"Close": [24.5]})
         mocker.patch("core.instruments.yf.Ticker", return_value=mock_ticker)
         result = Instruments.get_fx_rate_to_czk("EUR")
-        assert result == pytest.approx(24.5)
+        assert result == pytest.approx(Decimal("24.5"))
 
     def test_raises_when_no_history(self, mocker: MockerFixture) -> None:
         mock_ticker = MagicMock()
@@ -146,7 +147,7 @@ class TestGetT212Ratios:
             "err": None,
         }
         result = instruments.get_t212_ratios()
-        assert result == {"VWCEd_EQ": pytest.approx(0.6), "CSPX_EQ": pytest.approx(0.4)}
+        assert result == {"VWCEd_EQ": pytest.approx(Decimal("0.6")), "CSPX_EQ": pytest.approx(Decimal("0.4"))}
 
     def test_raises_on_api_error(self, instruments: Instruments) -> None:
         cast(MagicMock, instruments.t212.pie).return_value = {
@@ -174,15 +175,15 @@ class TestGetDefaultRatios:
         mocker.patch.object(
             instruments,
             "get_t212_ratios",
-            return_value={"VWCEd_EQ": 0.8, "CSPX_EQ": 0.2},
+            return_value={"VWCEd_EQ": Decimal("0.8"), "CSPX_EQ": Decimal("0.2")},
         )
         result = instruments.get_default_ratios()
         # T212 ratios scaled by t212_weight (95), BTC appended at btc_weight (0.05)
         assert "VWCEd_EQ" in result
         assert "CSPX_EQ" in result
         assert "BTC" in result
-        assert result["BTC"] == pytest.approx(0.05)
-        assert result["VWCEd_EQ"] == pytest.approx(0.8 * 95)
+        assert result["BTC"] == pytest.approx(Decimal("0.05"))
+        assert result["VWCEd_EQ"] == pytest.approx(Decimal("0.8") * Decimal("95"))
 
 
 class TestGetAth:
@@ -193,7 +194,7 @@ class TestGetAth:
         )
         mocker.patch("core.instruments.yf.Ticker", return_value=mock_ticker)
         result = Instruments.get_ath("VWCEd_EQ")
-        assert result == pytest.approx(200.0)
+        assert result == pytest.approx(Decimal("200"))
 
     def test_raises_on_empty_history(self, mocker: MockerFixture) -> None:
         mock_ticker = MagicMock()
@@ -204,11 +205,11 @@ class TestGetAth:
 
     def test_calls_get_btc_ath_for_btc(self, mocker: MockerFixture) -> None:
         mock_btc_ath = mocker.patch.object(
-            Instruments, "_get_btc_ath", return_value=5_000_000.0
+            Instruments, "_get_btc_ath", return_value=Decimal("5000000")
         )
         result = Instruments.get_ath("BTC")
         mock_btc_ath.assert_called_once()
-        assert result == pytest.approx(5_000_000.0)
+        assert result == pytest.approx(Decimal("5000000"))
 
 
 class TestGetCurrentPrice:
@@ -219,7 +220,7 @@ class TestGetCurrentPrice:
         )
         mocker.patch("core.instruments.yf.Ticker", return_value=mock_ticker)
         result = Instruments.get_current_price("VWCEd_EQ")
-        assert result == pytest.approx(110.0)
+        assert result == pytest.approx(Decimal("110"))
 
     def test_raises_on_empty_history(self, mocker: MockerFixture) -> None:
         mock_ticker = MagicMock()
@@ -244,7 +245,7 @@ class TestGetBtcPrice:
         fx_ticker = self._make_ticker({"lastPrice": 23.5})
         mocker.patch("core.instruments.yf.Ticker", side_effect=[btc_ticker, fx_ticker])
         result = Instruments.get_btc_price()
-        assert result == pytest.approx(85_000.0 * 23.5)
+        assert result == pytest.approx(Decimal("85000") * Decimal("23.5"))
 
     def test_falls_back_to_history_close_when_fast_info_missing(
         self, mocker: MockerFixture
@@ -254,14 +255,14 @@ class TestGetBtcPrice:
         fx_ticker = self._make_ticker({"lastPrice": 23.5})
         mocker.patch("core.instruments.yf.Ticker", side_effect=[btc_ticker, fx_ticker])
         result = Instruments.get_btc_price()
-        assert result == pytest.approx(85_000.0 * 23.5)
+        assert result == pytest.approx(Decimal("85000") * Decimal("23.5"))
 
     def test_converts_using_fx_rate(self, mocker: MockerFixture) -> None:
         btc_ticker = self._make_ticker({"lastPrice": 100_000.0})
         fx_ticker = self._make_ticker({"lastPrice": 22.0})
         mocker.patch("core.instruments.yf.Ticker", side_effect=[btc_ticker, fx_ticker])
         result = Instruments.get_btc_price()
-        assert result == pytest.approx(2_200_000.0)
+        assert result == pytest.approx(Decimal("2200000"))
 
 
 class TestGetBtcAth:
@@ -291,28 +292,28 @@ class TestGetAdjustedRatios:
         mocker.patch.object(
             instruments,
             "get_default_ratios",
-            return_value={"VWCEd_EQ": 0.9, "BTC": 0.1},
+            return_value={"VWCEd_EQ": Decimal("0.9"), "BTC": Decimal("0.1")},
         )
         mocker.patch.object(
             Instruments,
             "_adjust_ratio",
             side_effect=[
-                {"multiplier": 1.5, "adjusted_value": 1.35},
-                {"multiplier": 2.0, "adjusted_value": 0.2},
+                {"multiplier": Decimal("1.5"), "adjusted_value": Decimal("1.35")},
+                {"multiplier": Decimal("2"), "adjusted_value": Decimal("0.2")},
             ],
         )
         result = instruments.get_adjusted_ratios()
         assert "VWCEd_EQ" in result
         assert "BTC" in result
-        assert result["VWCEd_EQ"]["multiplier"] == pytest.approx(1.5)
-        assert result["BTC"]["multiplier"] == pytest.approx(2.0)
+        assert result["VWCEd_EQ"]["multiplier"] == pytest.approx(Decimal("1.5"))
+        assert result["BTC"]["multiplier"] == pytest.approx(Decimal("2"))
 
 
 class TestIsBtcWithdrawalTresholdExceeded:
     @pytest.fixture(autouse=True)
     def setup(self, instruments: Instruments, mocker: MockerFixture) -> None:
-        mocker.patch.object(Instruments, "get_btc_price", return_value=1_500_000.0)
-        mocker.patch.object(instruments.coinmate, "btc_balance", return_value=0.01)
+        mocker.patch.object(Instruments, "get_btc_price", return_value=Decimal("1500000"))
+        mocker.patch.object(instruments.coinmate, "btc_balance", return_value=Decimal("0.01"))
 
     def test_returns_true_when_above_threshold(self, instruments: Instruments) -> None:
         instruments.portfolio_settings = replace(
@@ -343,7 +344,7 @@ class TestIsBtcWithdrawalTresholdExceeded:
         self, instruments: Instruments, mocker: MockerFixture
     ) -> None:
         mock_price = mocker.patch.object(
-            Instruments, "get_btc_price", return_value=1_500_000.0
+            Instruments, "get_btc_price", return_value=Decimal("1500000")
         )
         instruments.is_btc_withdrawal_treshold_exceeded()
         mock_price.assert_called_once()

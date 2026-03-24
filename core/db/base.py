@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 # Standard library
+from decimal import Decimal
 from typing import Any, ClassVar, Dict, Optional, cast
 
 # Third-party
@@ -11,6 +12,17 @@ from pydantic import BaseModel
 from core.db.client import supabase
 
 
+def _convert_decimals(obj: Any) -> Any:
+    """Recursively convert Decimal values to float for JSON serialization to PostgREST."""
+    if isinstance(obj, Decimal):
+        return float(obj)
+    if isinstance(obj, dict):
+        return {k: _convert_decimals(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_convert_decimals(v) for v in obj]
+    return obj
+
+
 class BaseDBModel(BaseModel):
     """Base Pydantic model providing shared Supabase insert logic for all DB models."""
 
@@ -18,8 +30,9 @@ class BaseDBModel(BaseModel):
     id: Optional[Any] = None
 
     def _to_insert_dict(self) -> Dict[str, Any]:
-        """Serialise for Supabase insert, excluding None fields."""
-        return self.model_dump(mode="json", exclude_none=True)
+        """Serialise for Supabase insert, excluding None fields. Converts Decimal to float."""
+        raw = self.model_dump(mode="python", exclude_none=True)
+        return _convert_decimals(raw)
 
     def post_to_db(self) -> Optional[Dict[str, Any]]:
         """Insert into Supabase and backfill DB-assigned fields (id, created_at). Returns the inserted row dict or None."""

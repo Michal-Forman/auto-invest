@@ -3,6 +3,7 @@ from __future__ import annotations
 
 # Standard library
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 from typing import Any, ClassVar, Dict, List, Literal, Optional, cast
 from uuid import UUID, uuid4
 
@@ -10,10 +11,11 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel
 
 # Local
-from core.db.base import BaseDBModel
+from core.db.base import BaseDBModel, _convert_decimals
 from core.db.client import supabase
 from core.db.orders import Order
 from core.log import log
+from core.precision import to_decimal
 from core.settings import PortfolioSettings, settings
 
 RUN_EXPIRY_DAYS = 14
@@ -23,8 +25,8 @@ InvestmentType = Literal["dca", "one_time"]
 
 
 class RunUpdate(BaseModel):
-    planned_total_czk: Optional[float] = None
-    filled_total_czk: Optional[float] = None
+    planned_total_czk: Optional[Decimal] = None
+    filled_total_czk: Optional[Decimal] = None
     finished_at: Optional[datetime] = None
     status: Optional[Status] = None
     total_orders: Optional[int] = None
@@ -49,15 +51,15 @@ class Run(BaseDBModel):
     status: Status
 
     # --- Investment snapshot ---
-    invest_amount: float
+    invest_amount: Decimal
     invest_interval: str
-    t212_default_weight: float
-    btc_default_weight: float
+    t212_default_weight: Decimal
+    btc_default_weight: Decimal
     investment_type: InvestmentType = "dca"
 
     # --- Execution summary ---
-    planned_total_czk: Optional[float] = None
-    filled_total_czk: Optional[float] = None
+    planned_total_czk: Optional[Decimal] = None
+    filled_total_czk: Optional[Decimal] = None
 
     total_orders: Optional[int] = None
     successful_orders: Optional[int] = None
@@ -79,8 +81,8 @@ class Run(BaseDBModel):
         if not self.id:
             raise ValueError("Cannot update run without id")
 
-        update_fields: Dict[str, Any] = update_data.model_dump(
-            mode="json", exclude_none=True
+        update_fields: Dict[str, Any] = _convert_decimals(
+            update_data.model_dump(mode="python", exclude_none=True)
         )
 
         response: Any = (
@@ -110,10 +112,10 @@ class Run(BaseDBModel):
         run = Run(
             started_at=run_start,
             status="CREATED",
-            invest_amount=portfolio.invest_amount,
+            invest_amount=to_decimal(portfolio.invest_amount),
             invest_interval=portfolio.invest_interval,
-            t212_default_weight=portfolio.t212_weight,
-            btc_default_weight=portfolio.btc_weight,
+            t212_default_weight=to_decimal(portfolio.t212_weight),
+            btc_default_weight=to_decimal(portfolio.btc_weight),
             total_orders=0,
             successful_orders=0,
             failed_orders=0,
@@ -148,7 +150,7 @@ class Run(BaseDBModel):
         )
         return (res.count or 0) == 0
 
-    def _sum_orders_filled_czk(self) -> float:
+    def _sum_orders_filled_czk(self) -> Decimal:
         """Sum filled_total_czk across all orders belonging to this run."""
         if not self.id:
             raise ValueError("Cannot sum orders without run id")
@@ -158,15 +160,18 @@ class Run(BaseDBModel):
             .eq("run_id", self.id)
             .execute()
         )
-        return sum(row["filled_total_czk"] or 0.0 for row in (res.data or []))
+        return sum(
+            (Decimal(str(row["filled_total_czk"])) for row in (res.data or []) if row["filled_total_czk"] is not None),
+            Decimal("0"),
+        )
 
-    def _mark_run_filled(self, filled_total_czk: float) -> None:
+    def _mark_run_filled(self, filled_total_czk: Decimal) -> None:
         """Set this run's status to FILLED and persist filled_total_czk."""
         if not self.id:
             raise ValueError("Cannot update run without id")
         (
             supabase.table("runs")
-            .update({"status": "FILLED", "filled_total_czk": filled_total_czk})
+            .update({"status": "FILLED", "filled_total_czk": float(filled_total_czk)})
             .eq("id", self.id)
             .execute()
         )
@@ -233,10 +238,12 @@ class Run(BaseDBModel):
         )
         failed_orders = sum(1 for o in orders if o.status in ("FAILED", "UNKNOWN"))
 
-        planned_total_czk: float = float(sum(o.total_czk for o in orders))
+        planned_total_czk: Decimal = sum(
+            (o.total_czk for o in orders), Decimal("0")
+        )
 
-        distribution: Dict[str, float] = {o.t212_ticker: o.total_czk for o in orders}
-        multipliers: Dict[str, float] = {o.t212_ticker: o.multiplier for o in orders}
+        distribution: Dict[str, Any] = {o.t212_ticker: o.total_czk for o in orders}
+        multipliers: Dict[str, Any] = {o.t212_ticker: o.multiplier for o in orders}
 
         errors: List[str] = [o.error for o in orders if o.error]
         error: Optional[str] = "; ".join(errors) if errors else None

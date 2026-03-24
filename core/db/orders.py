@@ -4,6 +4,7 @@ from __future__ import annotations
 # Standard library
 from datetime import datetime, timezone
 import hashlib
+from decimal import Decimal
 from typing import Any, ClassVar, Dict, List, Literal, Optional, cast
 from uuid import UUID
 
@@ -13,9 +14,10 @@ from pydantic import BaseModel, Field, model_validator
 
 # Local
 from core.coinmate import Coinmate
-from core.db.base import BaseDBModel
+from core.db.base import BaseDBModel, _convert_decimals
 from core.db.client import supabase
 from core.log import log
+from core.precision import quantize_btc, quantize_czk, to_decimal
 from core.settings import settings
 from core.trading212 import Trading212
 
@@ -40,16 +42,16 @@ class OrderUpdate(BaseModel):
     status: Optional[Status] = None
 
     # --- Create ---
-    filled_quantity: Optional[float] = None
+    filled_quantity: Optional[Decimal] = None
     filled_at: Optional[datetime] = None
-    filled_total: Optional[float] = None
-    filled_total_czk: Optional[float] = None
-    fill_fx_rate: Optional[float] = None
-    fill_price: Optional[float] = None
+    filled_total: Optional[Decimal] = None
+    filled_total_czk: Optional[Decimal] = None
+    fill_fx_rate: Optional[Decimal] = None
+    fill_price: Optional[Decimal] = None
 
     fee_currency: Optional[Currency] = None
-    fee: Optional[float] = None
-    fee_czk: Optional[float] = None
+    fee: Optional[Decimal] = None
+    fee_czk: Optional[Decimal] = None
 
 
 class Order(BaseDBModel):
@@ -71,16 +73,16 @@ class Order(BaseDBModel):
     currency: Currency
     side: Side
     order_type: OrderType
-    fx_rate: float
+    fx_rate: Decimal
 
     # --- Order values ---
-    price: float
-    quantity: float
-    total: float
-    total_czk: float
-    limit_price: Optional[float] = None
+    price: Decimal
+    quantity: Decimal
+    total: Decimal
+    total_czk: Decimal
+    limit_price: Optional[Decimal] = None
     extended_hours: bool
-    multiplier: float
+    multiplier: Decimal
 
     # --- State ---
     status: Status = "UNKNOWN"
@@ -89,15 +91,15 @@ class Order(BaseDBModel):
     submitted_at: datetime
     filled_at: Optional[datetime] = None
 
-    filled_quantity: Optional[float] = None
-    fill_price: Optional[float] = None
-    filled_total: Optional[float] = None
-    filled_total_czk: Optional[float] = None
-    fill_fx_rate: Optional[float] = None
+    filled_quantity: Optional[Decimal] = None
+    fill_price: Optional[Decimal] = None
+    filled_total: Optional[Decimal] = None
+    filled_total_czk: Optional[Decimal] = None
+    fill_fx_rate: Optional[Decimal] = None
 
-    fee: Optional[float] = None
+    fee: Optional[Decimal] = None
     fee_currency: Optional[str] = None
-    fee_czk: Optional[float] = None
+    fee_czk: Optional[Decimal] = None
 
     request: Optional[dict] = None
     response: Optional[dict] = None
@@ -120,9 +122,9 @@ class Order(BaseDBModel):
             self.idempotency_key = self.generate_idempotency_key()
 
         # Normalize precision
-        self.quantity = round(self.quantity, 8)
-        self.total = round(self.total, 2)
-        self.total_czk = round(self.total_czk, 2)
+        self.quantity = quantize_btc(self.quantity)
+        self.total = quantize_czk(self.total)
+        self.total_czk = quantize_czk(self.total_czk)
 
         return self
 
@@ -152,8 +154,8 @@ class Order(BaseDBModel):
         if not self.id:
             raise ValueError("Cannot update order without id")
 
-        update_fields: Dict[str, Any] = update_data.model_dump(
-            mode="json", exclude_none=True
+        update_fields: Dict[str, Any] = _convert_decimals(
+            update_data.model_dump(mode="python", exclude_none=True)
         )
 
         response: Any = (
@@ -239,19 +241,22 @@ class Order(BaseDBModel):
         ts: int = order["createdTimestamp"]
         filled_at: datetime = datetime.fromtimestamp(ts / 1000, tz=timezone.utc)
 
-        filled_total: float = order["amount"] * order["price"] - order["fee"]
+        filled_total: Decimal = (
+            to_decimal(order["amount"]) * to_decimal(order["price"])
+            - to_decimal(order["fee"])
+        )
 
         return OrderUpdate(
             status=status,
-            filled_quantity=order["amount"],
+            filled_quantity=to_decimal(order["amount"]),
             filled_at=filled_at,
             filled_total=filled_total,
             filled_total_czk=filled_total,
-            fill_fx_rate=1.0,
-            fill_price=order["price"],
+            fill_fx_rate=Decimal("1"),
+            fill_price=to_decimal(order["price"]),
             fee_currency="CZK",
-            fee=order["fee"],
-            fee_czk=order["fee"],
+            fee=to_decimal(order["fee"]),
+            fee_czk=to_decimal(order["fee"]),
         )
 
     @classmethod
@@ -370,28 +375,28 @@ class Order(BaseDBModel):
         if fill is not None:
             wallet_impact: Dict[str, Any] = fill["walletImpact"]
             filled_at = fill.get("filledAt")
-            fill_fx_rate = 1 / wallet_impact["fxRate"]
-            fee = abs(wallet_impact["taxes"][0]["quantity"])
+            fill_fx_rate: Decimal = Decimal("1") / to_decimal(wallet_impact["fxRate"])
+            fee: Decimal = abs(to_decimal(wallet_impact["taxes"][0]["quantity"]))
             fee_currency = wallet_impact["taxes"][0]["currency"]
-            fee_czk = fee if fee_currency == "CZK" else None
-            filled_total_czk = wallet_impact["netValue"]
-            filled_total = filled_total_czk / fill_fx_rate
-            fill_price = fill.get("price")
+            fee_czk: Optional[Decimal] = fee if fee_currency == "CZK" else None
+            filled_total_czk: Decimal = to_decimal(wallet_impact["netValue"])
+            filled_total_d: Decimal = filled_total_czk / fill_fx_rate
+            fill_price: Optional[Decimal] = to_decimal(fill["price"]) if fill.get("price") is not None else None
         else:
             filled_at = None
-            fill_fx_rate = None
-            fee = None
+            fill_fx_rate = None  # type: ignore[assignment]
+            fee = None  # type: ignore[assignment]
             fee_currency = None
             fee_czk = None
-            filled_total_czk = None
-            filled_total = None
+            filled_total_czk = None  # type: ignore[assignment]
+            filled_total_d = None  # type: ignore[assignment]
             fill_price = None
 
         return OrderUpdate(
             status=status,
-            filled_quantity=order["filledQuantity"],
+            filled_quantity=to_decimal(order["filledQuantity"]),
             filled_at=filled_at,
-            filled_total=filled_total,
+            filled_total=filled_total_d,
             filled_total_czk=filled_total_czk,
             fill_fx_rate=fill_fx_rate,
             fill_price=fill_price,

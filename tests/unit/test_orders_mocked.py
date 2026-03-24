@@ -1,5 +1,6 @@
 # Standard library
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Any, Callable, Dict, List
 from unittest.mock import MagicMock
 from uuid import UUID
@@ -110,7 +111,7 @@ class TestUpdateInDb:
         row = _order_row(order)
         mock_chain.execute.return_value = MagicMock(data=[row])
 
-        update = OrderUpdate(status="FILLED", filled_quantity=2.5)
+        update = OrderUpdate(status="FILLED", filled_quantity=Decimal("2.5"))
         order.update_in_db(update)
 
         call_data = mock_chain.update.call_args[0][0]
