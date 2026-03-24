@@ -95,6 +95,12 @@ _FX_SYMBOLS: Dict[str, str] = {
     "GBX": "GBPCZK=X",
 }
 
+# Yahoo symbols where the price currency differs from the order's transaction currency
+# (BTC is purchased in CZK on Coinmate, but Yahoo Finance provides BTC-USD price in USD)
+_YAHOO_PRICE_CURRENCY: Dict[str, str] = {
+    "BTC-USD": "USD",
+}
+
 
 def _compute_holdings_czk(user_id: str) -> Dict[str, float]:
     """Return per-ticker portfolio value in CZK based on filled quantities and latest prices."""
@@ -118,9 +124,9 @@ def _compute_holdings_czk(user_id: str) -> Dict[str, float]:
     yahoo_symbols: List[str] = list({meta[0] for meta in ticker_meta.values()})
     fx_needed: List[str] = list(
         {
-            _FX_SYMBOLS[currency]
-            for _, currency in ticker_meta.values()
-            if currency in _FX_SYMBOLS
+            _FX_SYMBOLS[_YAHOO_PRICE_CURRENCY.get(meta[0], meta[1])]
+            for meta in ticker_meta.values()
+            if _YAHOO_PRICE_CURRENCY.get(meta[0], meta[1]) in _FX_SYMBOLS
         }
     )
     all_dl = yahoo_symbols + fx_needed
@@ -147,12 +153,13 @@ def _compute_holdings_czk(user_id: str) -> Dict[str, float]:
         if not meta:
             continue
         yahoo_symbol, currency = meta
+        price_currency = _YAHOO_PRICE_CURRENCY.get(yahoo_symbol, currency)
         price = _latest_price(yahoo_symbol)
-        if currency == "CZK":
+        if price_currency == "CZK":
             price_czk = price
-        elif currency in _FX_SYMBOLS:
-            fx = _latest_price(_FX_SYMBOLS[currency])
-            price_czk = price * fx * (0.01 if currency == "GBX" else 1.0)
+        elif price_currency in _FX_SYMBOLS:
+            fx = _latest_price(_FX_SYMBOLS[price_currency])
+            price_czk = price * fx * (0.01 if price_currency == "GBX" else 1.0)
         else:
             price_czk = price
         per_ticker[ticker] = qty * price_czk
