@@ -1,5 +1,5 @@
 # Standard library
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Union
 
 PRECISION_BTC = Decimal("0.00000001")  # 8 dp

@@ -116,7 +116,9 @@ def _compute_holdings_czk(user_id: str) -> Dict[str, float]:
 
     holdings: Dict[str, float] = defaultdict(float)
     for o in valid_orders:
-        holdings[o.t212_ticker] += float(o.filled_quantity) if o.filled_quantity else 0.0
+        holdings[o.t212_ticker] += (
+            float(o.filled_quantity) if o.filled_quantity else 0.0
+        )
 
     ticker_meta: Dict[str, tuple] = {
         o.t212_ticker: (o.yahoo_symbol, o.currency) for o in valid_orders
@@ -333,7 +335,9 @@ def analytics_portfolio_history(
     for snap_date in snap_dates:
         while order_idx < len(valid_orders) and valid_orders[order_idx].filled_at.date() <= snap_date:  # type: ignore[union-attr]
             o = valid_orders[order_idx]
-            cumulative[o.t212_ticker] += float(o.filled_quantity) if o.filled_quantity else 0.0
+            cumulative[o.t212_ticker] += (
+                float(o.filled_quantity) if o.filled_quantity else 0.0
+            )
             order_idx += 1
 
         total_czk = 0.0
@@ -346,7 +350,9 @@ def analytics_portfolio_history(
             yahoo_sym, currency = meta
             price_currency = _YAHOO_PRICE_CURRENCY.get(yahoo_sym, currency)
             price = _price_on_date(close_series.get(yahoo_sym), snap_date)
-            total_czk += _to_czk_on_date(price, price_currency, close_series, snap_date) * qty
+            total_czk += (
+                _to_czk_on_date(price, price_currency, close_series, snap_date) * qty
+            )
 
         result.append(
             PortfolioHistoryItem(date=snap_date.isoformat(), value=round(total_czk, 0))
@@ -399,8 +405,12 @@ def analytics_strategy_comparison(
             and filled_runs[run_idx].started_at.date() <= snap_date
         ):
             run = filled_runs[run_idx]
-            dist: Dict[str, float] = {k: float(v) for k, v in (run.distribution or {}).items()}
-            mults: Dict[str, float] = {k: float(v) for k, v in (run.multipliers or {}).items()}
+            dist: Dict[str, float] = {
+                k: float(v) for k, v in (run.distribution or {}).items()
+            }
+            mults: Dict[str, float] = {
+                k: float(v) for k, v in (run.multipliers or {}).items()
+            }
             planned_total = float(run.planned_total_czk or sum(dist.values()))
 
             unboost = {t: czk / mults.get(t, 1.0) for t, czk in dist.items()}
@@ -420,14 +430,18 @@ def analytics_strategy_comparison(
                 yahoo_sym, currency = meta
                 price_currency = _YAHOO_PRICE_CURRENCY.get(yahoo_sym, currency)
                 price = _price_on_date(close_series.get(yahoo_sym), run_date)
-                price_czk = _to_czk_on_date(price, price_currency, close_series, run_date)
+                price_czk = _to_czk_on_date(
+                    price, price_currency, close_series, run_date
+                )
                 if price_czk > 0:
                     baseline_qty[ticker] += baseline_czk / price_czk
             run_idx += 1
 
         while order_idx < len(valid_orders) and valid_orders[order_idx].filled_at.date() <= snap_date:  # type: ignore[union-attr]
             o = valid_orders[order_idx]
-            actual_qty[o.t212_ticker] += float(o.filled_quantity) if o.filled_quantity else 0.0
+            actual_qty[o.t212_ticker] += (
+                float(o.filled_quantity) if o.filled_quantity else 0.0
+            )
             order_idx += 1
 
         def portfolio_value(qty_map: Dict[str, float]) -> float:
@@ -441,7 +455,10 @@ def analytics_strategy_comparison(
                 yahoo_sym, currency = meta
                 price_currency = _YAHOO_PRICE_CURRENCY.get(yahoo_sym, currency)
                 price = _price_on_date(close_series.get(yahoo_sym), snap_date)
-                total += _to_czk_on_date(price, price_currency, close_series, snap_date) * qty
+                total += (
+                    _to_czk_on_date(price, price_currency, close_series, snap_date)
+                    * qty
+                )
             return round(total, 0)
 
         result.append(

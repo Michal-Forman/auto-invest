@@ -50,14 +50,29 @@ class TestGetYahooSymbol:
 
 class TestValidateT212Ratios:
     def test_ratios_sum_to_one(self, instruments: Instruments) -> None:
-        assert instruments._validate_t212_ratios({"A": Decimal("0.5"), "B": Decimal("0.5")}) is True
+        assert (
+            instruments._validate_t212_ratios(
+                {"A": Decimal("0.5"), "B": Decimal("0.5")}
+            )
+            is True
+        )
 
     def test_ratios_do_not_sum_to_one(self, instruments: Instruments) -> None:
-        assert instruments._validate_t212_ratios({"A": Decimal("0.5"), "B": Decimal("0.499")}) is False
+        assert (
+            instruments._validate_t212_ratios(
+                {"A": Decimal("0.5"), "B": Decimal("0.499")}
+            )
+            is False
+        )
 
     def test_ratios_within_tolerance(self, instruments: Instruments) -> None:
         # 0.5 + 0.5000004 = 1.0000004, difference from 1.0 is 4e-7 < 1e-6
-        assert instruments._validate_t212_ratios({"A": Decimal("0.5"), "B": Decimal("0.5000004")}) is True
+        assert (
+            instruments._validate_t212_ratios(
+                {"A": Decimal("0.5"), "B": Decimal("0.5000004")}
+            )
+            is True
+        )
 
 
 class TestValidateCashDistribution:
@@ -85,4 +100,6 @@ class TestValidateCashDistribution:
 
     def test_sum_not_equal_invest_amount_raises(self, instruments: Instruments) -> None:
         with pytest.raises(ValueError):
-            instruments._validate_cash_distribution({"A": Decimal("2000"), "B": Decimal("2000")})
+            instruments._validate_cash_distribution(
+                {"A": Decimal("2000"), "B": Decimal("2000")}
+            )

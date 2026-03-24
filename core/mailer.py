@@ -1,6 +1,6 @@
 # Standard library
-from decimal import Decimal
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -342,9 +342,9 @@ class Mailer:
         ]
         ticker_totals: Dict[str, float] = {}
         for o in successful_orders:
-            ticker_totals[o.t212_ticker] = (
-                ticker_totals.get(o.t212_ticker, 0.0) + float(o.total_czk)
-            )
+            ticker_totals[o.t212_ticker] = ticker_totals.get(
+                o.t212_ticker, 0.0
+            ) + float(o.total_czk)
         total_czk = sum(ticker_totals.values())
 
         # Collect issues

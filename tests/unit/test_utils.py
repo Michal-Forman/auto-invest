@@ -47,7 +47,9 @@ def test_exhaustion_on_third_run() -> None:
     """Balance covers exactly 2 buffered spends; exhausted on run 3."""
     spend = Decimal("1000")
     buffer = 1.1
-    balance = spend * Decimal(str(buffer)) * 2 + Decimal("0.01")  # survives 2 runs, fails on 3rd
+    balance = spend * Decimal(str(buffer)) * 2 + Decimal(
+        "0.01"
+    )  # survives 2 runs, fails on 3rd
     result = find_balance_exhaustion_date(_CRON_DAILY, spend, balance, buffer)
     assert result is not None
     # 3rd daily run from 2026-03-03 00:00 is 2026-03-05 09:00

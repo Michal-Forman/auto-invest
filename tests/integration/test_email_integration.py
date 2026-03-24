@@ -146,7 +146,9 @@ class TestInvestmentConfirmationIntegration:
         mock_post = _patch_mail_db(mocker)
 
         run = _make_run()
-        make_mailer().send_investment_confirmation(run, [], {"VWCE": Decimal("5000")}, {})
+        make_mailer().send_investment_confirmation(
+            run, [], {"VWCE": Decimal("5000")}, {}
+        )
 
         mock_post.assert_called_once()
 
@@ -154,7 +156,9 @@ class TestInvestmentConfirmationIntegration:
         mock_send = _patch_mailer_send(mocker)
         run = _make_run(id=UUID("12345678-abcd-efab-cdef-012345678901"))
 
-        make_mailer().send_investment_confirmation(run, [], {"VWCE": Decimal("5000")}, {})
+        make_mailer().send_investment_confirmation(
+            run, [], {"VWCE": Decimal("5000")}, {}
+        )
 
         html = mock_send.call_args[0][2]
         assert "12345678" in html

@@ -241,8 +241,7 @@ class Instruments:
 
         invest_amount = to_decimal(self.portfolio_settings.invest_amount)
         distribution: Dict[str, Decimal] = {
-            ticker: invest_amount * ratio
-            for ticker, ratio in normalized_ratios.items()
+            ticker: invest_amount * ratio for ticker, ratio in normalized_ratios.items()
         }
         validated_distribution: Dict[str, Decimal] = self._validate_cash_distribution(
             distribution
@@ -266,7 +265,10 @@ class Instruments:
     ) -> Dict[str, Decimal]:
         """Enforce minimum order size (25 CZK). Drops instruments below 12.5 CZK, bumps those between 12.5-25 CZK up to 25 CZK."""
         invest_amount = to_decimal(self.portfolio_settings.invest_amount)
-        if abs(sum(distribution.values(), Decimal("0")) - invest_amount) > RATIO_TOLERANCE:
+        if (
+            abs(sum(distribution.values(), Decimal("0")) - invest_amount)
+            > RATIO_TOLERANCE
+        ):
             raise ValueError(
                 f"Cash distribution does not sum to invest amount: {distribution} (total: {sum(distribution.values(), Decimal('0'))})"
             )

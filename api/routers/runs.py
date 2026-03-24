@@ -23,7 +23,9 @@ def _order_to_response(order: Order) -> OrderResponse:
         display_name=INSTRUMENT_NAMES.get(order.t212_ticker, order.t212_ticker),
         exchange=order.exchange,
         czk_amount=float(order.total_czk),
-        quantity=float(order.filled_quantity) if order.filled_quantity is not None else None,
+        quantity=(
+            float(order.filled_quantity) if order.filled_quantity is not None else None
+        ),
         fill_price=float(order.fill_price) if order.fill_price is not None else None,
         status=order.status,
     )

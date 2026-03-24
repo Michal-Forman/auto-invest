@@ -306,7 +306,9 @@ class TestSendInvestmentConfirmation:
         mock_send = mocker.patch.object(Mailer, "_send")
         run = _make_run()
         dist = {"VWCEd_EQ": Decimal("4000"), "BTC": Decimal("1000")}
-        _make_mailer().send_investment_confirmation(run, [], dist, {"VWCEd_EQ": Decimal("1.5")})
+        _make_mailer().send_investment_confirmation(
+            run, [], dist, {"VWCEd_EQ": Decimal("1.5")}
+        )
         html = mock_send.call_args[0][2]
         assert "VWCEd_EQ" in html
         assert "BTC" in html
@@ -334,7 +336,9 @@ class TestSendInvestmentConfirmation:
     def test_mail_type_is_investment_confirmation(self, mocker: MockerFixture) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
         run = _make_run()
-        _make_mailer().send_investment_confirmation(run, [], {"VWCE": Decimal("1000")}, {})
+        _make_mailer().send_investment_confirmation(
+            run, [], {"VWCE": Decimal("1000")}, {}
+        )
         assert mock_send.call_args.kwargs["mail_type"] == "investment_confirmation"
 
     def test_rows_sorted_by_czk_descending(self, mocker: MockerFixture) -> None:

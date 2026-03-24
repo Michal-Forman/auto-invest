@@ -43,7 +43,9 @@ class Executor:
         investment_type: InvestmentType = "dca",
     ) -> Order:
         """Place an instant BTC buy on Coinmate for the given CZK amount, persist the Order to DB, and return it."""
-        amount = quantize_czk(amount)  # Coinmate requires amounts to have at most 2 decimal places
+        amount = quantize_czk(
+            amount
+        )  # Coinmate requires amounts to have at most 2 decimal places
         # Place the order on Coinmate
         response_data: Dict[str, Any] = self.coinmate.buy_instant(amount, "BTC_CZK")
         req: Any = response_data.get("req")

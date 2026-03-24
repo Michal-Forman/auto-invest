@@ -37,7 +37,9 @@ class TestPlaceBtcOrder:
     @pytest.fixture(autouse=True)
     def setup(self, mocker: MockerFixture) -> None:
         mocker.patch.object(Order, "post_to_db", return_value={})
-        mocker.patch.object(Instruments, "get_btc_price", return_value=Decimal("2000000"))
+        mocker.patch.object(
+            Instruments, "get_btc_price", return_value=Decimal("2000000")
+        )
 
     def test_submitted_on_success(
         self, executor: Executor, run_id: UUID, mock_coinmate: MagicMock
@@ -83,6 +85,7 @@ class TestPlaceBtcOrder:
         }
         order = executor._place_btc_order(Decimal("500"), Decimal("1"), run_id)
         from core.precision import quantize_btc
+
         assert order.quantity == quantize_btc(Decimal("500") / Decimal("2000000"))
 
     def test_logs_error_when_post_to_db_raises(
@@ -130,8 +133,12 @@ class TestPlaceT212Order:
     @pytest.fixture(autouse=True)
     def setup(self, mocker: MockerFixture) -> None:
         mocker.patch.object(Order, "post_to_db", return_value={})
-        mocker.patch.object(Instruments, "get_fx_rate_to_czk", return_value=Decimal("25"))
-        mocker.patch.object(Instruments, "get_current_price", return_value=Decimal("100"))
+        mocker.patch.object(
+            Instruments, "get_fx_rate_to_czk", return_value=Decimal("25")
+        )
+        mocker.patch.object(
+            Instruments, "get_current_price", return_value=Decimal("100")
+        )
 
     def _t212_response(
         self, filled_qty: float, qty: float, order_id: str = "T212-1"
@@ -151,7 +158,9 @@ class TestPlaceT212Order:
         self, executor: Executor, run_id: UUID, mock_t212: MagicMock
     ) -> None:
         mock_t212.equity_order_place_market.return_value = self._t212_response(2.0, 2.0)
-        order = executor._place_t212_order("VWCEd_EQ", Decimal("5000"), Decimal("1"), run_id)
+        order = executor._place_t212_order(
+            "VWCEd_EQ", Decimal("5000"), Decimal("1"), run_id
+        )
         assert order.status == "FILLED"
 
     def test_submitted_when_unfilled(
@@ -160,7 +169,9 @@ class TestPlaceT212Order:
         mock_t212.equity_order_place_market.return_value = self._t212_response(
             0, 2.0, "T212-2"
         )
-        order = executor._place_t212_order("VWCEd_EQ", Decimal("5000"), Decimal("1"), run_id)
+        order = executor._place_t212_order(
+            "VWCEd_EQ", Decimal("5000"), Decimal("1"), run_id
+        )
         assert order.status == "SUBMITTED"
 
     def test_partially_filled(
@@ -169,7 +180,9 @@ class TestPlaceT212Order:
         mock_t212.equity_order_place_market.return_value = self._t212_response(
             1.0, 2.0, "T212-3"
         )
-        order = executor._place_t212_order("VWCEd_EQ", Decimal("5000"), Decimal("1"), run_id)
+        order = executor._place_t212_order(
+            "VWCEd_EQ", Decimal("5000"), Decimal("1"), run_id
+        )
         assert order.status == "PARTIALLY_FILLED"
 
     def test_failed_when_no_response(
@@ -180,7 +193,9 @@ class TestPlaceT212Order:
             "res": None,
             "err": None,
         }
-        order = executor._place_t212_order("VWCEd_EQ", Decimal("5000"), Decimal("1"), run_id)
+        order = executor._place_t212_order(
+            "VWCEd_EQ", Decimal("5000"), Decimal("1"), run_id
+        )
         assert order.status == "FAILED"
 
     def test_shares_calculated_from_fx_and_price(
@@ -190,8 +205,11 @@ class TestPlaceT212Order:
         mock_t212.equity_order_place_market.return_value = self._t212_response(
             2.0, 2.0, "T212-4"
         )
-        order = executor._place_t212_order("VWCEd_EQ", Decimal("5000"), Decimal("1"), run_id)
+        order = executor._place_t212_order(
+            "VWCEd_EQ", Decimal("5000"), Decimal("1"), run_id
+        )
         from core.precision import quantize_btc
+
         assert order.quantity == quantize_btc(Decimal("2"))
 
     def test_logs_warning_when_filled_quantity_is_unknown(
@@ -207,7 +225,9 @@ class TestPlaceT212Order:
         )
         mock_log_warning = mocker.patch("core.executor.log.warning")
 
-        order = executor._place_t212_order("VWCEd_EQ", Decimal("5000"), Decimal("1"), run_id)
+        order = executor._place_t212_order(
+            "VWCEd_EQ", Decimal("5000"), Decimal("1"), run_id
+        )
 
         assert order.status == "UNKNOWN"
         warning_calls = [str(c) for c in mock_log_warning.call_args_list]
@@ -264,7 +284,9 @@ class TestPlaceOrders:
         mock_t212_order = mocker.patch.object(
             Executor, "_place_t212_order", return_value=MagicMock()
         )
-        executor.place_orders({"VWCEd_EQ": Decimal("4500")}, {"VWCEd_EQ": Decimal("1")}, run_id)
+        executor.place_orders(
+            {"VWCEd_EQ": Decimal("4500")}, {"VWCEd_EQ": Decimal("1")}, run_id
+        )
         mock_t212_order.assert_called_once()
 
     def test_mixed_returns_all_orders(
@@ -303,7 +325,9 @@ class TestWithdrawBtc:
     ) -> None:
         mock_coinmate.btc_balance.return_value = Decimal("0.005")
         mock_coinmate.btc_withdraw.return_value = mock_transaction_data
-        mocker.patch.object(Instruments, "get_btc_price", return_value=Decimal("2000000"))
+        mocker.patch.object(
+            Instruments, "get_btc_price", return_value=Decimal("2000000")
+        )
         mocker.patch.object(
             BtcWithdrawal,
             "create_withdrawal",

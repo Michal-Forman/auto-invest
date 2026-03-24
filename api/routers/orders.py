@@ -33,7 +33,9 @@ def list_orders(
             display_name=INSTRUMENT_NAMES.get(o.t212_ticker, o.t212_ticker),
             exchange=o.exchange,
             czk_amount=float(o.total_czk),
-            quantity=float(o.filled_quantity) if o.filled_quantity is not None else None,
+            quantity=(
+                float(o.filled_quantity) if o.filled_quantity is not None else None
+            ),
             fill_price=float(o.fill_price) if o.fill_price is not None else None,
             status=o.status,
         )

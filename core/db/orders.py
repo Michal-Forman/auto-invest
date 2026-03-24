@@ -3,8 +3,8 @@ from __future__ import annotations
 
 # Standard library
 from datetime import datetime, timezone
-import hashlib
 from decimal import Decimal
+import hashlib
 from typing import Any, ClassVar, Dict, List, Literal, Optional, cast
 from uuid import UUID
 
@@ -241,10 +241,9 @@ class Order(BaseDBModel):
         ts: int = order["createdTimestamp"]
         filled_at: datetime = datetime.fromtimestamp(ts / 1000, tz=timezone.utc)
 
-        filled_total: Decimal = (
-            to_decimal(order["amount"]) * to_decimal(order["price"])
-            - to_decimal(order["fee"])
-        )
+        filled_total: Decimal = to_decimal(order["amount"]) * to_decimal(
+            order["price"]
+        ) - to_decimal(order["fee"])
 
         return OrderUpdate(
             status=status,
@@ -381,7 +380,9 @@ class Order(BaseDBModel):
             fee_czk: Optional[Decimal] = fee if fee_currency == "CZK" else None
             filled_total_czk: Decimal = to_decimal(wallet_impact["netValue"])
             filled_total_d: Decimal = filled_total_czk / fill_fx_rate
-            fill_price: Optional[Decimal] = to_decimal(fill["price"]) if fill.get("price") is not None else None
+            fill_price: Optional[Decimal] = (
+                to_decimal(fill["price"]) if fill.get("price") is not None else None
+            )
         else:
             filled_at = None
             fill_fx_rate = None  # type: ignore[assignment]

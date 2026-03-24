@@ -161,7 +161,11 @@ class Run(BaseDBModel):
             .execute()
         )
         return sum(
-            (Decimal(str(row["filled_total_czk"])) for row in (res.data or []) if row["filled_total_czk"] is not None),
+            (
+                Decimal(str(row["filled_total_czk"]))
+                for row in (res.data or [])
+                if row["filled_total_czk"] is not None
+            ),
             Decimal("0"),
         )
 
@@ -238,9 +242,7 @@ class Run(BaseDBModel):
         )
         failed_orders = sum(1 for o in orders if o.status in ("FAILED", "UNKNOWN"))
 
-        planned_total_czk: Decimal = sum(
-            (o.total_czk for o in orders), Decimal("0")
-        )
+        planned_total_czk: Decimal = sum((o.total_czk for o in orders), Decimal("0"))
 
         distribution: Dict[str, Any] = {o.t212_ticker: o.total_czk for o in orders}
         multipliers: Dict[str, Any] = {o.t212_ticker: o.multiplier for o in orders}
@@ -293,7 +295,9 @@ class Run(BaseDBModel):
         user_id: Optional[str] = None,
     ) -> List[Run]:
         """Fetch runs with optional status/user filter, ordered by most recent first."""
-        query: Any = supabase.table(Run.TABLE).select("*").order("started_at", desc=True)
+        query: Any = (
+            supabase.table(Run.TABLE).select("*").order("started_at", desc=True)
+        )
         if limit is not None:
             query = query.limit(limit)
 

@@ -18,28 +18,36 @@ class TestAdjustRatio:
     def test_no_cap_25pct_drop(self, mocker: MockerFixture) -> None:
         # VWCEd_EQ has cap "none": drop 25% → multiplier = 100/75 ≈ 1.333
         mocker.patch.object(Instruments, "get_ath", return_value=Decimal("200"))
-        mocker.patch.object(Instruments, "get_current_price", return_value=Decimal("150"))
+        mocker.patch.object(
+            Instruments, "get_current_price", return_value=Decimal("150")
+        )
         result = Instruments._adjust_ratio("VWCEd_EQ", Decimal("1"))
         assert result["multiplier"] == pytest.approx(Decimal("100") / Decimal("75"))
 
     def test_soft_cap_clamps_at_75pct(self, mocker: MockerFixture) -> None:
         # SC0Ud_EQ has cap "soft": drop 90% → capped to 75% → multiplier = 100/25 = 4.0
         mocker.patch.object(Instruments, "get_ath", return_value=Decimal("200"))
-        mocker.patch.object(Instruments, "get_current_price", return_value=Decimal("20"))
+        mocker.patch.object(
+            Instruments, "get_current_price", return_value=Decimal("20")
+        )
         result = Instruments._adjust_ratio("SC0Ud_EQ", Decimal("1"))
         assert result["multiplier"] == pytest.approx(Decimal("4"))
 
     def test_hard_cap_resets_above_90pct(self, mocker: MockerFixture) -> None:
         # BTC has cap "hard": drop 95% → reset to 0% → multiplier = 1.0
         mocker.patch.object(Instruments, "get_ath", return_value=Decimal("200"))
-        mocker.patch.object(Instruments, "get_current_price", return_value=Decimal("10"))
+        mocker.patch.object(
+            Instruments, "get_current_price", return_value=Decimal("10")
+        )
         result = Instruments._adjust_ratio("BTC", Decimal("1"))
         assert result["multiplier"] == pytest.approx(Decimal("1"))
 
     def test_adjusted_value_scales_with_multiplier(self, mocker: MockerFixture) -> None:
         # VWCEd_EQ, drop 50% → multiplier = 2.0 → adjusted_value = 10.0 * 2.0 = 20.0
         mocker.patch.object(Instruments, "get_ath", return_value=Decimal("200"))
-        mocker.patch.object(Instruments, "get_current_price", return_value=Decimal("100"))
+        mocker.patch.object(
+            Instruments, "get_current_price", return_value=Decimal("100")
+        )
         result = Instruments._adjust_ratio("VWCEd_EQ", Decimal("10"))
         assert result["adjusted_value"] == pytest.approx(Decimal("20"))
 
@@ -52,7 +60,10 @@ class TestDistributeCash:
             instruments,
             "get_adjusted_ratios",
             return_value={
-                "VWCEd_EQ": {"multiplier": Decimal("1"), "adjusted_value": Decimal("1")},
+                "VWCEd_EQ": {
+                    "multiplier": Decimal("1"),
+                    "adjusted_value": Decimal("1"),
+                },
                 "BTC": {"multiplier": Decimal("2"), "adjusted_value": Decimal("3")},
             },
         )
@@ -70,8 +81,14 @@ class TestDistributeCash:
             instruments,
             "get_adjusted_ratios",
             return_value={
-                "VWCEd_EQ": {"multiplier": Decimal("1"), "adjusted_value": Decimal("1000")},
-                "SC0Ud_EQ": {"multiplier": Decimal("1"), "adjusted_value": Decimal("0.001")},
+                "VWCEd_EQ": {
+                    "multiplier": Decimal("1"),
+                    "adjusted_value": Decimal("1000"),
+                },
+                "SC0Ud_EQ": {
+                    "multiplier": Decimal("1"),
+                    "adjusted_value": Decimal("0.001"),
+                },
             },
         )
         result = instruments.distribute_cash()
@@ -86,7 +103,10 @@ class TestDistributeCash:
             instruments,
             "get_adjusted_ratios",
             return_value={
-                "VWCEd_EQ": {"multiplier": Decimal("1.5"), "adjusted_value": Decimal("2500")},
+                "VWCEd_EQ": {
+                    "multiplier": Decimal("1.5"),
+                    "adjusted_value": Decimal("2500"),
+                },
                 "BTC": {"multiplier": Decimal("2"), "adjusted_value": Decimal("2500")},
             },
         )
@@ -147,7 +167,10 @@ class TestGetT212Ratios:
             "err": None,
         }
         result = instruments.get_t212_ratios()
-        assert result == {"VWCEd_EQ": pytest.approx(Decimal("0.6")), "CSPX_EQ": pytest.approx(Decimal("0.4"))}
+        assert result == {
+            "VWCEd_EQ": pytest.approx(Decimal("0.6")),
+            "CSPX_EQ": pytest.approx(Decimal("0.4")),
+        }
 
     def test_raises_on_api_error(self, instruments: Instruments) -> None:
         cast(MagicMock, instruments.t212.pie).return_value = {
@@ -312,8 +335,12 @@ class TestGetAdjustedRatios:
 class TestIsBtcWithdrawalTresholdExceeded:
     @pytest.fixture(autouse=True)
     def setup(self, instruments: Instruments, mocker: MockerFixture) -> None:
-        mocker.patch.object(Instruments, "get_btc_price", return_value=Decimal("1500000"))
-        mocker.patch.object(instruments.coinmate, "btc_balance", return_value=Decimal("0.01"))
+        mocker.patch.object(
+            Instruments, "get_btc_price", return_value=Decimal("1500000")
+        )
+        mocker.patch.object(
+            instruments.coinmate, "btc_balance", return_value=Decimal("0.01")
+        )
 
     def test_returns_true_when_above_threshold(self, instruments: Instruments) -> None:
         instruments.portfolio_settings = replace(
