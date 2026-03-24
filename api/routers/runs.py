@@ -42,7 +42,7 @@ def _run_to_response(run: Run) -> RunResponse:
 
 @router.get("/runs", response_model=List[RunResponse])
 def list_runs(
-    limit: int = 50,
+    limit: Optional[int] = None,
     status: Optional[str] = None,
     user_id: str = Depends(get_current_user_id),
 ) -> List[RunResponse]:

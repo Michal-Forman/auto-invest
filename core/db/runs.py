@@ -281,17 +281,14 @@ class Run(BaseDBModel):
 
     @staticmethod
     def get_all_runs(
-        limit: int = 50,
+        limit: Optional[int] = None,
         status: Optional[str] = None,
         user_id: Optional[str] = None,
     ) -> List[Run]:
         """Fetch runs with optional status/user filter, ordered by most recent first."""
-        query: Any = (
-            supabase.table(Run.TABLE)
-            .select("*")
-            .order("started_at", desc=True)
-            .limit(limit)
-        )
+        query: Any = supabase.table(Run.TABLE).select("*").order("started_at", desc=True)
+        if limit is not None:
+            query = query.limit(limit)
 
         if status:
             query = query.eq("status", status)

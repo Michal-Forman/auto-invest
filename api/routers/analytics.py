@@ -5,6 +5,7 @@ from typing import Any, Dict, List
 
 # Third-party
 from fastapi import APIRouter, Depends
+import pandas as pd  # type: ignore[import-untyped]
 import yfinance as yf  # type: ignore[import-untyped]
 
 # Local
@@ -132,10 +133,10 @@ def _compute_holdings_czk(user_id: str) -> Dict[str, float]:
     all_dl = yahoo_symbols + fx_needed
 
     if len(all_dl) == 1:
-        hist_raw = yf.download(all_dl[0], period="5d", auto_adjust=True, progress=False)
+        hist_raw = yf.download(all_dl[0], period="5d", progress=False)
         close_series: Dict[str, Any] = {all_dl[0]: hist_raw["Close"]}
     else:
-        hist_raw = yf.download(all_dl, period="5d", auto_adjust=True, progress=False)
+        hist_raw = yf.download(all_dl, period="5d", progress=False)
         close_series = {sym: hist_raw["Close"][sym] for sym in all_dl}
 
     def _latest_price(symbol: str) -> float:
@@ -204,20 +205,22 @@ def _fetch_price_history(
     """Download full yfinance Close history for all instruments + FX pairs."""
     yahoo_symbols: List[str] = list({meta[0] for meta in ticker_meta.values()})
     fx_needed: List[str] = list(
-        {_FX_SYMBOLS[c] for _, c in ticker_meta.values() if c in _FX_SYMBOLS}
+        {
+            _FX_SYMBOLS[_YAHOO_PRICE_CURRENCY.get(sym, c)]
+            for sym, c in ticker_meta.values()
+            if _YAHOO_PRICE_CURRENCY.get(sym, c) in _FX_SYMBOLS
+        }
     )
     all_dl = yahoo_symbols + fx_needed
     end_dl = end_date + timedelta(days=1)
+    start_str = start_date.isoformat()
+    end_str = end_dl.isoformat()
 
     if len(all_dl) == 1:
-        hist = yf.download(
-            all_dl[0], start=start_date, end=end_dl, auto_adjust=True, progress=False
-        )
+        hist = yf.download(all_dl[0], start=start_str, end=end_str, progress=False)
         return {all_dl[0]: hist["Close"]}
     else:
-        hist = yf.download(
-            all_dl, start=start_date, end=end_dl, auto_adjust=True, progress=False
-        )
+        hist = yf.download(all_dl, start=start_str, end=end_str, progress=False)
         return {sym: hist["Close"][sym] for sym in all_dl}
 
 
@@ -233,7 +236,11 @@ def _price_on_date(series: Any, target: date) -> float:
     clean = series.dropna()
     if clean.empty:
         return 0.0
-    mask = clean.index.date <= target
+    target_ts = pd.Timestamp(target)
+    idx = clean.index
+    if isinstance(idx, pd.DatetimeIndex) and idx.tz is not None:
+        idx = idx.tz_localize(None)
+    mask = idx.normalize() <= target_ts
     eligible = clean[mask]
     return float(eligible.iloc[-1]) if not eligible.empty else 0.0
 
@@ -337,8 +344,9 @@ def analytics_portfolio_history(
             if not meta:
                 continue
             yahoo_sym, currency = meta
+            price_currency = _YAHOO_PRICE_CURRENCY.get(yahoo_sym, currency)
             price = _price_on_date(close_series.get(yahoo_sym), snap_date)
-            total_czk += _to_czk_on_date(price, currency, close_series, snap_date) * qty
+            total_czk += _to_czk_on_date(price, price_currency, close_series, snap_date) * qty
 
         result.append(
             PortfolioHistoryItem(date=snap_date.isoformat(), value=round(total_czk, 0))
@@ -410,8 +418,9 @@ def analytics_strategy_comparison(
                 if not meta:
                     continue
                 yahoo_sym, currency = meta
+                price_currency = _YAHOO_PRICE_CURRENCY.get(yahoo_sym, currency)
                 price = _price_on_date(close_series.get(yahoo_sym), run_date)
-                price_czk = _to_czk_on_date(price, currency, close_series, run_date)
+                price_czk = _to_czk_on_date(price, price_currency, close_series, run_date)
                 if price_czk > 0:
                     baseline_qty[ticker] += baseline_czk / price_czk
             run_idx += 1
@@ -430,8 +439,9 @@ def analytics_strategy_comparison(
                 if not meta:
                     continue
                 yahoo_sym, currency = meta
+                price_currency = _YAHOO_PRICE_CURRENCY.get(yahoo_sym, currency)
                 price = _price_on_date(close_series.get(yahoo_sym), snap_date)
-                total += _to_czk_on_date(price, currency, close_series, snap_date) * qty
+                total += _to_czk_on_date(price, price_currency, close_series, snap_date) * qty
             return round(total, 0)
 
         result.append(
