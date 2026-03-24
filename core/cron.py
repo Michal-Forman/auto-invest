@@ -1,5 +1,6 @@
 # Standard library
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
 # Local
@@ -12,6 +13,7 @@ from core.executor import Executor
 from core.instruments import Instruments
 from core.log import log
 from core.mailer import Mailer
+from core.precision import to_decimal
 from core.settings import UserSettings
 from core.trading212 import Trading212
 from core.utils import find_balance_exhaustion_date, is_now_cron_time
@@ -80,12 +82,15 @@ def run_for_user(user: UserRecord) -> None:
     if not Mail.balance_alert_sent_today(user_id=user_id):
         try:
             adjusted_ratios = instruments.get_adjusted_ratios()
-            total_adj = sum(v["adjusted_value"] for v in adjusted_ratios.values())
-            t212_adj = sum(
-                v["adjusted_value"] for k, v in adjusted_ratios.items() if k != "BTC"
+            total_adj = sum(
+                (v["adjusted_value"] for v in adjusted_ratios.values()), Decimal("0")
             )
-            btc_adj = adjusted_ratios.get("BTC", {}).get("adjusted_value", 0.0)
-            invest = user_settings.portfolio.invest_amount
+            t212_adj = sum(
+                (v["adjusted_value"] for k, v in adjusted_ratios.items() if k != "BTC"),
+                Decimal("0"),
+            )
+            btc_adj = adjusted_ratios.get("BTC", {}).get("adjusted_value", Decimal("0"))
+            invest = to_decimal(user_settings.portfolio.invest_amount)
             cron = user_settings.portfolio.invest_interval
 
             BUFFER: float = user_settings.portfolio.balance_buffer
@@ -127,13 +132,13 @@ def run_for_user(user: UserRecord) -> None:
         assert run.id is not None
 
         try:
-            calculated_investment: Dict[str, Dict[str, float]] = (
+            calculated_investment: Dict[str, Dict[str, Decimal]] = (
                 instruments.distribute_cash()
             )
-            cash_distribution: Dict[str, float] = calculated_investment[
+            cash_distribution: Dict[str, Decimal] = calculated_investment[
                 "cash_distribution"
             ]
-            multipliers: Dict[str, float] = calculated_investment["multipliers"]
+            multipliers: Dict[str, Decimal] = calculated_investment["multipliers"]
             orders: List[Order] = executor.place_orders(
                 cash_distribution, multipliers, run_id=run.id, investment_type="dca"
             )

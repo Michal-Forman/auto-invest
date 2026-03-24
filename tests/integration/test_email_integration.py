@@ -1,5 +1,6 @@
 # Standard library
 from datetime import datetime, timezone
+from decimal import Decimal
 from types import SimpleNamespace
 from typing import Any, Dict, List
 from unittest.mock import MagicMock
@@ -88,8 +89,8 @@ class TestInvestmentConfirmationIntegration:
             _make_order(t212_ticker="VWCE", total_czk=3000.0),
             _make_order(t212_ticker="BTC", total_czk=2000.0),
         ]
-        dist = {"VWCE": 3000.0, "BTC": 2000.0}
-        mults = {"VWCE": 1.0, "BTC": 1.5}
+        dist = {"VWCE": Decimal("3000"), "BTC": Decimal("2000")}
+        mults = {"VWCE": Decimal("1"), "BTC": Decimal("1.5")}
 
         make_mailer().send_investment_confirmation(run, orders, dist, mults)
 
@@ -100,7 +101,7 @@ class TestInvestmentConfirmationIntegration:
     ) -> None:
         mock_send = _patch_mailer_send(mocker)
         run = _make_run()
-        dist = {"VWCE": 3500.0, "BTC": 1500.0}
+        dist = {"VWCE": Decimal("3500"), "BTC": Decimal("1500")}
 
         make_mailer().send_investment_confirmation(run, [], dist, {})
 
@@ -114,7 +115,7 @@ class TestInvestmentConfirmationIntegration:
             _make_order(t212_ticker="VWCE", exchange="T212"),
             _make_order(t212_ticker="BTC", exchange="COINMATE"),
         ]
-        dist = {"VWCE": 4000.0, "BTC": 1000.0}
+        dist = {"VWCE": Decimal("4000"), "BTC": Decimal("1000")}
 
         make_mailer().send_investment_confirmation(run, orders, dist, {})
 
@@ -145,7 +146,9 @@ class TestInvestmentConfirmationIntegration:
         mock_post = _patch_mail_db(mocker)
 
         run = _make_run()
-        make_mailer().send_investment_confirmation(run, [], {"VWCE": 5000.0}, {})
+        make_mailer().send_investment_confirmation(
+            run, [], {"VWCE": Decimal("5000")}, {}
+        )
 
         mock_post.assert_called_once()
 
@@ -153,7 +156,9 @@ class TestInvestmentConfirmationIntegration:
         mock_send = _patch_mailer_send(mocker)
         run = _make_run(id=UUID("12345678-abcd-efab-cdef-012345678901"))
 
-        make_mailer().send_investment_confirmation(run, [], {"VWCE": 5000.0}, {})
+        make_mailer().send_investment_confirmation(
+            run, [], {"VWCE": Decimal("5000")}, {}
+        )
 
         html = mock_send.call_args[0][2]
         assert "12345678" in html

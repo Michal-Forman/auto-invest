@@ -1,5 +1,6 @@
 # Standard library
 import base64
+from decimal import Decimal
 import random
 import time
 from typing import Any, Dict, List, Optional, Union
@@ -10,6 +11,7 @@ from requests.exceptions import HTTPError, RequestException
 
 # Local
 from core.log import log
+from core.precision import to_decimal
 
 
 class Trading212:
@@ -169,7 +171,7 @@ class Trading212:
         )
         return self._get("equity/positions", params=params)
 
-    def get_current_price(self, ticker: str) -> float:
+    def get_current_price(self, ticker: str) -> Decimal:
         """
         Returns currentPrice for an instrument you currently hold (open position).
         """
@@ -186,7 +188,7 @@ class Trading212:
                 "T212 API provides currentPrice via /equity/positions only for open positions."
             )
 
-        return float(position_list[0]["currentPrice"])
+        return to_decimal(float(position_list[0]["currentPrice"]))
 
     def _process_items(self, response: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Collect all items from a paginated T212 response by following nextPagePath links."""
@@ -244,13 +246,13 @@ class Trading212:
         """Fetch a single equity order by its ID."""
         return self._get(f"equity/orders/{order_id}")
 
-    def balance(self) -> float:
+    def balance(self) -> Decimal:
         """Fetch the available-to-trade cash balance from the account summary."""
         wrapped: Dict[str, Any] = self._get("equity/account/summary")
         if wrapped.get("err"):
             raise RequestException(f"Could not fetch balance: {wrapped['err']}")
         try:
-            return float(wrapped["res"]["cash"]["availableToTrade"])
+            return to_decimal(float(wrapped["res"]["cash"]["availableToTrade"]))
         except (KeyError, TypeError) as e:
             raise RequestException(f"Unexpected balance response structure: {e}")
 

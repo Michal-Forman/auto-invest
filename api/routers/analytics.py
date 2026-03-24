@@ -5,6 +5,7 @@ from typing import Any, Dict, List
 
 # Third-party
 from fastapi import APIRouter, Depends
+import pandas as pd  # type: ignore[import-untyped]
 import yfinance as yf  # type: ignore[import-untyped]
 
 # Local
@@ -38,7 +39,7 @@ def analytics_runs(
     return [
         AnalyticsRunItem(
             date=run.started_at.date().isoformat(),
-            czk=run.planned_total_czk or 0.0,
+            czk=float(run.planned_total_czk or 0),
             status=run.status,
         )
         for run in runs
@@ -57,13 +58,13 @@ def analytics_allocation(
         if run.status != "FILLED" or not run.distribution:
             continue
 
-        dist: Dict[str, Any] = run.distribution
-        total = sum(dist.values())
+        dist_f: Dict[str, float] = {k: float(v) for k, v in run.distribution.items()}
+        total = sum(dist_f.values())
         if total == 0:
             continue
 
         pct: Dict[str, float] = {
-            ticker: round(czk / total * 100, 2) for ticker, czk in dist.items()
+            ticker: round(czk / total * 100, 2) for ticker, czk in dist_f.items()
         }
         result.append(
             AnalyticsAllocationItem(
@@ -95,6 +96,12 @@ _FX_SYMBOLS: Dict[str, str] = {
     "GBX": "GBPCZK=X",
 }
 
+# Yahoo symbols where the price currency differs from the order's transaction currency
+# (BTC is purchased in CZK on Coinmate, but Yahoo Finance provides BTC-USD price in USD)
+_YAHOO_PRICE_CURRENCY: Dict[str, str] = {
+    "BTC-USD": "USD",
+}
+
 
 def _compute_holdings_czk(user_id: str) -> Dict[str, float]:
     """Return per-ticker portfolio value in CZK based on filled quantities and latest prices."""
@@ -109,7 +116,9 @@ def _compute_holdings_czk(user_id: str) -> Dict[str, float]:
 
     holdings: Dict[str, float] = defaultdict(float)
     for o in valid_orders:
-        holdings[o.t212_ticker] += o.filled_quantity or 0.0
+        holdings[o.t212_ticker] += (
+            float(o.filled_quantity) if o.filled_quantity else 0.0
+        )
 
     ticker_meta: Dict[str, tuple] = {
         o.t212_ticker: (o.yahoo_symbol, o.currency) for o in valid_orders
@@ -118,18 +127,18 @@ def _compute_holdings_czk(user_id: str) -> Dict[str, float]:
     yahoo_symbols: List[str] = list({meta[0] for meta in ticker_meta.values()})
     fx_needed: List[str] = list(
         {
-            _FX_SYMBOLS[currency]
-            for _, currency in ticker_meta.values()
-            if currency in _FX_SYMBOLS
+            _FX_SYMBOLS[_YAHOO_PRICE_CURRENCY.get(meta[0], meta[1])]
+            for meta in ticker_meta.values()
+            if _YAHOO_PRICE_CURRENCY.get(meta[0], meta[1]) in _FX_SYMBOLS
         }
     )
     all_dl = yahoo_symbols + fx_needed
 
     if len(all_dl) == 1:
-        hist_raw = yf.download(all_dl[0], period="5d", auto_adjust=True, progress=False)
+        hist_raw = yf.download(all_dl[0], period="5d", progress=False)
         close_series: Dict[str, Any] = {all_dl[0]: hist_raw["Close"]}
     else:
-        hist_raw = yf.download(all_dl, period="5d", auto_adjust=True, progress=False)
+        hist_raw = yf.download(all_dl, period="5d", progress=False)
         close_series = {sym: hist_raw["Close"][sym] for sym in all_dl}
 
     def _latest_price(symbol: str) -> float:
@@ -147,12 +156,13 @@ def _compute_holdings_czk(user_id: str) -> Dict[str, float]:
         if not meta:
             continue
         yahoo_symbol, currency = meta
+        price_currency = _YAHOO_PRICE_CURRENCY.get(yahoo_symbol, currency)
         price = _latest_price(yahoo_symbol)
-        if currency == "CZK":
+        if price_currency == "CZK":
             price_czk = price
-        elif currency in _FX_SYMBOLS:
-            fx = _latest_price(_FX_SYMBOLS[currency])
-            price_czk = price * fx * (0.01 if currency == "GBX" else 1.0)
+        elif price_currency in _FX_SYMBOLS:
+            fx = _latest_price(_FX_SYMBOLS[price_currency])
+            price_czk = price * fx * (0.01 if price_currency == "GBX" else 1.0)
         else:
             price_czk = price
         per_ticker[ticker] = qty * price_czk
@@ -197,20 +207,22 @@ def _fetch_price_history(
     """Download full yfinance Close history for all instruments + FX pairs."""
     yahoo_symbols: List[str] = list({meta[0] for meta in ticker_meta.values()})
     fx_needed: List[str] = list(
-        {_FX_SYMBOLS[c] for _, c in ticker_meta.values() if c in _FX_SYMBOLS}
+        {
+            _FX_SYMBOLS[_YAHOO_PRICE_CURRENCY.get(sym, c)]
+            for sym, c in ticker_meta.values()
+            if _YAHOO_PRICE_CURRENCY.get(sym, c) in _FX_SYMBOLS
+        }
     )
     all_dl = yahoo_symbols + fx_needed
     end_dl = end_date + timedelta(days=1)
+    start_str = start_date.isoformat()
+    end_str = end_dl.isoformat()
 
     if len(all_dl) == 1:
-        hist = yf.download(
-            all_dl[0], start=start_date, end=end_dl, auto_adjust=True, progress=False
-        )
+        hist = yf.download(all_dl[0], start=start_str, end=end_str, progress=False)
         return {all_dl[0]: hist["Close"]}
     else:
-        hist = yf.download(
-            all_dl, start=start_date, end=end_dl, auto_adjust=True, progress=False
-        )
+        hist = yf.download(all_dl, start=start_str, end=end_str, progress=False)
         return {sym: hist["Close"][sym] for sym in all_dl}
 
 
@@ -226,7 +238,11 @@ def _price_on_date(series: Any, target: date) -> float:
     clean = series.dropna()
     if clean.empty:
         return 0.0
-    mask = clean.index.date <= target
+    target_ts = pd.Timestamp(target)
+    idx = clean.index
+    if isinstance(idx, pd.DatetimeIndex) and idx.tz is not None:
+        idx = idx.tz_localize(None)
+    mask = idx.normalize() <= target_ts
     eligible = clean[mask]
     return float(eligible.iloc[-1]) if not eligible.empty else 0.0
 
@@ -255,7 +271,7 @@ def analytics_profit_loss(
     )
     filled_run_count = len(filled_runs)
     total_invested = sum(
-        r.filled_total_czk or r.planned_total_czk or 0.0 for r in filled_runs
+        float(r.filled_total_czk or r.planned_total_czk or 0) for r in filled_runs
     )
     per_ticker = _compute_holdings_czk(user_id)
     current_value = sum(per_ticker.values())
@@ -319,7 +335,9 @@ def analytics_portfolio_history(
     for snap_date in snap_dates:
         while order_idx < len(valid_orders) and valid_orders[order_idx].filled_at.date() <= snap_date:  # type: ignore[union-attr]
             o = valid_orders[order_idx]
-            cumulative[o.t212_ticker] += o.filled_quantity or 0.0
+            cumulative[o.t212_ticker] += (
+                float(o.filled_quantity) if o.filled_quantity else 0.0
+            )
             order_idx += 1
 
         total_czk = 0.0
@@ -330,8 +348,11 @@ def analytics_portfolio_history(
             if not meta:
                 continue
             yahoo_sym, currency = meta
+            price_currency = _YAHOO_PRICE_CURRENCY.get(yahoo_sym, currency)
             price = _price_on_date(close_series.get(yahoo_sym), snap_date)
-            total_czk += _to_czk_on_date(price, currency, close_series, snap_date) * qty
+            total_czk += (
+                _to_czk_on_date(price, price_currency, close_series, snap_date) * qty
+            )
 
         result.append(
             PortfolioHistoryItem(date=snap_date.isoformat(), value=round(total_czk, 0))
@@ -384,9 +405,13 @@ def analytics_strategy_comparison(
             and filled_runs[run_idx].started_at.date() <= snap_date
         ):
             run = filled_runs[run_idx]
-            dist: Dict[str, Any] = run.distribution or {}
-            mults: Dict[str, Any] = run.multipliers or {}
-            planned_total = run.planned_total_czk or sum(dist.values())
+            dist: Dict[str, float] = {
+                k: float(v) for k, v in (run.distribution or {}).items()
+            }
+            mults: Dict[str, float] = {
+                k: float(v) for k, v in (run.multipliers or {}).items()
+            }
+            planned_total = float(run.planned_total_czk or sum(dist.values()))
 
             unboost = {t: czk / mults.get(t, 1.0) for t, czk in dist.items()}
             total_unboost = sum(unboost.values())
@@ -403,15 +428,20 @@ def analytics_strategy_comparison(
                 if not meta:
                     continue
                 yahoo_sym, currency = meta
+                price_currency = _YAHOO_PRICE_CURRENCY.get(yahoo_sym, currency)
                 price = _price_on_date(close_series.get(yahoo_sym), run_date)
-                price_czk = _to_czk_on_date(price, currency, close_series, run_date)
+                price_czk = _to_czk_on_date(
+                    price, price_currency, close_series, run_date
+                )
                 if price_czk > 0:
                     baseline_qty[ticker] += baseline_czk / price_czk
             run_idx += 1
 
         while order_idx < len(valid_orders) and valid_orders[order_idx].filled_at.date() <= snap_date:  # type: ignore[union-attr]
             o = valid_orders[order_idx]
-            actual_qty[o.t212_ticker] += o.filled_quantity or 0.0
+            actual_qty[o.t212_ticker] += (
+                float(o.filled_quantity) if o.filled_quantity else 0.0
+            )
             order_idx += 1
 
         def portfolio_value(qty_map: Dict[str, float]) -> float:
@@ -423,8 +453,12 @@ def analytics_strategy_comparison(
                 if not meta:
                     continue
                 yahoo_sym, currency = meta
+                price_currency = _YAHOO_PRICE_CURRENCY.get(yahoo_sym, currency)
                 price = _price_on_date(close_series.get(yahoo_sym), snap_date)
-                total += _to_czk_on_date(price, currency, close_series, snap_date) * qty
+                total += (
+                    _to_czk_on_date(price, price_currency, close_series, snap_date)
+                    * qty
+                )
             return round(total, 0)
 
         result.append(

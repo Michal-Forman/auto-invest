@@ -1,12 +1,13 @@
 # Standard library
+from decimal import Decimal
 from typing import Any, Dict, List
 
 # Local
 from core.db.orders import Order
 
-_SLIPPAGE_THRESHOLD = 0.03  # 3% fill price vs expected price
-_FEE_RATIO_THRESHOLD = 0.006  # 0.6% fee as share of fill value
-_FX_DRIFT_THRESHOLD = 0.02  # 2% fill FX rate vs submission FX rate
+_SLIPPAGE_THRESHOLD = Decimal("0.03")  # 3% fill price vs expected price
+_FEE_RATIO_THRESHOLD = Decimal("0.006")  # 0.6% fee as share of fill value
+_FX_DRIFT_THRESHOLD = Decimal("0.02")  # 2% fill FX rate vs submission FX rate
 
 
 def compute_warnings(orders: List[Order]) -> List[Dict[str, str]]:

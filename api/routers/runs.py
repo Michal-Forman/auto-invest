@@ -22,9 +22,11 @@ def _order_to_response(order: Order) -> OrderResponse:
         ticker=order.t212_ticker,
         display_name=INSTRUMENT_NAMES.get(order.t212_ticker, order.t212_ticker),
         exchange=order.exchange,
-        czk_amount=order.total_czk,
-        quantity=order.filled_quantity,
-        fill_price=order.fill_price,
+        czk_amount=float(order.total_czk),
+        quantity=(
+            float(order.filled_quantity) if order.filled_quantity is not None else None
+        ),
+        fill_price=float(order.fill_price) if order.fill_price is not None else None,
         status=order.status,
     )
 
@@ -35,14 +37,14 @@ def _run_to_response(run: Run) -> RunResponse:
         id=str(run.id),
         created_at=run.started_at.isoformat(),
         status=run.status,
-        total_czk=run.planned_total_czk or 0.0,
+        total_czk=float(run.planned_total_czk or 0),
         order_count=run.total_orders or 0,
     )
 
 
 @router.get("/runs", response_model=List[RunResponse])
 def list_runs(
-    limit: int = 50,
+    limit: Optional[int] = 50,
     status: Optional[str] = None,
     user_id: str = Depends(get_current_user_id),
 ) -> List[RunResponse]:

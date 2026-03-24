@@ -72,14 +72,16 @@ export function Overview() {
   usePageTitle("Overview");
   const navigate = useNavigate();
   const health = useHealth();
-  const { data: runs, loading: runsLoading, error: runsError } = useRuns(undefined, "FILLED");
+  const { data: runs, loading: runsLoading, error: runsError } = useRuns();
   const { data: config } = useConfig();
   const { portfolioValue, warnings } = useAnalytics();
   const [warningsOpen, setWarningsOpen] = useState<boolean>(false);
 
   const filled = runs?.filter((r) => r.status === "FILLED").length ?? 0;
+  const finished = runs?.filter((r) => r.status === "FINISHED").length ?? 0;
   const failed = runs?.filter((r) => r.status === "FAILED").length ?? 0;
-  const totalInvested = runs?.filter((r) => r.total_czk > 0).reduce((s, r) => s + r.total_czk, 0) ?? 0;
+  const completed = filled + finished + failed;
+  const totalInvested = runs?.filter((r) => r.status === "FILLED" && r.total_czk > 0).reduce((s, r) => s + r.total_czk, 0) ?? 0;
   const recent = runs?.slice(0, 5) ?? [];
 
   const currentValue = portfolioValue?.length ? portfolioValue[portfolioValue.length - 1].value : null;
@@ -128,7 +130,8 @@ export function Overview() {
               <Skeleton className="h-8 w-28" />
             ) : (
               <div>
-                <div className="text-2xl font-bold text-primary">{filled}</div>
+                <div className="text-2xl font-bold text-primary">{completed}</div>
+                {finished > 0 && <div className="text-xs text-yellow-600 mt-0.5">{finished} pending fill</div>}
                 {failed > 0 && (
                   <div className="text-xs text-red-500 mt-0.5">{failed} failed</div>
                 )}

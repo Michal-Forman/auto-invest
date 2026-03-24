@@ -185,6 +185,7 @@ def test_portfolio_value_served_from_cache(mocker):
 
 
 def test_portfolio_value_happy_path_with_mocked_yfinance(mocker, make_order, make_run):
+    instruments_cache.clear()
     filled_dt = datetime(2026, 3, 1, 10, 0, 0, tzinfo=timezone.utc)
     order = make_order(
         t212_ticker="BTC",
@@ -206,13 +207,19 @@ def test_portfolio_value_happy_path_with_mocked_yfinance(mocker, make_order, mak
     btc_prices = _make_series(
         ("2026-02-22", 50000.0), ("2026-03-01", 50000.0), ("2026-03-03", 55000.0)
     )
+    # BTC-USD is USD-denominated so yf.download fetches BTC-USD + USDCZK=X (2 symbols).
+    # Use FX rate 1.0 so expected value = qty * usd_price * fx = 0.5 * 55000 * 1.0 = 27500.
+    fx_series = _make_series(("2026-03-03", 1.0))
+    series_by_symbol = {"BTC-USD": btc_prices, "USDCZK=X": fx_series}
+    close_mock = MagicMock()
+    close_mock.__getitem__ = MagicMock(side_effect=lambda sym: series_by_symbol[sym])
     mock_df = MagicMock()
-    mock_df.__getitem__ = MagicMock(return_value=btc_prices)
+    mock_df.__getitem__ = MagicMock(return_value=close_mock)
     mocker.patch("api.routers.analytics.yf.download", return_value=mock_df)
 
     resp = client.get("/analytics/portfolio-value")
     assert resp.status_code == 200
     data = resp.json()
     assert len(data) == 1
-    # qty=0.5 * price_at_snap_date(2026-03-03)=55000 = 27500
+    # qty=0.5 * usd_price=55000 * fx=1.0 = 27500
     assert data[0]["value"] == pytest.approx(27500.0)

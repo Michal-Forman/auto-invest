@@ -21,6 +21,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarTrigger,
+  useSidebar,
 } from "@/components/ui/sidebar";
 
 const navItems = [
@@ -33,6 +34,7 @@ const navItems = [
 
 export function AppSidebar() {
   const { session } = useAuth();
+  const { setOpenMobile } = useSidebar();
   const avatarUrl = session?.user.user_metadata?.avatar_url as string | undefined;
   const displayName =
     (session?.user.user_metadata?.full_name as string | undefined) ??
@@ -56,7 +58,7 @@ export function AppSidebar() {
             <SidebarMenu>
               {navItems.map(({ to, label, icon: Icon }) => (
                 <SidebarMenuItem key={to}>
-                  <NavLink to={to} end={to === "/app"}>
+                  <NavLink to={to} end={to === "/app"} onClick={() => setOpenMobile(false)}>
                     {({ isActive }) => (
                       <SidebarMenuButton isActive={isActive}>
                         <Icon className="h-4 w-4" />
@@ -71,7 +73,7 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="border-t border-white/10 p-3">
-        <NavLink to="/app/profile">
+        <NavLink to="/app/profile" onClick={() => setOpenMobile(false)}>
           {({ isActive }) => (
             <SidebarMenuButton isActive={isActive} className="h-auto py-2">
               {avatarUrl ? (

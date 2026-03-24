@@ -276,8 +276,8 @@ class TestSendInvestmentConfirmation:
         mock_send = mocker.patch.object(Mailer, "_send")
         run = _make_run()
         orders = [_make_order(t212_ticker="VWCEd_EQ", exchange="T212")]
-        dist = {"VWCEd_EQ": 5000.0}
-        mults = {"VWCEd_EQ": 1.0}
+        dist = {"VWCEd_EQ": Decimal("5000")}
+        mults = {"VWCEd_EQ": Decimal("1")}
 
         _make_mailer().send_investment_confirmation(run, orders, dist, mults)
 
@@ -289,7 +289,7 @@ class TestSendInvestmentConfirmation:
         mock_send = mocker.patch.object(Mailer, "_send")
         run = _make_run()
         _make_mailer().send_investment_confirmation(
-            run, [], {"VWCEd_EQ": 1000.0}, {"VWCEd_EQ": 1.2}
+            run, [], {"VWCEd_EQ": Decimal("1000")}, {"VWCEd_EQ": Decimal("1.2")}
         )
         plain = mock_send.call_args[0][1]
         assert str(_RUN_ID) in plain
@@ -297,7 +297,7 @@ class TestSendInvestmentConfirmation:
     def test_plain_text_contains_total_czk(self, mocker: MockerFixture) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
         run = _make_run()
-        dist = {"VWCE": 3000.0, "BTC": 2000.0}
+        dist = {"VWCE": Decimal("3000"), "BTC": Decimal("2000")}
         _make_mailer().send_investment_confirmation(run, [], dist, {})
         plain = mock_send.call_args[0][1]
         assert "5000" in plain
@@ -305,8 +305,10 @@ class TestSendInvestmentConfirmation:
     def test_html_contains_ticker(self, mocker: MockerFixture) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
         run = _make_run()
-        dist = {"VWCEd_EQ": 4000.0, "BTC": 1000.0}
-        _make_mailer().send_investment_confirmation(run, [], dist, {"VWCEd_EQ": 1.5})
+        dist = {"VWCEd_EQ": Decimal("4000"), "BTC": Decimal("1000")}
+        _make_mailer().send_investment_confirmation(
+            run, [], dist, {"VWCEd_EQ": Decimal("1.5")}
+        )
         html = mock_send.call_args[0][2]
         assert "VWCEd_EQ" in html
         assert "BTC" in html
@@ -316,8 +318,8 @@ class TestSendInvestmentConfirmation:
     ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
         run = _make_run()
-        dist = {"VWCE": 5000.0}
-        mults = {"VWCE": 1.5}
+        dist = {"VWCE": Decimal("5000")}
+        mults = {"VWCE": Decimal("1.5")}
         _make_mailer().send_investment_confirmation(run, [], dist, mults)
         html = mock_send.call_args[0][2]
         assert "#16a34a" in html  # green color for mult > 1.0
@@ -326,7 +328,7 @@ class TestSendInvestmentConfirmation:
         mock_send = mocker.patch.object(Mailer, "_send")
         run = _make_run()
         order = _make_order(t212_ticker="VWCE", exchange="COINMATE")
-        dist = {"VWCE": 5000.0}
+        dist = {"VWCE": Decimal("5000")}
         _make_mailer().send_investment_confirmation(run, [order], dist, {})
         html = mock_send.call_args[0][2]
         assert "COINMATE" in html
@@ -334,13 +336,15 @@ class TestSendInvestmentConfirmation:
     def test_mail_type_is_investment_confirmation(self, mocker: MockerFixture) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
         run = _make_run()
-        _make_mailer().send_investment_confirmation(run, [], {"VWCE": 1000.0}, {})
+        _make_mailer().send_investment_confirmation(
+            run, [], {"VWCE": Decimal("1000")}, {}
+        )
         assert mock_send.call_args.kwargs["mail_type"] == "investment_confirmation"
 
     def test_rows_sorted_by_czk_descending(self, mocker: MockerFixture) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
         run = _make_run()
-        dist = {"SMALL": 100.0, "BIG": 4000.0, "MID": 900.0}
+        dist = {"SMALL": Decimal("100"), "BIG": Decimal("4000"), "MID": Decimal("900")}
         _make_mailer().send_investment_confirmation(run, [], dist, {})
         html = mock_send.call_args[0][2]
         # BIG should appear before MID before SMALL in HTML

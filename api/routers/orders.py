@@ -32,9 +32,11 @@ def list_orders(
             ticker=o.t212_ticker,
             display_name=INSTRUMENT_NAMES.get(o.t212_ticker, o.t212_ticker),
             exchange=o.exchange,
-            czk_amount=o.total_czk,
-            quantity=o.filled_quantity,
-            fill_price=o.fill_price,
+            czk_amount=float(o.total_czk),
+            quantity=(
+                float(o.filled_quantity) if o.filled_quantity is not None else None
+            ),
+            fill_price=float(o.fill_price) if o.fill_price is not None else None,
             status=o.status,
         )
         for o in orders

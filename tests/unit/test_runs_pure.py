@@ -1,4 +1,5 @@
 # Standard library
+from decimal import Decimal
 from typing import Callable
 
 # Third-party
@@ -38,7 +39,7 @@ class TestProcessNewRunData:
             make_order(t212_ticker="CSPX_EQ", total_czk=1500.0),
         ]
         update = Run.process_new_run_data(orders)
-        assert update.planned_total_czk == pytest.approx(4500.0)
+        assert update.planned_total_czk == Decimal("4500")
 
     def test_distribution_dict(self, make_order: Callable[..., Order]) -> None:
         orders = [
@@ -46,7 +47,10 @@ class TestProcessNewRunData:
             make_order(t212_ticker="BTC", total_czk=2000.0),
         ]
         update = Run.process_new_run_data(orders)
-        assert update.distribution == {"VWCEd_EQ": 3000.0, "BTC": 2000.0}
+        assert update.distribution == {
+            "VWCEd_EQ": Decimal("3000"),
+            "BTC": Decimal("2000"),
+        }
 
     def test_multipliers_dict(self, make_order: Callable[..., Order]) -> None:
         orders = [
@@ -54,7 +58,10 @@ class TestProcessNewRunData:
             make_order(t212_ticker="BTC", multiplier=2.0),
         ]
         update = Run.process_new_run_data(orders)
-        assert update.multipliers == {"VWCEd_EQ": 1.5, "BTC": 2.0}
+        assert update.multipliers == {
+            "VWCEd_EQ": Decimal("1.5"),
+            "BTC": Decimal("2.0"),
+        }
 
     def test_errors_joined_with_semicolon(
         self, make_order: Callable[..., Order]

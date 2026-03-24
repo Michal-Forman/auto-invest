@@ -1,5 +1,6 @@
 # Standard library
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Any, Callable, Dict
 from unittest.mock import MagicMock
 from uuid import UUID
@@ -73,7 +74,7 @@ class TestUpdateInDb:
         updated_row = {**_run_row(run), "status": "FILLED", "filled_total_czk": 4950.0}
         mock_chain.execute.return_value = MagicMock(data=[updated_row])
 
-        run_update = RunUpdate(status="FILLED", filled_total_czk=4950.0)
+        run_update = RunUpdate(status="FILLED", filled_total_czk=Decimal("4950"))
         run.update_in_db(run_update)
 
         mock_chain.update.assert_called_once_with(
@@ -187,13 +188,13 @@ class TestMarkRunFilled:
         _, mock_chain = _build_supabase_mock(mocker)
         mock_chain.execute.return_value = MagicMock(data=[{}])
 
-        run._mark_run_filled(4950.0)
+        run._mark_run_filled(Decimal("4950"))
 
         mock_chain.update.assert_called_once_with(
             {"status": "FILLED", "filled_total_czk": 4950.0}
         )
         assert run.status == "FILLED"
-        assert run.filled_total_czk == pytest.approx(4950.0)
+        assert run.filled_total_czk == pytest.approx(Decimal("4950"))
 
     def test_updates_status_to_filled(
         self, make_run: Callable[..., Run], mocker: MockerFixture
@@ -202,7 +203,7 @@ class TestMarkRunFilled:
         _, mock_chain = _build_supabase_mock(mocker)
         mock_chain.execute.return_value = MagicMock(data=[{}])
 
-        run._mark_run_filled(100.0)
+        run._mark_run_filled(Decimal("100"))
 
         assert run.status == "FILLED"
 
