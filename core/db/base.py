@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, ClassVar, Dict, Optional, cast
+from uuid import UUID
 
 # Third-party
 from pydantic import BaseModel
@@ -19,6 +20,8 @@ def _convert_decimals(obj: Any) -> Any:
         return float(obj)
     if isinstance(obj, datetime):
         return obj.isoformat()
+    if isinstance(obj, UUID):
+        return str(obj)
     if isinstance(obj, dict):
         return {k: _convert_decimals(v) for k, v in obj.items()}
     if isinstance(obj, list):
