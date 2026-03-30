@@ -96,6 +96,7 @@ class Executor:
                 log.warning("BTC order already exists in DB (idempotency key matched)")
         except Exception as e:
             log.error(f"Failed to insert BTC order into database: {e}")
+            raise
 
         return order
 
@@ -182,6 +183,7 @@ class Executor:
                 )
         except Exception as e:
             log.error(f"Failed to insert {ticker} order into database: {e}")
+            raise
 
         return order
 
@@ -194,19 +196,31 @@ class Executor:
     ) -> List[Order]:
         """Place a buy order for every instrument in the cash distribution. Routes BTC to Coinmate and everything else to T212."""
         orders: List[Order] = []
+        db_errors: List[str] = []
 
         for ticker, amount in cash_distribution.items():
             multiplier = multipliers[ticker]
-            if ticker == "BTC":
-                order = self._place_btc_order(
-                    amount, multiplier, run_id, investment_type=investment_type
-                )
+            try:
+                if ticker == "BTC":
+                    order = self._place_btc_order(
+                        amount, multiplier, run_id, investment_type=investment_type
+                    )
+                else:
+                    order = self._place_t212_order(
+                        ticker,
+                        amount,
+                        multiplier,
+                        run_id,
+                        investment_type=investment_type,
+                    )
                 orders.append(order)
-            else:
-                order = self._place_t212_order(
-                    ticker, amount, multiplier, run_id, investment_type=investment_type
-                )
-                orders.append(order)
+            except Exception:
+                db_errors.append(ticker)
+
+        if db_errors:
+            raise RuntimeError(
+                f"Orders placed on exchange but failed to record in DB: {', '.join(db_errors)}"
+            )
 
         log.info("All orders placed successfully")
 
