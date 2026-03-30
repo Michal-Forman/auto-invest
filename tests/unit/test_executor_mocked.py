@@ -103,7 +103,8 @@ class TestPlaceBtcOrder:
         mocker.patch.object(Order, "post_to_db", side_effect=RuntimeError("DB down"))
         mock_log_error = mocker.patch("core.executor.log.error")
 
-        executor._place_btc_order(Decimal("500"), Decimal("1"), run_id)
+        with pytest.raises(RuntimeError, match="DB down"):
+            executor._place_btc_order(Decimal("500"), Decimal("1"), run_id)
 
         mock_log_error.assert_called_once()
         assert "Failed to insert BTC order" in mock_log_error.call_args[0][0]
@@ -244,7 +245,10 @@ class TestPlaceT212Order:
         mocker.patch.object(Order, "post_to_db", side_effect=RuntimeError("DB down"))
         mock_log_error = mocker.patch("core.executor.log.error")
 
-        executor._place_t212_order("VWCEd_EQ", Decimal("5000"), Decimal("1"), run_id)
+        with pytest.raises(RuntimeError, match="DB down"):
+            executor._place_t212_order(
+                "VWCEd_EQ", Decimal("5000"), Decimal("1"), run_id
+            )
 
         mock_log_error.assert_called_once()
         assert "Failed to insert" in mock_log_error.call_args[0][0]
