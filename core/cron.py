@@ -128,10 +128,11 @@ def run_for_user(user: UserRecord) -> None:
     ) and not Run.run_exists_today(user_id=user_id):
         log.info("Starting investment process")
 
-        run: Run = Run.create_run(run_start, user_settings.portfolio, user_id=user_id)
-        assert run.id is not None
-
+        run: Optional[Run] = None
         try:
+            run = Run.create_run(run_start, user_settings.portfolio, user_id=user_id)
+            assert run.id is not None
+
             calculated_investment: Dict[str, Dict[str, Decimal]] = (
                 instruments.distribute_cash()
             )
@@ -157,12 +158,13 @@ def run_for_user(user: UserRecord) -> None:
             log.error(f"Investment run failed for {user_id}: {e}")
             if mailer:
                 mailer.send_error_alert(e, run)
-            try:
-                run.update_in_db(RunUpdate(status="FAILED", error=str(e)))
-            except Exception as db_err:
-                log.error(
-                    f"Also failed to mark run as FAILED in DB for {user_id}: {db_err}"
-                )
+            if run is not None:
+                try:
+                    run.update_in_db(RunUpdate(status="FAILED", error=str(e)))
+                except Exception as db_err:
+                    log.error(
+                        f"Also failed to mark run as FAILED in DB for {user_id}: {db_err}"
+                    )
     else:
         log.info("No investments / orders were supposed to be made in this run")
 

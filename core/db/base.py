@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 # Standard library
+from datetime import datetime
 from decimal import Decimal
 from typing import Any, ClassVar, Dict, Optional, cast
 
@@ -13,9 +14,11 @@ from core.db.client import supabase
 
 
 def _convert_decimals(obj: Any) -> Any:
-    """Recursively convert Decimal values to float for JSON serialization to PostgREST."""
+    """Recursively convert Decimal and datetime values for JSON serialization to PostgREST."""
     if isinstance(obj, Decimal):
         return float(obj)
+    if isinstance(obj, datetime):
+        return obj.isoformat()
     if isinstance(obj, dict):
         return {k: _convert_decimals(v) for k, v in obj.items()}
     if isinstance(obj, list):
