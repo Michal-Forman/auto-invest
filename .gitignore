@@ -4,6 +4,8 @@
 .env*
 !.env.test
 
+.codex/
+
 __pycache__/
 .mypy_cache/
 .claude/
