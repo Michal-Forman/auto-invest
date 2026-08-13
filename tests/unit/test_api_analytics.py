@@ -1,10 +1,9 @@
 # Standard library
 from datetime import date, datetime, timezone
-from typing import Any
-from unittest.mock import MagicMock
 from uuid import UUID
 
 # Third-party
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 import pandas as pd
 import pytest
@@ -13,7 +12,7 @@ import pytest
 # Local
 from api.cache import instruments_cache
 from api.main import app
-from api.routers.analytics import _get_price
+from api.routers.analytics import _get_price, _to_czk_on_date
 from core.db.orders import Order
 from core.db.runs import Run
 
@@ -212,12 +211,7 @@ def test_portfolio_value_happy_path_with_mocked_yfinance(mocker, make_order, mak
     # BTC-USD is USD-denominated so yf.download fetches BTC-USD + USDCZK=X (2 symbols).
     # Use FX rate 1.0 so expected value = qty * usd_price * fx = 0.5 * 55000 * 1.0 = 27500.
     fx_series = _make_series(("2026-03-03", 1.0))
-    series_by_symbol = {"BTC-USD": btc_prices, "USDCZK=X": fx_series}
-    close_mock = MagicMock()
-    close_mock.__getitem__ = MagicMock(side_effect=lambda sym: series_by_symbol[sym])
-    mock_df = MagicMock()
-    mock_df.__getitem__ = MagicMock(return_value=close_mock)
-    mocker.patch("api.routers.analytics.yf.download", return_value=mock_df)
+    _patch_prices(mocker, {"BTC-USD": btc_prices, "USDCZK=X": fx_series})
 
     resp = client.get("/analytics/portfolio-value")
     assert resp.status_code == 200
@@ -232,20 +226,27 @@ def test_portfolio_value_happy_path_with_mocked_yfinance(mocker, make_order, mak
 # ---------------------------------------------------------------------------
 
 
-def _patch_prices(mocker, series_by_symbol):
-    """Patch yf.download so _compute_holdings_czk sees the given close series.
+def _download_frame(series_by_symbol) -> pd.DataFrame:
+    """Build a frame shaped like a real yf.download result.
 
-    A single-symbol download returns df["Close"] as the series itself; a multi-symbol
-    one returns a frame that is then indexed by symbol.
+    A single-symbol download returns flat OHLC columns; a multi-symbol one returns
+    MultiIndex ("Close", symbol) columns. Real frames matter here — the production code
+    inspects `.empty` and tests membership, which a MagicMock silently answers wrong.
     """
     if len(series_by_symbol) == 1:
-        close: Any = next(iter(series_by_symbol.values()))
-    else:
-        close = MagicMock()
-        close.__getitem__ = MagicMock(side_effect=lambda sym: series_by_symbol[sym])
-    mock_df = MagicMock()
-    mock_df.__getitem__ = MagicMock(return_value=close)
-    mocker.patch("api.routers.analytics.yf.download", return_value=mock_df)
+        series = next(iter(series_by_symbol.values()))
+        return pd.DataFrame({"Close": series})
+    frame = pd.concat(series_by_symbol.values(), axis=1, keys=series_by_symbol.keys())
+    frame.columns = pd.MultiIndex.from_product([["Close"], list(series_by_symbol)])
+    return frame
+
+
+def _patch_prices(mocker, series_by_symbol):
+    """Patch yf.download so _compute_holdings_czk sees the given close series."""
+    mocker.patch(
+        "api.routers.analytics.yf.download",
+        return_value=_download_frame(series_by_symbol),
+    )
 
 
 def _btc_order(make_order, **overrides):
@@ -453,3 +454,112 @@ def test_strategy_comparison_skips_runs_with_no_filled_orders(
 
     # The empty run contributes nothing to either side rather than skewing the baseline.
     assert data[-1]["baseline_value"] == pytest.approx(data[-1]["actual_value"])
+
+
+# ---------------------------------------------------------------------------
+# Partial price downloads
+#
+# yfinance answers a rate-limited request with a short series instead of an error.
+# Historical snapshots then reprice against data that is not there, which renders as a
+# flat line that "spikes" on the final point — plausible enough to be believed. These
+# tests pin the contract: incomplete data fails loudly and is never cached.
+# ---------------------------------------------------------------------------
+
+
+_TODAY = date.today().isoformat()
+
+
+def _truncating_download(full_by_symbol, keep_from):
+    """Stand in for yf.download, serving only rows on/after keep_from for FX symbols."""
+
+    def _download(symbols, **kwargs):
+        requested = [symbols] if isinstance(symbols, str) else list(symbols)
+        served = {}
+        for sym in requested:
+            series = full_by_symbol[sym]
+            if sym.endswith("=X"):
+                series = series[series.index >= pd.Timestamp(keep_from)]
+            served[sym] = series
+        return _download_frame(served)
+
+    return _download
+
+
+def _usd_order(make_order, **overrides):
+    defaults = dict(
+        t212_ticker="BX_US_EQ",
+        yahoo_symbol="BX",
+        currency="USD",
+        exchange="T212",
+        instrument_type="STOCK",
+        status="FILLED",
+        filled_at=datetime(2026, 3, 1, 10, 0, 0, tzinfo=timezone.utc),
+        filled_quantity=1.0,
+        filled_total_czk=1000.0,
+    )
+    defaults.update(overrides)
+    return make_order(**defaults)
+
+
+def test_portfolio_history_rejects_truncated_fx_history(mocker, make_order, make_run):
+    instruments_cache.clear()
+    mocker.patch.object(Order, "get_orders", return_value=[_usd_order(make_order)])
+    mocker.patch.object(Run, "get_all_runs", return_value=[])
+    mocker.patch("api.routers.analytics.time.sleep")
+    full = {
+        "BX": _make_series(("2026-03-01", 100.0), (_TODAY, 120.0)),
+        "USDCZK=X": _make_series(("2026-03-01", 22.0), (_TODAY, 23.0)),
+    }
+    mocker.patch(
+        "api.routers.analytics.yf.download",
+        side_effect=_truncating_download(full, _TODAY),
+    )
+
+    resp = client.get("/analytics/portfolio-history")
+
+    assert resp.status_code == 503
+    assert "USDCZK=X" in resp.json()["detail"]
+    # A bad response must not be served for the next 15 minutes.
+    assert "portfolio_history:test-user" not in instruments_cache
+
+
+def test_portfolio_history_retries_and_succeeds_on_complete_data(
+    mocker, make_order, make_run
+):
+    """The retry path exists for flaky bulk downloads, not to paper over real gaps."""
+    instruments_cache.clear()
+    mocker.patch.object(Order, "get_orders", return_value=[_usd_order(make_order)])
+    mocker.patch.object(Run, "get_all_runs", return_value=[])
+    mocker.patch("api.routers.analytics.time.sleep")
+    full = {
+        "BX": _make_series(("2026-03-01", 100.0), (_TODAY, 120.0)),
+        "USDCZK=X": _make_series(("2026-03-01", 22.0), (_TODAY, 23.0)),
+    }
+    calls = {"n": 0}
+
+    def _flaky(symbols, **kwargs):
+        calls["n"] += 1
+        keep = _TODAY if calls["n"] == 1 else "2026-01-01"
+        return _truncating_download(full, keep)(symbols, **kwargs)
+
+    mocker.patch("api.routers.analytics.yf.download", side_effect=_flaky)
+
+    resp = client.get("/analytics/portfolio-history")
+
+    assert resp.status_code == 200
+    assert calls["n"] > 1, "the incomplete bulk download must be retried"
+    assert resp.json()[0]["value"] == pytest.approx(2200.0)  # 1 share * 100 USD * 22
+
+
+def test_price_on_date_before_series_start_uses_earliest_known_price():
+    """Zero would erase the holding from that snapshot; the first known price will not."""
+    series = _make_series(("2026-03-05", 110.0), ("2026-03-10", 120.0))
+    assert _get_price({"SYM": series}, "SYM", date(2026, 3, 1)) == pytest.approx(110.0)
+
+
+def test_to_czk_on_date_refuses_to_return_an_unconverted_price():
+    """The old fallback returned the raw USD price, understating the value ~21x."""
+    with pytest.raises(HTTPException) as excinfo:
+        empty = pd.Series([], dtype=float)
+        _to_czk_on_date(100.0, "USD", {"USDCZK=X": empty}, date(2026, 3, 1))
+    assert excinfo.value.status_code == 503
