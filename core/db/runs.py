@@ -201,7 +201,11 @@ class Run(BaseDBModel):
         expiry_threshold: datetime = now - timedelta(days=RUN_EXPIRY_DAYS)
 
         if self.finished_at < expiry_threshold:
-            update = RunUpdate(status="FAILED")
+            # Record what did fill before giving up. Some legs almost always succeeded,
+            # and leaving this NULL hides that money from every report that reads runs.
+            update = RunUpdate(
+                status="FAILED", filled_total_czk=self._sum_orders_filled_czk()
+            )
             self.update_in_db(update)
 
     @staticmethod
@@ -228,8 +232,10 @@ class Run(BaseDBModel):
         finished_runs: List[Run] = cls._get_finished_runs(user_id=user_id)
         for run in finished_runs:
             try:
-                run._try_mark_run_failed_if_expired()
-                run._try_mark_run_filled()
+                # FILLED first: a run whose every order filled has succeeded no matter
+                # how long it took, and expiring it first would only get overwritten.
+                if not run._try_mark_run_filled():
+                    run._try_mark_run_failed_if_expired()
             except Exception as e:
                 log.error(f"Failed to update run {run.id}: {e}")
 

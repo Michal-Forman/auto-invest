@@ -1,6 +1,8 @@
 # Standard library
 from datetime import date, datetime, timezone
+from typing import Any
 from unittest.mock import MagicMock
+from uuid import UUID
 
 # Third-party
 from fastapi.testclient import TestClient
@@ -223,3 +225,231 @@ def test_portfolio_value_happy_path_with_mocked_yfinance(mocker, make_order, mak
     assert len(data) == 1
     # qty=0.5 * usd_price=55000 * fx=1.0 = 27500
     assert data[0]["value"] == pytest.approx(27500.0)
+
+
+# ---------------------------------------------------------------------------
+# /analytics/profit-loss
+# ---------------------------------------------------------------------------
+
+
+def _patch_prices(mocker, series_by_symbol):
+    """Patch yf.download so _compute_holdings_czk sees the given close series.
+
+    A single-symbol download returns df["Close"] as the series itself; a multi-symbol
+    one returns a frame that is then indexed by symbol.
+    """
+    if len(series_by_symbol) == 1:
+        close: Any = next(iter(series_by_symbol.values()))
+    else:
+        close = MagicMock()
+        close.__getitem__ = MagicMock(side_effect=lambda sym: series_by_symbol[sym])
+    mock_df = MagicMock()
+    mock_df.__getitem__ = MagicMock(return_value=close)
+    mocker.patch("api.routers.analytics.yf.download", return_value=mock_df)
+
+
+def _btc_order(make_order, **overrides):
+    """A filled BTC order priced in CZK — one symbol, so no FX leg to mock."""
+    defaults = dict(
+        t212_ticker="BTC",
+        yahoo_symbol="BTC-CZK",
+        currency="CZK",
+        exchange="COINMATE",
+        instrument_type="CRYPTO",
+        status="FILLED",
+        filled_at=datetime(2026, 3, 1, 10, 0, 0, tzinfo=timezone.utc),
+        filled_quantity=1.0,
+        filled_total_czk=1000.0,
+    )
+    defaults.update(overrides)
+    return make_order(**defaults)
+
+
+def test_profit_loss_counts_orders_from_failed_runs(mocker, make_order, make_run):
+    """The regression: a FAILED run's filled orders must contribute cost, not just value.
+
+    Two identical orders, one in a FILLED run and one in a FAILED run. Both shares are
+    held, so both purchases must appear in total_invested.
+    """
+    instruments_cache.clear()
+    orders = [
+        _btc_order(make_order, run_id=UUID("11111111-1111-1111-1111-111111111111")),
+        _btc_order(make_order, run_id=UUID("22222222-2222-2222-2222-222222222222")),
+    ]
+    mocker.patch.object(Order, "get_orders", return_value=orders)
+    # Only one run reached FILLED — the other expired to FAILED and is not returned.
+    mocker.patch.object(Run, "get_all_runs", return_value=[make_run(status="FILLED")])
+    _patch_prices(mocker, {"BTC-CZK": _make_series(("2026-03-03", 1000.0))})
+
+    data = client.get("/analytics/profit-loss").json()
+
+    assert data["total_invested_czk"] == pytest.approx(2000.0)
+    assert data["current_value_czk"] == pytest.approx(2000.0)
+    assert data["gain_pct"] == pytest.approx(0.0)
+
+
+def test_profit_loss_gain_is_zero_when_value_equals_cost(mocker, make_order, make_run):
+    instruments_cache.clear()
+    mocker.patch.object(Order, "get_orders", return_value=[_btc_order(make_order)])
+    mocker.patch.object(Run, "get_all_runs", return_value=[])
+    _patch_prices(mocker, {"BTC-CZK": _make_series(("2026-03-03", 1000.0))})
+
+    data = client.get("/analytics/profit-loss").json()
+
+    assert data["gain_czk"] == pytest.approx(0.0)
+    assert data["gain_pct"] == pytest.approx(0.0)
+
+
+def test_profit_loss_reports_a_real_gain(mocker, make_order, make_run):
+    instruments_cache.clear()
+    mocker.patch.object(Order, "get_orders", return_value=[_btc_order(make_order)])
+    mocker.patch.object(Run, "get_all_runs", return_value=[make_run(status="FILLED")])
+    _patch_prices(mocker, {"BTC-CZK": _make_series(("2026-03-03", 1100.0))})
+
+    data = client.get("/analytics/profit-loss").json()
+
+    assert data["total_invested_czk"] == pytest.approx(1000.0)
+    assert data["current_value_czk"] == pytest.approx(1100.0)
+    assert data["gain_pct"] == pytest.approx(10.0)
+
+
+def test_profit_loss_falls_back_to_total_czk_when_fill_total_missing(
+    mocker, make_order, make_run
+):
+    instruments_cache.clear()
+    order = _btc_order(make_order, filled_total_czk=None, total_czk=900.0)
+    mocker.patch.object(Order, "get_orders", return_value=[order])
+    mocker.patch.object(Run, "get_all_runs", return_value=[])
+    _patch_prices(mocker, {"BTC-CZK": _make_series(("2026-03-03", 900.0))})
+
+    data = client.get("/analytics/profit-loss").json()
+
+    assert data["total_invested_czk"] == pytest.approx(900.0)
+
+
+def test_profit_loss_filled_run_count_is_independent_of_invested(
+    mocker, make_order, make_run
+):
+    """filled_run_count stays a run-health figure and must not drive the money."""
+    instruments_cache.clear()
+    mocker.patch.object(Order, "get_orders", return_value=[_btc_order(make_order)])
+    mocker.patch.object(Run, "get_all_runs", return_value=[])
+    _patch_prices(mocker, {"BTC-CZK": _make_series(("2026-03-03", 1000.0))})
+
+    data = client.get("/analytics/profit-loss").json()
+
+    assert data["filled_run_count"] == 0
+    assert data["total_invested_czk"] == pytest.approx(1000.0)
+
+
+def test_profit_loss_zero_invested_does_not_divide_by_zero(mocker):
+    instruments_cache.clear()
+    mocker.patch.object(Order, "get_orders", return_value=[])
+    mocker.patch.object(Run, "get_all_runs", return_value=[])
+
+    data = client.get("/analytics/profit-loss").json()
+
+    assert data["total_invested_czk"] == 0
+    assert data["gain_pct"] == 0.0
+
+
+# ---------------------------------------------------------------------------
+# /analytics/strategy-comparison
+# ---------------------------------------------------------------------------
+
+
+def test_strategy_comparison_includes_failed_runs(mocker, make_order, make_run):
+    """Both strategies must deploy the same capital, whatever the run's status.
+
+    The actual portfolio is built from orders, so a baseline built from FILLED runs
+    only would be starved of the capital spent inside FAILED runs.
+    """
+    instruments_cache.clear()
+    failed_run_id = UUID("22222222-2222-2222-2222-222222222222")
+    orders = [
+        _btc_order(make_order, run_id=failed_run_id, filled_quantity=1.0),
+    ]
+    failed_run = make_run(
+        id=failed_run_id,
+        status="FAILED",
+        distribution={"BTC": 1000.0},
+        multipliers={"BTC": 2.0},
+        planned_total_czk=1000.0,
+    )
+    mocker.patch.object(Order, "get_orders", return_value=orders)
+    mocker.patch.object(Run, "get_all_runs", return_value=[failed_run])
+    mocker.patch(
+        "api.routers.analytics._fetch_price_history",
+        return_value={"BTC-CZK": _make_series(("2026-03-01", 1000.0))},
+    )
+
+    data = client.get("/analytics/strategy-comparison").json()
+
+    assert data, "a FAILED run with filled orders must still be compared"
+    # One instrument, so re-weighting cannot change anything: both sides are equal.
+    assert data[-1]["actual_value"] == pytest.approx(data[-1]["baseline_value"])
+    assert data[-1]["actual_value"] > 0
+
+
+def test_strategy_comparison_baseline_uses_deployed_not_planned(
+    mocker, make_order, make_run
+):
+    """A run that planned 1000 but only filled 600 must give the baseline 600."""
+    instruments_cache.clear()
+    run_id = UUID("33333333-3333-3333-3333-333333333333")
+    orders = [
+        _btc_order(
+            make_order, run_id=run_id, filled_quantity=0.6, filled_total_czk=600.0
+        ),
+    ]
+    run = make_run(
+        id=run_id,
+        status="FAILED",
+        distribution={"BTC": 600.0, "VWCEd_EQ": 400.0},  # VWCE leg never filled
+        multipliers={"BTC": 1.0, "VWCEd_EQ": 1.0},
+        planned_total_czk=1000.0,
+    )
+    mocker.patch.object(Order, "get_orders", return_value=orders)
+    mocker.patch.object(Run, "get_all_runs", return_value=[run])
+    mocker.patch(
+        "api.routers.analytics._fetch_price_history",
+        return_value={"BTC-CZK": _make_series(("2026-03-01", 1000.0))},
+    )
+
+    data = client.get("/analytics/strategy-comparison").json()
+
+    # Baseline is restricted to the ticker that actually filled and gets the 600 CZK
+    # that was really deployed — not the 1000 that was planned.
+    assert data[-1]["baseline_value"] == pytest.approx(600.0)
+    assert data[-1]["actual_value"] == pytest.approx(600.0)
+
+
+def test_strategy_comparison_skips_runs_with_no_filled_orders(
+    mocker, make_order, make_run
+):
+    instruments_cache.clear()
+    run_with_orders = UUID("44444444-4444-4444-4444-444444444444")
+    empty_run = make_run(
+        id=UUID("55555555-5555-5555-5555-555555555555"),
+        status="FAILED",
+        distribution={"BTC": 1000.0},
+        multipliers={"BTC": 1.0},
+    )
+    orders = [_btc_order(make_order, run_id=run_with_orders)]
+    run = make_run(
+        id=run_with_orders,
+        status="FILLED",
+        distribution={"BTC": 1000.0},
+        multipliers={"BTC": 1.0},
+    )
+    mocker.patch.object(Order, "get_orders", return_value=orders)
+    mocker.patch.object(Run, "get_all_runs", return_value=[run, empty_run])
+    mocker.patch(
+        "api.routers.analytics._fetch_price_history",
+        return_value={"BTC-CZK": _make_series(("2026-03-01", 1000.0))},
+    )
+
+    data = client.get("/analytics/strategy-comparison").json()
+
+    # The empty run contributes nothing to either side rather than skewing the baseline.
+    assert data[-1]["baseline_value"] == pytest.approx(data[-1]["actual_value"])
