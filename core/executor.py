@@ -52,11 +52,8 @@ class Executor:
         res: Any = response_data.get("res")
         err: Any = response_data.get("err")
 
-        status: Status
-        if res and res.get("error") is False:
-            status = "SUBMITTED"
-        else:
-            status = "FAILED"
+        accepted: bool = bool(res) and res.get("error") is False
+        status: Status = "SUBMITTED" if accepted else "FAILED"
 
         btc_price: Decimal = Instruments.get_btc_price()
 
@@ -79,7 +76,7 @@ class Executor:
             extended_hours=False,
             submitted_at=datetime.now(timezone.utc),
             status=status,
-            external_order_id=str(res.get("data")) if res else None,
+            external_order_id=str(res["data"]) if accepted else None,
             request=req,
             response=res,
             error=str(err) if err else None,
@@ -126,8 +123,14 @@ class Executor:
         res: Any = response_data.get("res")
         error: Any = response_data.get("err")
 
+        # `res` now holds the error body on a rejection, so the error must be checked
+        # first — otherwise a rejection reads as filledQuantity 0 == quantity 0 = FILLED.
+        accepted: bool = error is None and res is not None
+
         status: Status
-        if res is not None:
+        if not accepted:
+            status = "FAILED"
+        else:
             filled_qty = res.get("filledQuantity", 0)
             quantity = res.get("quantity", 0)
             if filled_qty == quantity:
@@ -141,8 +144,6 @@ class Executor:
                 log.warning(
                     f"Unexpected filledQuantity value for {ticker}: {filled_qty}"
                 )
-        else:
-            status = "FAILED"
 
         # Write the order in database (quantity stored at 8 dp)
         order = Order(
@@ -160,14 +161,16 @@ class Executor:
             quantity=quantize_btc(amount_in_shares),
             total=quantize_czk(amount_in_correct_currency),
             total_czk=quantize_czk(amount),
-            extended_hours=res.get("extendedHours") if res else False,
+            extended_hours=res.get("extendedHours") if accepted else False,
             status=status,
             submitted_at=datetime.now(timezone.utc),
             request=req,
             response=res,
-            error=str(error),
-            external_order_id=str(res.get("id")) if res else None,
-            filled_quantity=to_decimal(res.get("filledQuantity")) if res else None,
+            error=str(error) if error else None,
+            external_order_id=str(res.get("id")) if accepted else None,
+            filled_quantity=(
+                to_decimal(res.get("filledQuantity", 0)) if accepted else None
+            ),
             multiplier=multiplier,
             fx_rate=fx_rate,
             investment_type=investment_type,

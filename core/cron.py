@@ -1,7 +1,7 @@
 # Standard library
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 # Local
 from core.coinmate import Coinmate
@@ -10,13 +10,20 @@ from core.db.orders import Order
 from core.db.runs import Run, RunUpdate
 from core.db.users import UserRecord
 from core.executor import Executor
+from core.funding import (
+    ExchangeFunding,
+    InsufficientFundsError,
+    funding_status,
+    should_send_alert,
+    should_send_recovery,
+)
 from core.instruments import Instruments
 from core.log import log
 from core.mailer import Mailer
 from core.precision import to_decimal
 from core.settings import UserSettings
 from core.trading212 import Trading212
-from core.utils import find_balance_exhaustion_date, is_now_cron_time
+from core.utils import is_now_cron_time, runs_in_next_days
 
 
 def run_for_user(user: UserRecord) -> None:
@@ -78,54 +85,52 @@ def run_for_user(user: UserRecord) -> None:
     Run.update_runs(user_id=user_id)
     log.info("Finished updating old Orders and Runs")
 
-    # --- Check balances and alert if running low ---
-    if not Mail.balance_alert_sent_today(user_id=user_id):
+    investing_today: bool = is_now_cron_time(
+        user_settings.portfolio.invest_interval
+    ) and not Run.run_exists_today(user_id=user_id)
+
+    # --- Warn ahead of time if an exchange cannot cover the next run ---
+    # Skipped on investment days: the run itself reports the authoritative outcome,
+    # so this would only duplicate it.
+    if not investing_today:
         try:
-            adjusted_ratios = instruments.get_adjusted_ratios()
-            total_adj = sum(
-                (v["adjusted_value"] for v in adjusted_ratios.values()), Decimal("0")
+            upcoming: Dict[str, Decimal] = instruments.distribute_cash()[
+                "cash_distribution"
+            ]
+            # Warn on the user's wide buffer over their alert window, well before the
+            # tight EXECUTION_MARGIN gate would actually abort a run.
+            statuses: List[ExchangeFunding] = funding_status(
+                upcoming,
+                t212,
+                coinmate,
+                runs=runs_in_next_days(
+                    user_settings.portfolio.invest_interval,
+                    user_settings.portfolio.balance_alert_days,
+                ),
+                margin=to_decimal(user_settings.portfolio.balance_buffer),
             )
-            t212_adj = sum(
-                (v["adjusted_value"] for k, v in adjusted_ratios.items() if k != "BTC"),
-                Decimal("0"),
+            short: List[ExchangeFunding] = [f for f in statuses if f.is_short]
+            short_exchanges = {f.exchange for f in short}
+
+            last_alert: Optional[Mail] = Mail.last_balance_alert(user_id=user_id)
+            last_exchanges = Mail.parse_alert_period(
+                last_alert.period if last_alert else None
             )
-            btc_adj = adjusted_ratios.get("BTC", {}).get("adjusted_value", Decimal("0"))
-            invest = to_decimal(user_settings.portfolio.invest_amount)
-            cron = user_settings.portfolio.invest_interval
+            last_sent_at = last_alert.sent_at if last_alert else None
 
-            BUFFER: float = user_settings.portfolio.balance_buffer
-            ALERT_DAYS: int = user_settings.portfolio.balance_alert_days
-
-            alerts: List[Dict[str, Any]] = []
-            for exchange, adj, get_bal in [
-                ("T212", t212_adj, t212.balance),
-                ("COINMATE", btc_adj, coinmate.balance),
-            ]:
-                spend_per_run = (adj / total_adj) * invest
-                bal = get_bal()
-                runs_out_on = find_balance_exhaustion_date(
-                    cron, spend_per_run, bal, BUFFER
-                )
-                if runs_out_on and (runs_out_on - run_start).days <= ALERT_DAYS:
-                    alerts.append(
-                        {
-                            "exchange": exchange,
-                            "balance": bal,
-                            "spend_per_run": spend_per_run,
-                            "runs_out_on": runs_out_on,
-                            "days_until_broke": (runs_out_on - run_start).days,
-                        }
-                    )
-
-            if alerts and mailer:
-                mailer.send_balance_alert(alerts)
+            if mailer and should_send_alert(
+                short_exchanges, last_sent_at, last_exchanges, run_start
+            ):
+                log.warning(f"Funds short on {', '.join(sorted(short_exchanges))}")
+                mailer.send_funding_alert(short, event="low")
+            elif mailer and should_send_recovery(short_exchanges, last_exchanges):
+                log.info("Funding recovered on all exchanges")
+                mailer.send_funding_alert(statuses, event="recovered")
         except Exception as e:
-            log.warning(f"Balance check skipped (non-critical): {e}")
+            log.warning(f"Funding check skipped (non-critical): {e}")
 
     # --- Create new orders if they should be made today AND they have not yet been ---
-    if is_now_cron_time(
-        user_settings.portfolio.invest_interval
-    ) and not Run.run_exists_today(user_id=user_id):
+    if investing_today:
         log.info("Starting investment process")
 
         run: Optional[Run] = None
@@ -140,6 +145,17 @@ def run_for_user(user: UserRecord) -> None:
                 "cash_distribution"
             ]
             multipliers: Dict[str, Decimal] = calculated_investment["multipliers"]
+
+            # Nothing is placed unless every exchange can cover its whole share, so a
+            # run never ends up half-invested with the tail orders rejected.
+            underfunded: List[ExchangeFunding] = [
+                f
+                for f in funding_status(cash_distribution, t212, coinmate)
+                if f.is_short
+            ]
+            if underfunded:
+                raise InsufficientFundsError(underfunded)
+
             orders: List[Order] = executor.place_orders(
                 cash_distribution, multipliers, run_id=run.id, investment_type="dca"
             )
@@ -153,6 +169,21 @@ def run_for_user(user: UserRecord) -> None:
                 mailer.send_investment_confirmation(
                     run, orders, cash_distribution, multipliers
                 )
+
+        except InsufficientFundsError as e:
+            log.error(f"Investment skipped for {user_id}: {e}")
+            if run is not None:
+                run.update_in_db(
+                    RunUpdate(
+                        status="FAILED",
+                        error=str(e),
+                        finished_at=datetime.now(timezone.utc),
+                        planned_total_czk=sum(cash_distribution.values(), Decimal("0")),
+                        distribution=dict(cash_distribution),
+                    )
+                )
+            if mailer:
+                mailer.send_funding_alert(e.shortfalls, event="skipped")
 
         except Exception as e:
             log.error(f"Investment run failed for {user_id}: {e}")

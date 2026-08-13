@@ -122,7 +122,7 @@ class TestCoinmateOrderMatching:
         supabase_mocks: SimpleNamespace,
         coinmate_history_response: dict,
     ) -> None:
-        """SUBMITTED BTC order matched by orderId; filled_total = amount*price - fee."""
+        """SUBMITTED BTC order matched by orderId; filled_total = amount*price + fee."""
         order_row = _submitted_order_row(
             "987654",
             "BTC",
@@ -147,8 +147,8 @@ class TestCoinmateOrderMatching:
         update_call = supabase_mocks.orders_chain.update.call_args[0][0]
         assert update_call["status"] == "FILLED"
         assert update_call["filled_total"] == pytest.approx(
-            2475.0
-        )  # 0.001*2_500_000 - 25
+            2525.0
+        )  # 0.001*2_500_000 + 25 — a BUY costs the traded value plus the fee
         assert update_call["fill_fx_rate"] == pytest.approx(1.0)
         assert update_call["fee_czk"] == pytest.approx(25.0)  # CZK fee
 

@@ -62,12 +62,23 @@ class TestProcessNewCoinmateData:
         )
         assert update.status == "FAILED"
 
-    def test_filled_total_calculated_correctly(self) -> None:
-        # filled_total = amount * price - fee = 0.001 * 2_000_000 - 50 = 1950
+    def test_filled_total_includes_the_buy_fee(self) -> None:
+        """A BUY costs traded value + fee — both leave the CZK balance."""
+        # filled_total = amount * price + fee = 0.001 * 2_000_000 + 50 = 2050
         update = Order._process_new_coinmate_data(
             self._make_data(amount=0.001, price=2_000_000.0, fee=50.0)
         )
-        assert update.filled_total == Decimal("1950")
+        assert update.filled_total == Decimal("2050")
+        assert update.filled_total_czk == Decimal("2050")
+
+    def test_filled_total_matches_the_czk_actually_spent(self) -> None:
+        """Real row from the live DB: 247.16 CZK requested, fee taken out of it."""
+        update = Order._process_new_coinmate_data(
+            self._make_data(amount=0.000179, price=1_372_495.0, fee=1.47405963)
+        )
+        assert update.filled_total == pytest.approx(
+            Decimal("247.16"), abs=Decimal("0.02")
+        )
 
     def test_timestamp_converted_to_utc_datetime(self) -> None:
         expected_dt = datetime(2026, 3, 3, 9, 0, 0, tzinfo=timezone.utc)

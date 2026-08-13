@@ -246,12 +246,34 @@ class TestTryMarkRunFailedIfExpired:
         )
         # Patch at class level to avoid Pydantic's frozen-instance attribute restrictions
         mock_update = mocker.patch.object(Run, "update_in_db")
+        mocker.patch.object(
+            Run, "_sum_orders_filled_czk", return_value=Decimal("685.50")
+        )
 
         run._try_mark_run_failed_if_expired()
 
         mock_update.assert_called_once()
         call_arg: RunUpdate = mock_update.call_args[0][0]
         assert call_arg.status == "FAILED"
+
+    @freeze_time("2026-03-18 09:00:00")  # 15 days after finished_at
+    def test_records_what_filled_before_expiring(
+        self, make_run: Callable[..., Run], mocker: MockerFixture
+    ) -> None:
+        """Legs that did fill must be recorded, or their cost disappears from reports."""
+        run = make_run(
+            status="FINISHED",
+            finished_at=datetime(2026, 3, 3, 9, 0, 0, tzinfo=timezone.utc),
+        )
+        mock_update = mocker.patch.object(Run, "update_in_db")
+        mocker.patch.object(
+            Run, "_sum_orders_filled_czk", return_value=Decimal("685.50")
+        )
+
+        run._try_mark_run_failed_if_expired()
+
+        call_arg: RunUpdate = mock_update.call_args[0][0]
+        assert call_arg.filled_total_czk == Decimal("685.50")
 
     @freeze_time("2026-03-13 09:00:00")  # 10 days after finished_at
     def test_does_not_mark_failed_before_14_days(
@@ -291,7 +313,7 @@ class TestGetFinishedRuns:
 
 
 class TestUpdateRuns:
-    def test_calls_try_mark_on_each_run(self, mocker: MockerFixture) -> None:
+    def test_checks_every_run(self, mocker: MockerFixture) -> None:
         mock_run1 = MagicMock()
         mock_run2 = MagicMock()
         mocker.patch.object(
@@ -300,14 +322,33 @@ class TestUpdateRuns:
 
         Run.update_runs()
 
-        mock_run1._try_mark_run_failed_if_expired.assert_called_once()
         mock_run1._try_mark_run_filled.assert_called_once()
-        mock_run2._try_mark_run_failed_if_expired.assert_called_once()
         mock_run2._try_mark_run_filled.assert_called_once()
+
+    def test_a_fully_filled_run_is_never_expired(self, mocker: MockerFixture) -> None:
+        """Expiring first would write FAILED and then be overwritten by FILLED."""
+        mock_run = MagicMock()
+        mock_run._try_mark_run_filled.return_value = True
+        mocker.patch.object(Run, "_get_finished_runs", return_value=[mock_run])
+
+        Run.update_runs()
+
+        mock_run._try_mark_run_failed_if_expired.assert_not_called()
+
+    def test_expiry_runs_when_orders_are_still_unfilled(
+        self, mocker: MockerFixture
+    ) -> None:
+        mock_run = MagicMock()
+        mock_run._try_mark_run_filled.return_value = False
+        mocker.patch.object(Run, "_get_finished_runs", return_value=[mock_run])
+
+        Run.update_runs()
+
+        mock_run._try_mark_run_failed_if_expired.assert_called_once()
 
     def test_logs_error_and_continues_on_exception(self, mocker: MockerFixture) -> None:
         mock_run1 = MagicMock()
-        mock_run1._try_mark_run_failed_if_expired.side_effect = RuntimeError("DB error")
+        mock_run1._try_mark_run_filled.side_effect = RuntimeError("DB error")
         mock_run2 = MagicMock()
         mocker.patch.object(
             Run, "_get_finished_runs", return_value=[mock_run1, mock_run2]
@@ -317,7 +358,7 @@ class TestUpdateRuns:
         Run.update_runs()
 
         # Second run should still be processed
-        mock_run2._try_mark_run_failed_if_expired.assert_called_once()
+        mock_run2._try_mark_run_filled.assert_called_once()
 
 
 class TestRunExistsToday:

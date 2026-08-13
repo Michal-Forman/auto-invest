@@ -241,9 +241,11 @@ class Order(BaseDBModel):
         ts: int = order["createdTimestamp"]
         filled_at: datetime = datetime.fromtimestamp(ts / 1000, tz=timezone.utc)
 
+        # A BUY costs the traded value plus the fee — Coinmate deducts both from the
+        # CZK balance, so subtracting the fee would understate the cost basis.
         filled_total: Decimal = to_decimal(order["amount"]) * to_decimal(
             order["price"]
-        ) - to_decimal(order["fee"])
+        ) + to_decimal(order["fee"])
 
         return OrderUpdate(
             status=status,

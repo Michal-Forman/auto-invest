@@ -74,21 +74,22 @@ export function Overview() {
   const health = useHealth();
   const { data: runs, loading: runsLoading, error: runsError } = useRuns();
   const { data: config } = useConfig();
-  const { portfolioValue, warnings } = useAnalytics();
+  const { profitLoss, profitLossLoading, warnings } = useAnalytics();
   const [warningsOpen, setWarningsOpen] = useState<boolean>(false);
 
   const filled = runs?.filter((r) => r.status === "FILLED").length ?? 0;
   const finished = runs?.filter((r) => r.status === "FINISHED").length ?? 0;
   const failed = runs?.filter((r) => r.status === "FAILED").length ?? 0;
   const completed = filled + finished + failed;
-  const totalInvested = runs?.filter((r) => r.status === "FILLED" && r.total_czk > 0).reduce((s, r) => s + r.total_czk, 0) ?? 0;
   const recent = runs?.slice(0, 5) ?? [];
 
-  const currentValue = portfolioValue?.length ? portfolioValue[portfolioValue.length - 1].value : null;
-  const totalGain: number | null =
-    currentValue !== null && totalInvested > 0
-      ? ((currentValue - totalInvested) / totalInvested) * 100
-      : null;
+  // Value, cost and gain all come from /analytics/profit-loss so this card can never
+  // disagree with the Analytics page. Deriving invested from runs here got it wrong:
+  // it counted only FILLED runs, used planned rather than filled CZK, and silently
+  // truncated to the 50 most recent runs.
+  const currentValue = profitLoss?.current_value_czk ?? null;
+  const totalInvested = profitLoss?.total_invested_czk ?? 0;
+  const totalGain: number | null = profitLoss?.gain_pct ?? null;
 
   return (
     <div className="space-y-6">
@@ -105,7 +106,7 @@ export function Overview() {
             ) : (
               <div>
                 <div className="text-2xl font-bold text-primary">{formatNumber(currentValue)} CZK</div>
-                {runsLoading ? (
+                {profitLossLoading ? (
                   <Skeleton className="h-3 w-24 mt-1" />
                 ) : (
                   <div className="text-xs text-muted-foreground mt-1">

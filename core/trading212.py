@@ -121,20 +121,28 @@ class Trading212:
             ),
         }
 
+        # Parse the body before raise_for_status: on a 4xx it carries T212's reason
+        # (e.g. {"code": "InsufficientResources"}), which is the only diagnostic we get.
+        body: Any
+        try:
+            body = resp.json()
+        except ValueError:
+            body = {"raw": resp.text[:2000]} if resp.text else None
+
         try:
             resp.raise_for_status()
         except HTTPError as http_err:
-            log.error(f"T212 response error: {http_err}")
+            log.error(f"T212 response error: {http_err} — body: {body}")
 
             return {
                 "req": req_data,
-                "res": resp.json() if resp else None,
+                "res": body,
                 "err": http_err,
             }
 
         return {
             "req": req_data,
-            "res": resp.json(),
+            "res": body,
             "err": None,
         }
 

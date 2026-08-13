@@ -12,8 +12,10 @@ from pytest_mock import MockerFixture
 
 # Local
 from core.db.btc_withdrawals import BtcWithdrawal
+from core.db.mails import Mail
 from core.db.orders import Order
 from core.db.runs import Run
+from core.funding import ExchangeFunding
 from core.mailer import (
     _FEE_RATIO_THRESHOLD,
     _FX_DRIFT_THRESHOLD,
@@ -21,7 +23,6 @@ from core.mailer import (
     Mailer,
     _czech_account_to_iban,
     _make_spd_qr,
-    _runs_in_next_30_days,
 )
 from core.settings import PortfolioSettings, UserSettings
 
@@ -716,108 +717,120 @@ class TestSendMonthlySummary:
 
 
 # ---------------------------------------------------------------------------
-# Tests: send_balance_alert
+# Tests: send_funding_alert
 # ---------------------------------------------------------------------------
 
 
-def _make_alert(**overrides: Any) -> dict:
-    """Build a minimal alert dict for send_balance_alert tests."""
-    defaults: dict = {
-        "exchange": "T212",
-        "balance": 3000.0,
-        "spend_per_run": 1500.0,
-        "runs_out_on": datetime(2026, 3, 7, 9, 0, 0, tzinfo=timezone.utc),
-        "days_until_broke": 4,
-    }
-    defaults.update(overrides)
-    return defaults
+def _make_funding(
+    exchange: str = "T212",
+    required: str = "1500",
+    available: str = "0",
+    margin: str = "1",
+    runs: int = 1,
+) -> ExchangeFunding:
+    """Build an ExchangeFunding for send_funding_alert tests."""
+    return ExchangeFunding(
+        exchange=exchange,
+        required_czk=Decimal(required),
+        available_czk=Decimal(available),
+        margin=Decimal(margin),
+        runs=runs,
+    )
 
 
-class TestSendBalanceAlert:
-    def test_calls_send_with_low_balance_subject(self, mocker: MockerFixture) -> None:
+class TestSendFundingAlert:
+    def test_low_event_subject_mentions_low_funds(self, mocker: MockerFixture) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
-        _make_mailer().send_balance_alert([_make_alert()])
+        _make_mailer().send_funding_alert([_make_funding()], event="low")
         subject = mock_send.call_args[0][0]
-        assert "balance" in subject.lower()
+        assert "low" in subject.lower()
 
-    def test_plain_contains_exchange_name(self, mocker: MockerFixture) -> None:
+    def test_skipped_event_subject_says_skipped(self, mocker: MockerFixture) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
-        _make_mailer().send_balance_alert([_make_alert(exchange="T212")])
-        plain = mock_send.call_args[0][1]
-        assert "T212" in plain
+        _make_mailer().send_funding_alert([_make_funding()], event="skipped")
+        subject = mock_send.call_args[0][0]
+        assert "skipped" in subject.lower()
 
-    def test_plain_contains_runs_out_date(self, mocker: MockerFixture) -> None:
-        mock_send = mocker.patch.object(Mailer, "_send")
-        runs_out = datetime(2026, 3, 7, 9, 0, 0, tzinfo=timezone.utc)
-        _make_mailer().send_balance_alert([_make_alert(runs_out_on=runs_out)])
-        plain = mock_send.call_args[0][1]
-        assert "2026-03-07" in plain
-
-    def test_plain_contains_days_until_broke(self, mocker: MockerFixture) -> None:
-        mock_send = mocker.patch.object(Mailer, "_send")
-        _make_mailer().send_balance_alert([_make_alert(days_until_broke=3)])
-        plain = mock_send.call_args[0][1]
-        assert "3" in plain
-
-    def test_html_contains_exchange_name(self, mocker: MockerFixture) -> None:
-        mock_send = mocker.patch.object(Mailer, "_send")
-        _make_mailer().send_balance_alert([_make_alert(exchange="COINMATE")])
-        html = mock_send.call_args[0][2]
-        assert "COINMATE" in html
-
-    def test_html_uses_red_color_for_urgent_days(self, mocker: MockerFixture) -> None:
-        mock_send = mocker.patch.object(Mailer, "_send")
-        _make_mailer().send_balance_alert([_make_alert(days_until_broke=1)])
-        html = mock_send.call_args[0][2]
-        assert "#dc2626" in html
-
-    def test_html_uses_amber_color_for_non_urgent_days(
+    def test_skipped_event_explains_nothing_was_bought(
         self, mocker: MockerFixture
     ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
-        _make_mailer().send_balance_alert([_make_alert(days_until_broke=5)])
+        _make_mailer().send_funding_alert([_make_funding()], event="skipped")
         html = mock_send.call_args[0][2]
-        assert "#b45309" in html
+        assert "No orders were placed" in html
+
+    def test_recovered_event_subject_is_positive(self, mocker: MockerFixture) -> None:
+        mock_send = mocker.patch.object(Mailer, "_send")
+        funded = _make_funding(available="5000")
+        _make_mailer().send_funding_alert([funded], event="recovered")
+        subject = mock_send.call_args[0][0]
+        assert "topped up" in subject.lower()
+
+    def test_plain_contains_exchange_name(self, mocker: MockerFixture) -> None:
+        mock_send = mocker.patch.object(Mailer, "_send")
+        _make_mailer().send_funding_alert([_make_funding(exchange="T212")])
+        plain = mock_send.call_args[0][1]
+        assert "T212" in plain
+
+    def test_plain_contains_shortfall(self, mocker: MockerFixture) -> None:
+        mock_send = mocker.patch.object(Mailer, "_send")
+        _make_mailer().send_funding_alert(
+            [_make_funding(required="1500", available="1000")]
+        )
+        plain = mock_send.call_args[0][1]
+        assert "500.00" in plain
+
+    def test_html_contains_exchange_name(self, mocker: MockerFixture) -> None:
+        mock_send = mocker.patch.object(Mailer, "_send")
+        _make_mailer().send_funding_alert([_make_funding(exchange="COINMATE")])
+        html = mock_send.call_args[0][2]
+        assert "COINMATE" in html
+
+    def test_html_highlights_the_shortfall_in_red(self, mocker: MockerFixture) -> None:
+        mock_send = mocker.patch.object(Mailer, "_send")
+        _make_mailer().send_funding_alert([_make_funding()])
+        html = mock_send.call_args[0][2]
+        assert "#dc2626" in html
 
     def test_mail_type_is_balance_alert(self, mocker: MockerFixture) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
-        _make_mailer().send_balance_alert([_make_alert()])
+        _make_mailer().send_funding_alert([_make_funding()])
         assert mock_send.call_args.kwargs["mail_type"] == "balance_alert"
 
-    def test_period_kwarg_is_todays_date(self, mocker: MockerFixture) -> None:
+    def test_period_encodes_short_exchanges(self, mocker: MockerFixture) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
-        _make_mailer().send_balance_alert([_make_alert()])
+        _make_mailer().send_funding_alert(
+            [_make_funding(exchange="COINMATE"), _make_funding(exchange="T212")]
+        )
         period = mock_send.call_args.kwargs.get("period")
         assert period is not None
-        # Should be a valid YYYY-MM-DD date string
-        from datetime import datetime as _dt
+        assert Mail.parse_alert_period(period) == {"T212", "COINMATE"}
 
-        _dt.strptime(period, "%Y-%m-%d")  # raises if format invalid
+    def test_recovery_period_records_no_short_exchanges(
+        self, mocker: MockerFixture
+    ) -> None:
+        """A recovery mail must clear the set, so it is only ever sent once."""
+        mock_send = mocker.patch.object(Mailer, "_send")
+        _make_mailer().send_funding_alert(
+            [_make_funding(available="5000")], event="recovered"
+        )
+        period = mock_send.call_args.kwargs.get("period")
+        assert Mail.parse_alert_period(period) == set()
 
     def test_multiple_exchanges_in_plain(self, mocker: MockerFixture) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
-        alerts = [
-            _make_alert(exchange="T212"),
-            _make_alert(exchange="COINMATE"),
-        ]
-        _make_mailer().send_balance_alert(alerts)
+        _make_mailer().send_funding_alert(
+            [_make_funding(exchange="T212"), _make_funding(exchange="COINMATE")]
+        )
         plain = mock_send.call_args[0][1]
         assert "T212" in plain
         assert "COINMATE" in plain
 
-    def test_html_contains_balance_value(self, mocker: MockerFixture) -> None:
+    def test_html_formats_thousands_with_nbsp(self, mocker: MockerFixture) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
-        _make_mailer().send_balance_alert([_make_alert(balance=4567.89)])
+        _make_mailer().send_funding_alert([_make_funding(available="4567.89")])
         html = mock_send.call_args[0][2]
-        assert (
-            "4\u00a0567.89" in html
-        )  # formatted with non-breaking space thousands sep
-
-    def test_html_contains_spend_per_run_value(self, mocker: MockerFixture) -> None:
-        mock_send = mocker.patch.object(Mailer, "_send")
-        _make_mailer().send_balance_alert([_make_alert(spend_per_run=1234.56)])
-        html = mock_send.call_args[0][2]
-        assert "1\u00a0234.56" in html
+        assert "4\u00a0567.89" in html
 
 
 # ---------------------------------------------------------------------------
@@ -889,47 +902,12 @@ class TestMakeSpdQr:
 
 
 # ---------------------------------------------------------------------------
-# Tests: _runs_in_next_30_days (pure function)
+# Tests: send_funding_alert – QR / top-up section
 # ---------------------------------------------------------------------------
 
 
-class TestRunsInNext30Days:
-    @freeze_time("2026-03-03 00:00:00")
-    def test_daily_cron_returns_30(self) -> None:
-        count = _runs_in_next_30_days("0 9 * * *")
-        assert count == 30
-
-    @freeze_time("2026-03-03 00:00:00")
-    def test_weekly_cron_returns_4_or_5(self) -> None:
-        count = _runs_in_next_30_days("0 9 * * 1")  # every Monday
-        assert 4 <= count <= 5
-
-    @freeze_time("2026-03-03 00:00:00")
-    def test_biweekly_cron_fires_twice_per_week(self) -> None:
-        count = _runs_in_next_30_days("0 9 * * 1,4")  # Mon + Thu
-        assert 8 <= count <= 10
-
-    @freeze_time("2026-03-03 00:00:00")
-    def test_monthly_cron_returns_1(self) -> None:
-        # 1st of each month: only 2026-04-01 falls within 30 days
-        count = _runs_in_next_30_days("0 9 1 * *")
-        assert count == 1
-
-    @freeze_time("2026-03-03 00:00:00")
-    def test_twice_daily_cron_still_counts_once_per_day(self) -> None:
-        # max-once-per-day deduplication
-        once_daily = _runs_in_next_30_days("0 9 * * *")
-        twice_daily = _runs_in_next_30_days("0 9,21 * * *")
-        assert once_daily == twice_daily == 30
-
-
-# ---------------------------------------------------------------------------
-# Tests: send_balance_alert – QR / top-up section
-# ---------------------------------------------------------------------------
-
-
-class TestSendBalanceAlertTopupSection:
-    """Tests for the deposit QR code and top-up section of send_balance_alert."""
+class TestSendFundingAlertTopupSection:
+    """Tests for the deposit QR code and top-up section of send_funding_alert."""
 
     def _make_mailer_with_deposit(
         self,
@@ -954,9 +932,9 @@ class TestSendBalanceAlertTopupSection:
             t212_account="19-123456789/0800", t212_vs="12345"
         )
         mocker.patch("core.mailer._make_spd_qr", return_value=b"PNG")
-        mocker.patch("core.mailer._runs_in_next_30_days", return_value=4)
+        mocker.patch("core.mailer.runs_in_next_days", return_value=4)
 
-        mailer.send_balance_alert([_make_alert(exchange="T212")])
+        mailer.send_funding_alert([_make_funding(exchange="T212")])
 
         extra_images = mock_send.call_args.kwargs.get("extra_images")
         assert extra_images is not None
@@ -967,9 +945,9 @@ class TestSendBalanceAlertTopupSection:
     ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
         mailer = self._make_mailer_with_deposit()  # all None
-        mocker.patch("core.mailer._runs_in_next_30_days", return_value=4)
+        mocker.patch("core.mailer.runs_in_next_days", return_value=4)
 
-        mailer.send_balance_alert([_make_alert(exchange="T212")])
+        mailer.send_funding_alert([_make_funding(exchange="T212")])
 
         extra_images = mock_send.call_args.kwargs.get("extra_images")
         assert extra_images is None
@@ -982,9 +960,9 @@ class TestSendBalanceAlertTopupSection:
             t212_account="19-123456789/0800", t212_vs="12345"
         )
         mocker.patch("core.mailer._make_spd_qr", return_value=b"PNG")
-        mocker.patch("core.mailer._runs_in_next_30_days", return_value=4)
+        mocker.patch("core.mailer.runs_in_next_days", return_value=4)
 
-        mailer.send_balance_alert([_make_alert(exchange="T212")])
+        mailer.send_funding_alert([_make_funding(exchange="T212")])
 
         html = mock_send.call_args[0][2]
         assert "Suggested top-up:" in html
@@ -996,15 +974,30 @@ class TestSendBalanceAlertTopupSection:
     ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
         mailer = self._make_mailer_with_deposit()  # all None
-        mocker.patch("core.mailer._runs_in_next_30_days", return_value=4)
+        mocker.patch("core.mailer.runs_in_next_days", return_value=4)
 
-        mailer.send_balance_alert([_make_alert(exchange="T212")])
+        mailer.send_funding_alert([_make_funding(exchange="T212")])
 
         html = mock_send.call_args[0][2]
         # "Suggested top-up:" only appears inside an actual topup card
         assert "Suggested top-up:" not in html
 
-    def test_suggested_amount_rounds_up_to_nearest_100(
+    def test_funded_exchange_gets_no_topup_card(self, mocker: MockerFixture) -> None:
+        """A recovery mail lists the exchange but has nothing to ask for."""
+        mock_send = mocker.patch.object(Mailer, "_send")
+        mailer = self._make_mailer_with_deposit(
+            t212_account="19-123456789/0800", t212_vs="12345"
+        )
+        mock_qr = mocker.patch("core.mailer._make_spd_qr", return_value=b"PNG")
+        mocker.patch("core.mailer.runs_in_next_days", return_value=4)
+
+        mailer.send_funding_alert(
+            [_make_funding(exchange="T212", available="5000")], event="recovered"
+        )
+
+        mock_qr.assert_not_called()
+
+    def test_suggested_amount_covers_gap_plus_30_days(
         self, mocker: MockerFixture
     ) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
@@ -1012,13 +1005,15 @@ class TestSendBalanceAlertTopupSection:
             t212_account="19-123456789/0800", t212_vs="12345"
         )
         mock_qr = mocker.patch("core.mailer._make_spd_qr", return_value=b"PNG")
-        mocker.patch("core.mailer._runs_in_next_30_days", return_value=4)
+        mocker.patch("core.mailer.runs_in_next_days", return_value=4)
 
-        # ceil(4 * 333.0 / 100) * 100 = ceil(13.32) * 100 = 1400
-        mailer.send_balance_alert([_make_alert(exchange="T212", spend_per_run=333.0)])
+        # shortfall 333 + 4 runs * 333 = 1665 -> ceil to nearest 100 = 1700
+        mailer.send_funding_alert(
+            [_make_funding(exchange="T212", required="333", available="0")]
+        )
 
         _, _, amount = mock_qr.call_args[0]
-        assert amount == 1400.0
+        assert amount == 1700.0
 
     def test_suggested_amount_exact_multiple_of_100_not_bumped(
         self, mocker: MockerFixture
@@ -1028,10 +1023,12 @@ class TestSendBalanceAlertTopupSection:
             t212_account="19-123456789/0800", t212_vs="12345"
         )
         mock_qr = mocker.patch("core.mailer._make_spd_qr", return_value=b"PNG")
-        mocker.patch("core.mailer._runs_in_next_30_days", return_value=4)
+        mocker.patch("core.mailer.runs_in_next_days", return_value=4)
 
-        # ceil(4 * 250.0 / 100) * 100 = ceil(10.0) * 100 = 1000
-        mailer.send_balance_alert([_make_alert(exchange="T212", spend_per_run=250.0)])
+        # shortfall 200 + 4 runs * 200 = 1000 exactly
+        mailer.send_funding_alert(
+            [_make_funding(exchange="T212", required="200", available="0")]
+        )
 
         _, _, amount = mock_qr.call_args[0]
         assert amount == 1000.0
@@ -1047,10 +1044,10 @@ class TestSendBalanceAlertTopupSection:
             coinmate_vs="99999",
         )
         mock_qr = mocker.patch("core.mailer._make_spd_qr", return_value=b"PNG")
-        mocker.patch("core.mailer._runs_in_next_30_days", return_value=4)
+        mocker.patch("core.mailer.runs_in_next_days", return_value=4)
 
-        mailer.send_balance_alert(
-            [_make_alert(exchange="T212"), _make_alert(exchange="COINMATE")]
+        mailer.send_funding_alert(
+            [_make_funding(exchange="T212"), _make_funding(exchange="COINMATE")]
         )
 
         extra_images = mock_send.call_args.kwargs.get("extra_images")
@@ -1063,9 +1060,9 @@ class TestSendBalanceAlertTopupSection:
         mock_send = mocker.patch.object(Mailer, "_send")
         mailer = self._make_mailer_with_deposit()  # all None
         mock_qr = mocker.patch("core.mailer._make_spd_qr", return_value=b"PNG")
-        mocker.patch("core.mailer._runs_in_next_30_days", return_value=4)
+        mocker.patch("core.mailer.runs_in_next_days", return_value=4)
 
-        mailer.send_balance_alert([_make_alert(exchange="KRAKEN")])
+        mailer.send_funding_alert([_make_funding(exchange="KRAKEN")])
 
         mock_qr.assert_not_called()
         extra_images = mock_send.call_args.kwargs.get("extra_images")
@@ -1080,10 +1077,10 @@ class TestSendBalanceAlertTopupSection:
             t212_account="19-123456789/0800", t212_vs="12345"
         )
         mock_qr = mocker.patch("core.mailer._make_spd_qr", return_value=b"PNG")
-        mocker.patch("core.mailer._runs_in_next_30_days", return_value=4)
+        mocker.patch("core.mailer.runs_in_next_days", return_value=4)
 
-        mailer.send_balance_alert(
-            [_make_alert(exchange="T212"), _make_alert(exchange="COINMATE")]
+        mailer.send_funding_alert(
+            [_make_funding(exchange="T212"), _make_funding(exchange="COINMATE")]
         )
 
         assert mock_qr.call_count == 1

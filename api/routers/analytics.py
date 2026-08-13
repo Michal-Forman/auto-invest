@@ -1,7 +1,7 @@
 # Standard library
 from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta, timezone
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Set
 
 # Third-party
 from fastapi import APIRouter, Depends
@@ -103,14 +103,32 @@ _YAHOO_PRICE_CURRENCY: Dict[str, str] = {
 }
 
 
+def _filled_orders(user_id: str) -> List[Order]:
+    """Every confirmed-filled order.
+
+    Both the portfolio value and the cost basis are built from this one set. Never
+    gate either of them on run status: a run only reaches FILLED when every leg fills,
+    so orders inside a FAILED run are real holdings bought with real money.
+    """
+    all_orders: List[Order] = Order.get_orders(status="FILLED", user_id=user_id)
+    return [o for o in all_orders if o.filled_at and o.filled_quantity]
+
+
+def _total_invested_czk(user_id: str) -> float:
+    """CZK actually spent, summed over the same filled orders that make up the holdings."""
+    return sum(
+        float(o.filled_total_czk if o.filled_total_czk is not None else o.total_czk)
+        for o in _filled_orders(user_id)
+    )
+
+
 def _compute_holdings_czk(user_id: str) -> Dict[str, float]:
     """Return per-ticker portfolio value in CZK based on filled quantities and latest prices."""
     cache_key = f"holdings_czk:{user_id}"
     if cache_key in instruments_cache:
         return instruments_cache[cache_key]  # type: ignore[return-value]
 
-    all_orders: List[Order] = Order.get_orders(status="FILLED", user_id=user_id)
-    valid_orders = [o for o in all_orders if o.filled_at and o.filled_quantity]
+    valid_orders: List[Order] = _filled_orders(user_id)
     if not valid_orders:
         return {}
 
@@ -266,13 +284,13 @@ def _to_czk_on_date(
 def analytics_profit_loss(
     user_id: str = Depends(get_current_user_id),
 ) -> ProfitLossResponse:
+    # filled_run_count counts clean runs (every leg filled) — it is a health figure and
+    # deliberately NOT the basis of total_invested, which comes from the orders.
     filled_runs: List[Run] = Run.get_all_runs(
         limit=1000, status="FILLED", user_id=user_id
     )
     filled_run_count = len(filled_runs)
-    total_invested = sum(
-        float(r.filled_total_czk or r.planned_total_czk or 0) for r in filled_runs
-    )
+    total_invested = _total_invested_czk(user_id)
     per_ticker = _compute_holdings_czk(user_id)
     current_value = sum(per_ticker.values())
     gain_czk = current_value - total_invested
@@ -312,9 +330,8 @@ def analytics_portfolio_history(
     if cache_key in instruments_cache:
         return instruments_cache[cache_key]  # type: ignore[return-value]
 
-    all_orders: List[Order] = Order.get_orders(status="FILLED", user_id=user_id)
     valid_orders = sorted(
-        [o for o in all_orders if o.filled_at and o.filled_quantity],
+        _filled_orders(user_id),
         key=lambda o: o.filled_at,  # type: ignore[arg-type, return-value]
     )
     if not valid_orders:
@@ -370,21 +387,36 @@ def analytics_strategy_comparison(
     if cache_key in instruments_cache:
         return instruments_cache[cache_key]  # type: ignore[return-value]
 
-    filled_runs: List[Run] = Run.get_all_runs(
-        limit=1000, status="FILLED", user_id=user_id
-    )
-    filled_runs = sorted(
-        [r for r in filled_runs if r.distribution], key=lambda r: r.started_at
-    )
-    if not filled_runs:
-        return []
-
-    all_orders: List[Order] = Order.get_orders(status="FILLED", user_id=user_id)
     valid_orders = sorted(
-        [o for o in all_orders if o.filled_at and o.filled_quantity],
+        _filled_orders(user_id),
         key=lambda o: o.filled_at,  # type: ignore[arg-type, return-value]
     )
     if not valid_orders:
+        return []
+
+    # Capital actually deployed per run. The baseline must invest exactly this, not the
+    # planned total — planned includes legs that never executed, which would hand the two
+    # strategies different amounts of money and make the comparison meaningless.
+    deployed_czk: Dict[str, float] = defaultdict(float)
+    run_tickers: Dict[str, Set[str]] = defaultdict(set)
+    for o in valid_orders:
+        run_key = str(o.run_id)
+        deployed_czk[run_key] += float(
+            o.filled_total_czk if o.filled_total_czk is not None else o.total_czk
+        )
+        run_tickers[run_key].add(o.t212_ticker)
+
+    # Every run that placed orders, not just the ones where every leg happened to fill.
+    all_runs: List[Run] = Run.get_all_runs(limit=1000, user_id=user_id)
+    filled_runs = sorted(
+        [
+            r
+            for r in all_runs
+            if r.distribution and deployed_czk.get(str(r.id), 0.0) > 0
+        ],
+        key=lambda r: r.started_at,
+    )
+    if not filled_runs:
         return []
 
     ticker_meta = {o.t212_ticker: (o.yahoo_symbol, o.currency) for o in valid_orders}
@@ -405,19 +437,23 @@ def analytics_strategy_comparison(
             and filled_runs[run_idx].started_at.date() <= snap_date
         ):
             run = filled_runs[run_idx]
+            run_key = str(run.id)
+            # Restrict the baseline to the tickers this run actually bought, so the two
+            # strategies differ only in weighting and not in which instruments they hold.
+            bought = run_tickers[run_key]
             dist: Dict[str, float] = {
-                k: float(v) for k, v in (run.distribution or {}).items()
+                k: float(v) for k, v in (run.distribution or {}).items() if k in bought
             }
             mults: Dict[str, float] = {
                 k: float(v) for k, v in (run.multipliers or {}).items()
             }
-            planned_total = float(run.planned_total_czk or sum(dist.values()))
+            deployed_total = deployed_czk[run_key]
 
             unboost = {t: czk / mults.get(t, 1.0) for t, czk in dist.items()}
             total_unboost = sum(unboost.values())
             if total_unboost > 0:
                 baseline_dist = {
-                    t: (v / total_unboost) * planned_total for t, v in unboost.items()
+                    t: (v / total_unboost) * deployed_total for t, v in unboost.items()
                 }
             else:
                 baseline_dist = {}

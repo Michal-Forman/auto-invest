@@ -71,6 +71,34 @@ class TestProcessResponse:
         assert result["err"] is not None
         assert isinstance(result["err"], requests.exceptions.HTTPError)
 
+    def test_error_body_is_preserved(self, t212: Trading212) -> None:
+        """A real Response is falsy on 4xx; the reason must still reach the caller."""
+        mock_resp = _make_response(400, json_data={"code": "InsufficientResources"})
+        mock_resp.__bool__ = lambda self: False  # mimic requests.Response.ok
+
+        result = t212._process_response(mock_resp)
+
+        assert result["res"] == {"code": "InsufficientResources"}
+        assert isinstance(result["err"], requests.exceptions.HTTPError)
+
+    def test_non_json_error_body_falls_back_to_raw_text(self, t212: Trading212) -> None:
+        mock_resp = _make_response(502)
+        mock_resp.json.side_effect = ValueError("no json")
+        mock_resp.text = "<html>Bad Gateway</html>"
+
+        result = t212._process_response(mock_resp)
+
+        assert result["res"] == {"raw": "<html>Bad Gateway</html>"}
+
+    def test_empty_error_body_is_none(self, t212: Trading212) -> None:
+        mock_resp = _make_response(503)
+        mock_resp.json.side_effect = ValueError("no json")
+        mock_resp.text = ""
+
+        result = t212._process_response(mock_resp)
+
+        assert result["res"] is None
+
     def test_bytes_body_decoded(self, t212: Trading212) -> None:
         mock_resp = _make_response(200, body=b'{"ticker":"AAPL"}')
         result = t212._process_response(mock_resp)
