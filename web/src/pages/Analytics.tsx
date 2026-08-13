@@ -67,10 +67,12 @@ export function Analytics() {
     ? cutoff ? strategyComparison.filter((d) => d.date >= cutoff) : strategyComparison
     : null;
 
-  const lastPoint = filteredComparison?.at(-1) ?? null;
+  const positiveComparison = filteredComparison?.filter((d) => d.actual_value > 0 && d.baseline_value > 0) ?? [];
+  const firstPoint = positiveComparison[0] ?? null;
+  const lastPoint = positiveComparison.at(-1) ?? null;
   const strategyDelta =
-    lastPoint && lastPoint.baseline_value > 0
-      ? ((lastPoint.actual_value - lastPoint.baseline_value) / lastPoint.baseline_value) * 100
+    firstPoint && lastPoint && lastPoint !== firstPoint
+      ? (lastPoint.actual_value / firstPoint.actual_value - 1 - (lastPoint.baseline_value / firstPoint.baseline_value - 1)) * 100
       : null;
 
   const gainPositive = (profitLoss?.gain_czk ?? 0) >= 0;
