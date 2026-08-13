@@ -1,10 +1,11 @@
 # Standard library
 from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta, timezone
+import time
 from typing import Any, Dict, List, Set
 
 # Third-party
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 import pandas as pd  # type: ignore[import-untyped]
 import yfinance as yf  # type: ignore[import-untyped]
 
@@ -25,6 +26,7 @@ from api.schemas import (
 )
 from core.db.orders import Order
 from core.db.runs import Run
+from core.log import log
 from core.warnings import compute_warnings
 
 router = APIRouter(prefix="/analytics")
@@ -102,6 +104,39 @@ _YAHOO_PRICE_CURRENCY: Dict[str, str] = {
     "BTC-USD": "USD",
 }
 
+# Markets close for weekends and holidays, so a series legitimately starts or ends a few
+# days inside the requested window. Anything wider than this is a truncated download.
+_COVERAGE_SLACK_DAYS = 7
+_DOWNLOAD_ATTEMPTS = 3
+
+
+def _split_close(hist: Any, symbols: List[str]) -> Dict[str, Any]:
+    """Split a yfinance frame into one Close series per symbol, None where absent."""
+    if hist is None or hist.empty or "Close" not in hist:
+        return {sym: None for sym in symbols}
+    close = hist["Close"]
+    if len(symbols) == 1:
+        return {symbols[0]: close}
+    return {sym: (close[sym] if sym in close else None) for sym in symbols}
+
+
+def _download_close(symbols: List[str], start_str: str, end_str: str) -> Dict[str, Any]:
+    """Download Close history over an explicit date range, keyed by symbol.
+
+    A symbol yfinance did not return maps to None rather than raising, so the caller can
+    decide whether to retry it or give up.
+    """
+    target = symbols[0] if len(symbols) == 1 else symbols
+    hist = yf.download(target, start=start_str, end=end_str, progress=False)
+    return _split_close(hist, symbols)
+
+
+def _download_recent_close(symbols: List[str]) -> Dict[str, Any]:
+    """Download the last few sessions of Close prices, keyed by symbol."""
+    target = symbols[0] if len(symbols) == 1 else symbols
+    hist = yf.download(target, period="5d", progress=False)
+    return _split_close(hist, symbols)
+
 
 def _filled_orders(user_id: str) -> List[Order]:
     """Every confirmed-filled order.
@@ -152,19 +187,18 @@ def _compute_holdings_czk(user_id: str) -> Dict[str, float]:
     )
     all_dl = yahoo_symbols + fx_needed
 
-    if len(all_dl) == 1:
-        hist_raw = yf.download(all_dl[0], period="5d", progress=False)
-        close_series: Dict[str, Any] = {all_dl[0]: hist_raw["Close"]}
-    else:
-        hist_raw = yf.download(all_dl, period="5d", progress=False)
-        close_series = {sym: hist_raw["Close"][sym] for sym in all_dl}
+    close_series: Dict[str, Any] = _download_recent_close(all_dl)
 
     def _latest_price(symbol: str) -> float:
         series = close_series.get(symbol)
-        if series is None or series.empty:
-            return 0.0
-        clean = series.dropna()
-        return float(clean.iloc[-1]) if not clean.empty else 0.0
+        clean = series.dropna() if series is not None else None
+        if clean is None or clean.empty:
+            # Zero would quietly delete this instrument from the portfolio total, which
+            # reads as a loss rather than as the outage it is.
+            raise HTTPException(
+                status_code=503, detail=f"No recent price available for {symbol}."
+            )
+        return float(clean.iloc[-1])
 
     per_ticker: Dict[str, float] = {}
     for ticker, qty in holdings.items():
@@ -217,12 +251,39 @@ def analytics_holdings(
     return [HoldingItem(ticker=t, value_czk=round(v, 0)) for t, v in per_ticker.items()]
 
 
+def _covers_range(series: Any, start_date: date, end_date: date) -> bool:
+    """True when the series actually spans the window we asked for.
+
+    yfinance answers a rate-limited request with a short series instead of an error. Left
+    unchecked that silently reprices history: `_price_on_date` finds nothing on or before
+    an early snapshot, the holding drops out of that point, and the chart ramps up from
+    nothing as each symbol's data begins. Worse, a short FX series used to fall through to
+    the raw foreign price, so the strategy baseline bought ~20x too many units.
+    """
+    if series is None or getattr(series, "empty", True):
+        return False
+    clean = series.dropna()
+    if clean.empty:
+        return False
+    idx = clean.index
+    if isinstance(idx, pd.DatetimeIndex) and idx.tz is not None:
+        idx = idx.tz_localize(None)
+    slack = timedelta(days=_COVERAGE_SLACK_DAYS)
+    return idx.min() <= pd.Timestamp(start_date + slack) and idx.max() >= pd.Timestamp(
+        end_date - slack
+    )
+
+
 def _fetch_price_history(
     ticker_meta: Dict[str, tuple],
     start_date: date,
     end_date: date,
 ) -> Dict[str, Any]:
-    """Download full yfinance Close history for all instruments + FX pairs."""
+    """Download full yfinance Close history for all instruments + FX pairs.
+
+    Raises 503 rather than returning partial data: a chart drawn from half a price history
+    looks plausible and is wrong, which is far worse than an explicit failure.
+    """
     yahoo_symbols: List[str] = list({meta[0] for meta in ticker_meta.values()})
     fx_needed: List[str] = list(
         {
@@ -232,16 +293,43 @@ def _fetch_price_history(
         }
     )
     all_dl = yahoo_symbols + fx_needed
-    end_dl = end_date + timedelta(days=1)
     start_str = start_date.isoformat()
-    end_str = end_dl.isoformat()
+    end_str = (end_date + timedelta(days=1)).isoformat()
 
-    if len(all_dl) == 1:
-        hist = yf.download(all_dl[0], start=start_str, end=end_str, progress=False)
-        return {all_dl[0]: hist["Close"]}
-    else:
-        hist = yf.download(all_dl, start=start_str, end=end_str, progress=False)
-        return {sym: hist["Close"][sym] for sym in all_dl}
+    series: Dict[str, Any] = _download_close(all_dl, start_str, end_str)
+
+    # Retry the stragglers one at a time — a bulk request that drops symbols under rate
+    # limiting usually succeeds when the symbols are asked for individually.
+    for attempt in range(1, _DOWNLOAD_ATTEMPTS):
+        missing: List[str] = [
+            sym
+            for sym in all_dl
+            if not _covers_range(series.get(sym), start_date, end_date)
+        ]
+        if not missing:
+            break
+        log.warning(
+            f"Incomplete price history for {missing} (attempt {attempt}), retrying"
+        )
+        time.sleep(2**attempt)
+        for sym in missing:
+            series.update(_download_close([sym], start_str, end_str))
+
+    incomplete: List[str] = [
+        sym
+        for sym in all_dl
+        if not _covers_range(series.get(sym), start_date, end_date)
+    ]
+    if incomplete:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Price history is incomplete for "
+                f"{', '.join(sorted(incomplete))}; try again shortly."
+            ),
+        )
+
+    return series
 
 
 def _get_price(close_series: Dict[str, Any], symbol: str, target: date) -> float:
@@ -262,13 +350,18 @@ def _price_on_date(series: Any, target: date) -> float:
         idx = idx.tz_localize(None)
     mask = idx.normalize() <= target_ts
     eligible = clean[mask]
-    return float(eligible.iloc[-1]) if not eligible.empty else 0.0
+    if not eligible.empty:
+        return float(eligible.iloc[-1])
+    # Target predates the series (a holiday at the very start, or a listing that began
+    # mid-window). The earliest known price is a far better estimate than zero, which
+    # would erase the holding from that snapshot entirely.
+    return float(clean.iloc[0])
 
 
 def _to_czk_on_date(
     price: float, currency: str, close_series: Dict[str, Any], target: date
 ) -> float:
-    """Convert instrument price to CZK using historical FX rate on target date."""
+    """Convert instrument price to CZK using the historical FX rate on target date."""
     if currency == "CZK":
         return price
     fx_symbol = _FX_SYMBOLS.get(currency)
@@ -276,7 +369,13 @@ def _to_czk_on_date(
         return price
     fx = _price_on_date(close_series.get(fx_symbol), target)
     if fx == 0.0:
-        return price
+        # _fetch_price_history guarantees a usable FX series, so this only fires if a
+        # caller assembled close_series itself. Returning the unconverted foreign price
+        # would understate the value ~20-28x, so refuse instead.
+        raise HTTPException(
+            status_code=503,
+            detail=f"No {fx_symbol} rate available for {target.isoformat()}.",
+        )
     return price * fx * (0.01 if currency == "GBX" else 1.0)
 
 
