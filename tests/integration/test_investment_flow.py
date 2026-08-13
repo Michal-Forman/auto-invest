@@ -1,6 +1,7 @@
 # Standard library
 from decimal import Decimal
 from types import SimpleNamespace
+from typing import Dict
 from uuid import UUID
 
 # Third-party
@@ -12,6 +13,7 @@ from core.coinmate import Coinmate
 from core.db.orders import Order
 from core.db.runs import Run
 from core.executor import Executor
+from core.funding import ExchangeFunding, InsufficientFundsError, funding_status
 from core.instruments import Instruments
 from core.settings import PortfolioSettings
 from core.trading212 import Trading212
@@ -391,3 +393,96 @@ class TestExchangeApiCallArguments:
 
         # 1234.567 rounded to 2dp = 1234.57
         mock_buy.assert_called_once_with(Decimal("1234.57"), "BTC_CZK")
+
+
+class TestFundingGate:
+    """The pre-flight check must agree with how the executor actually routes orders."""
+
+    def _statuses(
+        self,
+        mocker: MockerFixture,
+        t212: Trading212,
+        coinmate: Coinmate,
+        portfolio_settings: PortfolioSettings,
+        t212_pie_response: dict,
+        t212_balance: str,
+        coinmate_balance: str,
+    ) -> Dict[str, ExchangeFunding]:
+        _mock_instruments(mocker)
+        mocker.patch.object(t212, "pie", return_value=t212_pie_response)
+        mocker.patch.object(t212, "balance", return_value=Decimal(t212_balance))
+        mocker.patch.object(coinmate, "balance", return_value=Decimal(coinmate_balance))
+
+        instruments = Instruments(t212, coinmate, portfolio_settings)
+        distribution = instruments.distribute_cash()["cash_distribution"]
+
+        return {s.exchange: s for s in funding_status(distribution, t212, coinmate)}
+
+    def test_required_amounts_match_the_real_distribution(
+        self,
+        mocker: MockerFixture,
+        t212: Trading212,
+        coinmate: Coinmate,
+        portfolio_settings: PortfolioSettings,
+        t212_pie_response: dict,
+    ) -> None:
+        """Every CZK in the plan is claimed by exactly one exchange."""
+        statuses = self._statuses(
+            mocker, t212, coinmate, portfolio_settings, t212_pie_response, "1", "1"
+        )
+
+        total = sum((s.required_czk for s in statuses.values()), Decimal("0"))
+        assert total == pytest.approx(
+            Decimal(str(portfolio_settings.invest_amount)), rel=1e-4
+        )
+
+    def test_ample_balances_pass_the_gate(
+        self,
+        mocker: MockerFixture,
+        t212: Trading212,
+        coinmate: Coinmate,
+        portfolio_settings: PortfolioSettings,
+        t212_pie_response: dict,
+    ) -> None:
+        statuses = self._statuses(
+            mocker,
+            t212,
+            coinmate,
+            portfolio_settings,
+            t212_pie_response,
+            "999999",
+            "999999",
+        )
+
+        assert not any(s.is_short for s in statuses.values())
+
+    def test_starved_coinmate_is_the_only_short_exchange(
+        self,
+        mocker: MockerFixture,
+        t212: Trading212,
+        coinmate: Coinmate,
+        portfolio_settings: PortfolioSettings,
+        t212_pie_response: dict,
+    ) -> None:
+        """Mirrors the live failure: T212 funded, Coinmate a little behind."""
+        statuses = self._statuses(
+            mocker, t212, coinmate, portfolio_settings, t212_pie_response, "999999", "1"
+        )
+
+        assert not statuses["T212"].is_short
+        assert statuses["COINMATE"].is_short
+
+    def test_error_names_the_short_exchange(
+        self,
+        mocker: MockerFixture,
+        t212: Trading212,
+        coinmate: Coinmate,
+        portfolio_settings: PortfolioSettings,
+        t212_pie_response: dict,
+    ) -> None:
+        statuses = self._statuses(
+            mocker, t212, coinmate, portfolio_settings, t212_pie_response, "999999", "1"
+        )
+        short = [s for s in statuses.values() if s.is_short]
+
+        assert "COINMATE" in str(InsufficientFundsError(short))

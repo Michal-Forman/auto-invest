@@ -1,4 +1,5 @@
 # Standard library
+from decimal import Decimal
 from unittest.mock import MagicMock
 from uuid import UUID
 
@@ -9,6 +10,7 @@ from pytest_mock import MockerFixture
 # Local
 from core.cron import main, run_for_user
 from core.db.users import UserRecord
+from core.funding import ExchangeFunding
 from tests.conftest import _TEST_USER_RECORD, TEST_USER_ID
 
 
@@ -84,8 +86,8 @@ def mocks(mocker: MockerFixture, user_settings):  # type: ignore[misc]
     mock_instruments = MagicMock()
     mock_instruments.is_btc_withdrawal_treshold_exceeded.return_value = False
     mock_instruments.distribute_cash.return_value = {
-        "cash_distribution": {"BTC": 500.0},
-        "multipliers": {"BTC": 1.0},
+        "cash_distribution": {"BTC": Decimal("500.0")},
+        "multipliers": {"BTC": Decimal("1.0")},
     }
     mocker.patch("core.cron.Instruments", return_value=mock_instruments)
 
@@ -97,7 +99,8 @@ def mocks(mocker: MockerFixture, user_settings):  # type: ignore[misc]
     mocker.patch("core.cron.Order.update_orders")
     mocker.patch("core.cron.Run.update_runs")
     mocker.patch("core.cron.Run.process_new_run_data", return_value=MagicMock())
-    mocker.patch("core.cron.Mail.balance_alert_sent_today", return_value=True)
+    mocker.patch("core.cron.Mail.last_balance_alert", return_value=None)
+    mock_funding_status = mocker.patch("core.cron.funding_status", return_value=[])
     mocker.patch("core.cron.Mail.summary_sent_for_period", return_value=True)
 
     mock_run_instance = MagicMock()
@@ -113,6 +116,7 @@ def mocks(mocker: MockerFixture, user_settings):  # type: ignore[misc]
     )
 
     return {
+        "mock_funding_status": mock_funding_status,
         "mock_instruments": mock_instruments,
         "mock_executor": mock_executor,
         "mock_run_instance": mock_run_instance,
@@ -163,3 +167,77 @@ class TestRunForUser:
 
         call_kwargs = mock_update_orders.call_args.kwargs
         assert call_kwargs["user_id"] == TEST_USER_ID
+
+
+class TestInsufficientFunds:
+    """A run that cannot be fully paid for must place nothing and be marked FAILED."""
+
+    @staticmethod
+    def _short(exchange: str = "COINMATE") -> ExchangeFunding:
+        return ExchangeFunding(
+            exchange=exchange,
+            required_czk=Decimal("250"),
+            available_czk=Decimal("200"),
+        )
+
+    def test_places_no_orders_when_an_exchange_is_short(self, mocks) -> None:  # type: ignore[misc]
+        mocks["mock_funding_status"].return_value = [self._short()]
+
+        run_for_user(_TEST_USER_RECORD)
+
+        mocks["mock_executor"].place_orders.assert_not_called()
+
+    def test_marks_run_failed_naming_the_exchange(self, mocks) -> None:  # type: ignore[misc]
+        mocks["mock_funding_status"].return_value = [self._short()]
+
+        run_for_user(_TEST_USER_RECORD)
+
+        update = mocks["mock_run_instance"].update_in_db.call_args[0][0]
+        assert update.status == "FAILED"
+        assert "COINMATE" in (update.error or "")
+
+    def test_records_what_the_run_would_have_bought(self, mocks) -> None:  # type: ignore[misc]
+        mocks["mock_funding_status"].return_value = [self._short()]
+
+        run_for_user(_TEST_USER_RECORD)
+
+        update = mocks["mock_run_instance"].update_in_db.call_args[0][0]
+        assert update.planned_total_czk == Decimal("500.0")
+        assert update.distribution == {"BTC": Decimal("500.0")}
+        assert update.finished_at is not None
+
+    def test_a_healthy_exchange_is_aborted_too(self, mocks) -> None:  # type: ignore[misc]
+        """Only Coinmate is short, but T212's orders must not go through either."""
+        mocks["mock_funding_status"].return_value = [
+            ExchangeFunding(
+                exchange="T212",
+                required_czk=Decimal("750"),
+                available_czk=Decimal("5000"),
+            ),
+            self._short(),
+        ]
+
+        run_for_user(_TEST_USER_RECORD)
+
+        mocks["mock_executor"].place_orders.assert_not_called()
+
+    def test_sends_a_funding_alert_not_an_error_alert(
+        self, mocker: MockerFixture, mocks
+    ) -> None:
+        mock_mailer = MagicMock()
+        mocker.patch("core.cron.Mailer", return_value=mock_mailer)
+        mocks["mock_funding_status"].return_value = [self._short()]
+
+        run_for_user(_TEST_USER_RECORD)
+
+        mock_mailer.send_error_alert.assert_not_called()
+        assert mock_mailer.send_funding_alert.call_args.kwargs["event"] == "skipped"
+
+    def test_no_confirmation_email_is_sent(self, mocker: MockerFixture, mocks) -> None:
+        mock_mailer = MagicMock()
+        mocker.patch("core.cron.Mailer", return_value=mock_mailer)
+        mocks["mock_funding_status"].return_value = [self._short()]
+
+        run_for_user(_TEST_USER_RECORD)
+
+        mock_mailer.send_investment_confirmation.assert_not_called()

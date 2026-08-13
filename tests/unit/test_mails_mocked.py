@@ -1,9 +1,9 @@
 # Standard library
+from datetime import datetime, timezone
 from typing import Any
 from unittest.mock import MagicMock
 
 # Third-party
-from freezegun import freeze_time
 import pytest
 from pytest_mock import MockerFixture
 
@@ -150,50 +150,78 @@ class TestPostToDB:
 
 
 # ---------------------------------------------------------------------------
-# Tests: Mail.balance_alert_sent_today
+# Tests: funding alert period encoding
 # ---------------------------------------------------------------------------
 
 
-class TestBalanceAlertSentToday:
-    @freeze_time("2026-03-05 12:00:00")
-    def test_returns_true_when_record_exists(self, mocker: MockerFixture) -> None:
+class TestAlertPeriod:
+    def test_encodes_date_and_sorted_exchanges(self) -> None:
+        sent_at = datetime(2026, 8, 13, 9, 30, tzinfo=timezone.utc)
+        assert (
+            Mail.build_alert_period(sent_at, ["T212", "COINMATE"])
+            == "2026-08-13|COINMATE,T212"
+        )
+
+    def test_encodes_empty_exchange_set(self) -> None:
+        sent_at = datetime(2026, 8, 13, 9, 30, tzinfo=timezone.utc)
+        assert Mail.build_alert_period(sent_at, []) == "2026-08-13|"
+
+    def test_round_trips_through_parse(self) -> None:
+        sent_at = datetime(2026, 8, 13, 9, 30, tzinfo=timezone.utc)
+        period = Mail.build_alert_period(sent_at, ["COINMATE"])
+        assert Mail.parse_alert_period(period) == {"COINMATE"}
+
+    def test_parses_empty_and_missing_periods(self) -> None:
+        assert Mail.parse_alert_period(None) == set()
+        assert Mail.parse_alert_period("2026-08-13|") == set()
+        # A monthly_summary period has no separator and must not look like exchanges
+        assert Mail.parse_alert_period("2026-08") == set()
+
+
+# ---------------------------------------------------------------------------
+# Tests: Mail.last_balance_alert
+# ---------------------------------------------------------------------------
+
+
+class TestLastBalanceAlert:
+    def test_returns_most_recent_mail(self, mocker: MockerFixture) -> None:
         _, mock_chain = _build_supabase_mock(mocker)
-        mock_chain.execute.return_value = MagicMock(data=[{"id": "abc"}])
+        mock_chain.execute.return_value = MagicMock(
+            data=[
+                {
+                    "type": "balance_alert",
+                    "subject": "Funds running low",
+                    "period": "2026-08-13|COINMATE",
+                    "sent_at": "2026-08-13T09:30:00+00:00",
+                }
+            ]
+        )
 
-        assert Mail.balance_alert_sent_today() is True
+        result = Mail.last_balance_alert()
 
-    @freeze_time("2026-03-05 12:00:00")
-    def test_returns_false_when_no_record(self, mocker: MockerFixture) -> None:
+        assert result is not None
+        assert Mail.parse_alert_period(result.period) == {"COINMATE"}
+
+    def test_returns_none_when_never_sent(self, mocker: MockerFixture) -> None:
         _, mock_chain = _build_supabase_mock(mocker)
         mock_chain.execute.return_value = MagicMock(data=[])
 
-        assert Mail.balance_alert_sent_today() is False
+        assert Mail.last_balance_alert() is None
 
-    @freeze_time("2026-03-05 12:00:00")
-    def test_queries_correct_table_and_filters(self, mocker: MockerFixture) -> None:
+    def test_queries_newest_first_filtered_by_type(self, mocker: MockerFixture) -> None:
         mock_sb, mock_chain = _build_supabase_mock(mocker)
         mock_chain.execute.return_value = MagicMock(data=[])
 
-        Mail.balance_alert_sent_today()
+        Mail.last_balance_alert(user_id="u1")
 
         mock_sb.table.assert_called_once_with("mails")
-        mock_chain.select.assert_called_once_with("id")
         mock_chain.eq.assert_any_call("type", "balance_alert")
-        mock_chain.eq.assert_any_call("period", "2026-03-05")
+        mock_chain.eq.assert_any_call("user_id", "u1")
+        mock_chain.order.assert_called_once_with("sent_at", desc=True)
         mock_chain.limit.assert_called_once_with(1)
 
-    @freeze_time("2026-03-05 12:00:00")
-    def test_returns_false_on_exception(self, mocker: MockerFixture) -> None:
+    def test_returns_none_on_exception(self, mocker: MockerFixture) -> None:
         _, mock_chain = _build_supabase_mock(mocker)
         mock_chain.execute.side_effect = Exception("DB down")
 
-        assert Mail.balance_alert_sent_today() is False
-
-    @freeze_time("2026-03-05 23:59:59")
-    def test_uses_utc_date(self, mocker: MockerFixture) -> None:
-        mock_sb, mock_chain = _build_supabase_mock(mocker)
-        mock_chain.execute.return_value = MagicMock(data=[])
-
-        Mail.balance_alert_sent_today()
-
-        mock_chain.eq.assert_any_call("period", "2026-03-05")
+        assert Mail.last_balance_alert() is None

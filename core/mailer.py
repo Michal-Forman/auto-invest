@@ -11,7 +11,7 @@ import smtplib
 import ssl
 from string import Template
 import traceback as tb
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 # Third-party
 from croniter import croniter
@@ -23,8 +23,10 @@ from core.db.btc_withdrawals import BtcWithdrawal
 from core.db.mails import Mail
 from core.db.orders import Order
 from core.db.runs import Run
+from core.funding import ExchangeFunding
 from core.log import log
 from core.settings import UserSettings, settings
+from core.utils import runs_in_next_days
 from core.warnings import (
     _FEE_RATIO_THRESHOLD,
     _FX_DRIFT_THRESHOLD,
@@ -36,6 +38,8 @@ __all__ = ["_FEE_RATIO_THRESHOLD", "_FX_DRIFT_THRESHOLD", "_SLIPPAGE_THRESHOLD"]
 
 _TEMPLATE_DIR = os.path.join(os.path.dirname(__file__), "templates", "emails")
 _ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")
+
+FundingEvent = Literal["skipped", "low", "recovered"]
 
 
 def _czech_account_to_iban(account: str) -> str:
@@ -60,20 +64,6 @@ def _make_spd_qr(account: str, vs: str, amount: float) -> bytes:
     buf = io.BytesIO()
     img.save(buf, format="PNG")  # type: ignore[call-arg]
     return buf.getvalue()
-
-
-def _runs_in_next_30_days(cron_expr: str) -> int:
-    """Count how many times a cron schedule fires in the next 30 calendar days (max once per day)."""
-    now = datetime.now(timezone.utc)
-    end = now + timedelta(days=30)
-    cron = croniter(cron_expr, now)
-    seen_dates: set = set()
-    while True:
-        nxt = cron.get_next(datetime)
-        if nxt > end:
-            break
-        seen_dates.add(nxt.date())
-    return len(seen_dates)
 
 
 class Mailer:
@@ -511,44 +501,72 @@ class Mailer:
             period=period,
         )
 
-    def send_balance_alert(self, alerts: List[Dict[str, Any]]) -> None:
-        """Send low-balance warning email.
+    def send_funding_alert(
+        self, statuses: List[ExchangeFunding], event: FundingEvent = "low"
+    ) -> None:
+        """Send a funding email covering every exchange in `statuses`.
 
-        Each alert dict: {exchange, balance, spend_per_run, runs_out_on, days_until_broke}
+        `event` selects the copy: an investment that was just abandoned ("skipped"),
+        a warning about the next one ("low"), or a recovery notice ("recovered").
         """
         now = datetime.now(timezone.utc)
         date_label = now.strftime("%B %-d, %Y")
-        today_str = now.strftime("%Y-%m-%d")
+
+        if event == "skipped":
+            subject = (
+                "\u26a0\ufe0f [auto-invest] Investment skipped \u2014 not enough funds"
+            )
+            heading = "Investment Skipped"
+            banner_title = "No orders were placed \u2014 one or more accounts could not cover this run."
+            banner_body = (
+                "Nothing was bought on either exchange, so the portfolio stays balanced. "
+                "Top up below and the next scheduled run will invest in full."
+            )
+        elif event == "recovered":
+            subject = "\u2705 [auto-invest] Funds topped up"
+            heading = "Funds Restored"
+            banner_title = (
+                "Every account can cover the next scheduled investment again."
+            )
+            banner_body = "No action needed \u2014 the next run will invest in full."
+        else:
+            subject = "\u26a0\ufe0f [auto-invest] Funds running low"
+            heading = "Funds Running Low"
+            banner_title = (
+                "One or more accounts cannot cover the next scheduled investment."
+            )
+            banner_body = (
+                "The next run will be skipped entirely unless these accounts are "
+                "topped up before it fires."
+            )
 
         # Plain text
         plain_lines = [
-            "Low balance alert.",
+            banner_title,
             "",
-            f"{'Exchange':<12} {'Balance (CZK)':>14} {'Spend/Run':>12} {'Runs Out On':>22} {'Days':>6}",
-            f"{'-' * 68}",
+            f"{'Exchange':<12} {'Balance (CZK)':>14} {'Needed':>12} {'Short By':>12}",
+            f"{'-' * 52}",
         ]
-        for a in alerts:
+        for f in statuses:
             plain_lines.append(
-                f"{a['exchange']:<12} {a['balance']:>14.2f} {a['spend_per_run']:>12.2f}"
-                f" {a['runs_out_on'].strftime('%Y-%m-%d %H:%M UTC'):>22} {a['days_until_broke']:>6}"
+                f"{f.exchange:<12} {f.available_czk:>14.2f} {f.needed_czk:>12.2f}"
+                f" {f.shortfall_czk:>12.2f}"
             )
 
         # HTML rows
         row_html = []
-        for i, a in enumerate(alerts):
+        for i, f in enumerate(statuses):
             bg = "#f8faff" if i % 2 == 0 else "#ffffff"
-            bal_str = f"{a['balance']:_.2f}".replace("_", "\u00a0")
-            spend_str = f"{a['spend_per_run']:_.2f}".replace("_", "\u00a0")
-            runs_out_str = a["runs_out_on"].strftime("%Y-%m-%d %H:%M UTC")
-            days = a["days_until_broke"]
-            days_color = "#dc2626" if days <= 2 else "#b45309"
+            # Decimal.__format__ has no "_" grouping option, so format as float
+            bal_str = f"{float(f.available_czk):_.2f}".replace("_", "\u00a0")
+            needed_str = f"{float(f.needed_czk):_.2f}".replace("_", "\u00a0")
+            short_str = f"{float(f.shortfall_czk):_.2f}".replace("_", "\u00a0")
             row_html.append(
                 f'<tr style="background-color:{bg};">'
-                f'<td style="padding:10px 14px;font-size:13px;color:#1e293b;font-weight:600;">{a["exchange"]}</td>'
+                f'<td style="padding:10px 14px;font-size:13px;color:#1e293b;font-weight:600;">{f.exchange}</td>'
                 f'<td style="padding:10px 14px;font-size:13px;color:#1e293b;text-align:right;">{bal_str}</td>'
-                f'<td style="padding:10px 14px;font-size:13px;color:#1e293b;text-align:right;">{spend_str}</td>'
-                f'<td style="padding:10px 14px;font-size:13px;color:#1e293b;text-align:right;">{runs_out_str}</td>'
-                f'<td style="padding:10px 14px;font-size:13px;color:{days_color};text-align:right;font-weight:700;">{days}d</td>'
+                f'<td style="padding:10px 14px;font-size:13px;color:#1e293b;text-align:right;">{needed_str}</td>'
+                f'<td style="padding:10px 14px;font-size:13px;color:#dc2626;text-align:right;font-weight:700;">{short_str}</td>'
                 f"</tr>"
             )
 
@@ -563,19 +581,20 @@ class Mailer:
                 "vs": self._user_settings.coinmate_deposit_vs,
             },
         }
-        runs_30 = _runs_in_next_30_days(self._user_settings.portfolio.invest_interval)
+        runs_30 = runs_in_next_days(self._user_settings.portfolio.invest_interval, 30)
         extra_images: Dict[str, bytes] = {}
         topup_cards: List[str] = []
 
-        for a in alerts:
-            exchange: str = a["exchange"]
+        for f in statuses:
+            exchange = f.exchange
             cfg = deposit_config.get(exchange, {})
             account = cfg.get("account")
             vs = cfg.get("vs")
-            if not account or not vs:
+            if not account or not vs or not f.is_short:
                 continue
-            spend_per_run: float = a["spend_per_run"]
-            suggested = math.ceil(runs_30 * spend_per_run / 100) * 100
+            # Clear the current gap and fund the next 30 days at this run's real cost
+            target = f.shortfall_czk + runs_30 * f.per_run_czk
+            suggested = math.ceil(target / 100) * 100
             cid = f"qr_{exchange}"
             extra_images[cid] = _make_spd_qr(account, vs, float(suggested))
             suggested_str = f"{suggested:_.0f}".replace("_", "\u00a0")
@@ -607,16 +626,21 @@ class Mailer:
 
         html = self._load_template("balance_alert.html").substitute(
             date_label=date_label,
+            heading=heading,
+            banner_title=banner_title,
+            banner_body=banner_body,
             alert_rows="\n".join(row_html),
             topup_section=topup_section,
         )
 
         self._send(
-            "\u26a0\ufe0f [auto-invest] Low balance alert",
+            subject,
             "\n".join(plain_lines),
             html,
             mail_type="balance_alert",
-            period=today_str,
+            period=Mail.build_alert_period(
+                now, [f.exchange for f in statuses if f.is_short]
+            ),
             extra_images=extra_images or None,
         )
 
@@ -805,28 +829,21 @@ if __name__ == "__main__":
         print("8. send_btc_withdrawal_confirmation sent — check inbox")
 
     if SEND["balance_alert"]:
-        from datetime import timezone as _tz
-
-        _invest = _user_settings.portfolio.invest_amount
-        _t212_weight = _user_settings.portfolio.t212_weight
-        _btc_weight = _user_settings.portfolio.btc_weight
-        _t212_spend = _invest * _t212_weight / (_t212_weight + _btc_weight)
-        _btc_spend = _invest * _btc_weight / (_t212_weight + _btc_weight)
-        dummy_alerts: List[Dict[str, Any]] = [
-            {
-                "exchange": "T212",
-                "balance": round(_t212_spend * 2, 2),
-                "spend_per_run": _t212_spend,
-                "runs_out_on": datetime(2026, 3, 7, 9, 0, 0, tzinfo=_tz.utc),
-                "days_until_broke": 2,
-            },
-            {
-                "exchange": "COINMATE",
-                "balance": round(_btc_spend * 9, 2),
-                "spend_per_run": _btc_spend,
-                "runs_out_on": datetime(2026, 3, 10, 9, 0, 0, tzinfo=_tz.utc),
-                "days_until_broke": 5,
-            },
+        _invest = Decimal(str(_user_settings.portfolio.invest_amount))
+        _t212_weight = Decimal(str(_user_settings.portfolio.t212_weight))
+        _btc_weight = Decimal(str(_user_settings.portfolio.btc_weight))
+        _total_weight = _t212_weight + _btc_weight
+        dummy_alerts: List[ExchangeFunding] = [
+            ExchangeFunding(
+                exchange="T212",
+                required_czk=_invest * _t212_weight / _total_weight,
+                available_czk=Decimal("120.00"),
+            ),
+            ExchangeFunding(
+                exchange="COINMATE",
+                required_czk=_invest * _btc_weight / _total_weight,
+                available_czk=Decimal("40.00"),
+            ),
         ]
-        mailer.send_balance_alert(dummy_alerts)
-        print("7. send_balance_alert sent — check inbox")
+        mailer.send_funding_alert(dummy_alerts, event="low")
+        print("7. send_funding_alert sent — check inbox")

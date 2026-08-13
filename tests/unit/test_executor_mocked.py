@@ -7,6 +7,7 @@ from uuid import UUID
 # Third-party
 import pytest
 from pytest_mock import MockerFixture
+from requests.exceptions import HTTPError
 
 # Local
 from core.db.btc_withdrawals import BtcWithdrawal
@@ -198,6 +199,63 @@ class TestPlaceT212Order:
             "VWCEd_EQ", Decimal("5000"), Decimal("1"), run_id
         )
         assert order.status == "FAILED"
+
+    def test_rejection_is_failed_not_filled(
+        self, executor: Executor, run_id: UUID, mock_t212: MagicMock
+    ) -> None:
+        """A 400 body has neither filledQuantity nor quantity, so both default to 0.
+
+        Without checking `err` first that reads as 0 == 0 → FILLED.
+        """
+        mock_t212.equity_order_place_market.return_value = {
+            "req": {"url": "https://live.trading212.com/api/v0/equity/orders/market"},
+            "res": {"code": "InsufficientResources"},
+            "err": HTTPError("400 Client Error: Bad Request"),
+        }
+        order = executor._place_t212_order(
+            "VWCEd_EQ", Decimal("5000"), Decimal("1"), run_id
+        )
+        assert order.status == "FAILED"
+
+    def test_rejection_keeps_the_exchange_error_body(
+        self, executor: Executor, run_id: UUID, mock_t212: MagicMock
+    ) -> None:
+        """The reason T212 refused must survive into the DB, not just \"400 Bad Request\"."""
+        mock_t212.equity_order_place_market.return_value = {
+            "req": None,
+            "res": {"code": "InsufficientResources"},
+            "err": HTTPError("400 Client Error: Bad Request"),
+        }
+        order = executor._place_t212_order(
+            "VWCEd_EQ", Decimal("5000"), Decimal("1"), run_id
+        )
+        assert order.response == {"code": "InsufficientResources"}
+        assert "400" in (order.error or "")
+
+    def test_rejection_records_no_external_order_id(
+        self, executor: Executor, run_id: UUID, mock_t212: MagicMock
+    ) -> None:
+        """A rejected order has no id; storing the string \"None\" breaks update_orders."""
+        mock_t212.equity_order_place_market.return_value = {
+            "req": None,
+            "res": {"code": "InsufficientResources"},
+            "err": HTTPError("400 Client Error: Bad Request"),
+        }
+        order = executor._place_t212_order(
+            "VWCEd_EQ", Decimal("5000"), Decimal("1"), run_id
+        )
+        assert order.external_order_id is None
+        assert order.filled_quantity is None
+
+    def test_successful_order_stores_no_error(
+        self, executor: Executor, run_id: UUID, mock_t212: MagicMock
+    ) -> None:
+        """error must be NULL, not the literal string \"None\"."""
+        mock_t212.equity_order_place_market.return_value = self._t212_response(2.0, 2.0)
+        order = executor._place_t212_order(
+            "VWCEd_EQ", Decimal("5000"), Decimal("1"), run_id
+        )
+        assert order.error is None
 
     def test_shares_calculated_from_fx_and_price(
         self, executor: Executor, run_id: UUID, mock_t212: MagicMock

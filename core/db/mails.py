@@ -3,7 +3,7 @@ from __future__ import annotations
 
 # Standard library
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional, cast
+from typing import Any, Dict, List, Optional, Set, cast
 from uuid import UUID
 
 # Third-party
@@ -48,24 +48,44 @@ class Mail(BaseModel):
             return False
 
     @staticmethod
-    def balance_alert_sent_today(user_id: Optional[str] = None) -> bool:
-        """Return True if a balance_alert email was already sent today (UTC)."""
-        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    def build_alert_period(sent_at: datetime, short_exchanges: List[str]) -> str:
+        """Encode a funding alert's date and short exchanges into the period column.
+
+        Stored as e.g. "2026-08-13|COINMATE,T212" so the next check can tell whether
+        the set of underfunded exchanges changed without needing a new column.
+        """
+        exchanges = ",".join(sorted(short_exchanges))
+        return f"{sent_at.strftime('%Y-%m-%d')}|{exchanges}"
+
+    @staticmethod
+    def parse_alert_period(period: Optional[str]) -> Set[str]:
+        """Return the short exchanges encoded in a funding alert's period column."""
+        if not period or "|" not in period:
+            return set()
+        _, _, exchanges = period.partition("|")
+        return {e for e in exchanges.split(",") if e}
+
+    @staticmethod
+    def last_balance_alert(user_id: Optional[str] = None) -> Optional["Mail"]:
+        """Return the most recently sent balance_alert mail, or None if there is none."""
         try:
             query = (
                 supabase.table(TABLE)
-                .select("id")
+                .select("*")
                 .eq("type", "balance_alert")
-                .eq("period", today)
+                .order("sent_at", desc=True)
                 .limit(1)
             )
             if user_id:
                 query = query.eq("user_id", user_id)
             res = query.execute()
-            return len(res.data) > 0
+            if not res.data:
+                return None
+            row: Dict[str, Any] = cast(Dict[str, Any], res.data[0])
+            return Mail(**row)
         except Exception as e:
             log.error(f"Failed to check mails table for balance_alert: {repr(e)}")
-            return False
+            return None
 
     def post_to_db(self) -> Optional[Dict[str, Any]]:
         """Insert this mail record into Supabase. Returns inserted row or None on error."""

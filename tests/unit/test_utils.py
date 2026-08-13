@@ -1,12 +1,8 @@
-# Standard library
-from datetime import datetime, timezone
-from decimal import Decimal
-
 # Third-party
 from freezegun import freeze_time
 
 # Local
-from core.utils import find_balance_exhaustion_date, is_now_cron_time
+from core.utils import is_now_cron_time, runs_in_next_days
 
 
 @freeze_time("2026-03-03 09:00:00")
@@ -25,120 +21,44 @@ def test_cron_one_minute_early() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Tests: find_balance_exhaustion_date
+# Tests: runs_in_next_days
 # ---------------------------------------------------------------------------
 
-# Daily cron at 09:00 UTC; freeze at midnight so next run is 09:00 same day
-_CRON_DAILY = "0 9 * * *"
-
 
 @freeze_time("2026-03-03 00:00:00")
-def test_exhaustion_on_first_run() -> None:
-    """Balance just below one buffered spend: exhausted on the very first run."""
-    spend = Decimal("1000")
-    balance = spend * Decimal("1.1") - Decimal("0.01")  # just under one buffered spend
-    result = find_balance_exhaustion_date(_CRON_DAILY, spend, balance)
-    assert result is not None
-    assert result == datetime(2026, 3, 3, 9, 0, 0, tzinfo=timezone.utc)
+def test_daily_cron_counts_one_run_per_day() -> None:
+    assert runs_in_next_days("0 9 * * *", 7) == 7
 
 
-@freeze_time("2026-03-03 00:00:00")
-def test_exhaustion_on_third_run() -> None:
-    """Balance covers exactly 2 buffered spends; exhausted on run 3."""
-    spend = Decimal("1000")
-    buffer = 1.1
-    balance = spend * Decimal(str(buffer)) * 2 + Decimal(
-        "0.01"
-    )  # survives 2 runs, fails on 3rd
-    result = find_balance_exhaustion_date(_CRON_DAILY, spend, balance, buffer)
-    assert result is not None
-    # 3rd daily run from 2026-03-03 00:00 is 2026-03-05 09:00
-    assert result == datetime(2026, 3, 5, 9, 0, 0, tzinfo=timezone.utc)
-
-
-@freeze_time("2026-03-03 00:00:00")
-def test_returns_none_when_balance_lasts_over_one_year() -> None:
-    """Large balance that won't be exhausted within 365 days returns None."""
-    spend = Decimal("1")
-    balance = Decimal("9999999")  # effectively never runs out within a year
-    result = find_balance_exhaustion_date(_CRON_DAILY, spend, balance)
-    assert result is None
-
-
-@freeze_time("2026-03-03 00:00:00")
-def test_custom_buffer_affects_exhaustion_date() -> None:
-    """Higher buffer means earlier exhaustion date."""
-    spend = Decimal("1000")
-    balance = Decimal("1500")
-    # With buffer=1.0: first run depletes 1000, balance=500; second run depletes 1000 → exhausted on run 2
-    result_no_buffer = find_balance_exhaustion_date(
-        _CRON_DAILY, spend, balance, buffer=1.0
-    )
-    # With buffer=1.6: first run depletes 1600 → balance goes negative immediately
-    result_high_buffer = find_balance_exhaustion_date(
-        _CRON_DAILY, spend, balance, buffer=1.6
-    )
-    assert result_high_buffer is not None
-    assert result_no_buffer is not None
-    assert result_high_buffer < result_no_buffer
-
-
-@freeze_time("2026-03-03 00:00:00")
-def test_exhaustion_date_is_tz_aware() -> None:
-    """Returned datetime should be timezone-aware (UTC)."""
-    result = find_balance_exhaustion_date(_CRON_DAILY, Decimal("1000"), Decimal("500"))
-    assert result is not None
-    assert result.tzinfo is not None
-
-
-@freeze_time("2026-03-03 00:00:00")
-def test_zero_balance_exhausted_on_first_run() -> None:
-    """Zero balance is exhausted immediately on the first run."""
-    result = find_balance_exhaustion_date(_CRON_DAILY, Decimal("100"), Decimal("0"))
-    assert result is not None
-    assert result == datetime(2026, 3, 3, 9, 0, 0, tzinfo=timezone.utc)
-
-
-# ---------------------------------------------------------------------------
-# Tests: find_balance_exhaustion_date – once-per-day deduplication
-# ---------------------------------------------------------------------------
+@freeze_time("2026-03-03 00:00:00")  # Tuesday
+def test_weekly_cron_counts_one_run_per_week() -> None:
+    # Next Mondays within 30 days: Mar 9, 16, 23, 30
+    assert runs_in_next_days("0 9 * * 1", 30) == 4
 
 
 @freeze_time("2026-03-06 00:00:00")  # Friday; next Monday is March 9
 def test_minute_cron_deduplicates_to_once_per_day() -> None:
-    """Minute-granularity cron (e.g. '* * * * 1') should only count once per day."""
-    spend = Decimal("500")
-    balance = Decimal("5000")
-    # "* * * * 1" fires every minute on Mondays, but should count as 1 run per Monday
-    result_minute = find_balance_exhaustion_date("* * * * 1", spend, balance)
-    result_daily = find_balance_exhaustion_date("0 9 * * 1", spend, balance)
-    assert result_minute is not None
-    assert result_daily is not None
-    # Both should exhaust on the same DATE (time may differ)
-    assert result_minute.date() == result_daily.date()
-
-
-@freeze_time("2026-03-03 00:00:00")
-def test_weekly_cron_exhaustion_spans_multiple_weeks() -> None:
-    """Weekly cron should advance week by week, not minute by minute."""
-    spend = Decimal("1000")
-    balance = Decimal("3500")  # covers 3 weeks at buffer=1.0, exhausted on week 4
-    result = find_balance_exhaustion_date("0 9 * * 1", spend, balance, buffer=1.0)
-    assert result is not None
-    # 2026-03-03 is Tuesday; next Mondays: Mar 9, 16, 23, 30
-    # Run 1 (Mar 9): 3500-1000=2500, Run 2 (Mar 16): 1500, Run 3 (Mar 23): 500, Run 4 (Mar 30): -500
-    assert result == datetime(2026, 3, 30, 9, 0, 0, tzinfo=timezone.utc)
+    """'* * * * 1' fires every minute on Mondays but counts once per Monday."""
+    assert runs_in_next_days("* * * * 1", 7) == runs_in_next_days("0 9 * * 1", 7) == 1
 
 
 @freeze_time("2026-03-03 00:00:00")
 def test_twice_daily_cron_counts_once_per_day() -> None:
-    """Cron firing at 09:00 and 21:00 should still count once per day."""
-    spend = Decimal("1000")
-    balance = Decimal("2500")  # covers 2 days at buffer=1.0
-    result_once = find_balance_exhaustion_date("0 9 * * *", spend, balance, buffer=1.0)
-    result_twice = find_balance_exhaustion_date(
-        "0 9,21 * * *", spend, balance, buffer=1.0
-    )
-    assert result_once is not None
-    assert result_twice is not None
-    assert result_once.date() == result_twice.date()
+    assert runs_in_next_days("0 9,21 * * *", 5) == runs_in_next_days("0 9 * * *", 5)
+
+
+@freeze_time("2026-03-03 00:00:00")  # Tuesday
+def test_returns_zero_when_no_run_in_window() -> None:
+    """Weekly Monday cron with a 3-day window has nothing to count."""
+    assert runs_in_next_days("0 9 * * 1", 3) == 0
+
+
+@freeze_time("2026-03-03 00:00:00")
+def test_biweekly_cron_fires_twice_per_week() -> None:
+    assert 8 <= runs_in_next_days("0 9 * * 1,4", 30) <= 10  # Mon + Thu
+
+
+@freeze_time("2026-03-03 00:00:00")
+def test_monthly_cron_fires_once_in_30_days() -> None:
+    # 1st of each month: only 2026-04-01 falls within 30 days
+    assert runs_in_next_days("0 9 1 * *", 30) == 1

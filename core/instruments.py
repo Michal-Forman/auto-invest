@@ -114,10 +114,14 @@ class Instruments:
         t: yf.Ticker = yf.Ticker(symbol)
         hist: pd.DataFrame = t.history(period="5d")
 
-        if hist.empty:
+        # Before the exchange opens, yfinance returns today's row with a NaN close.
+        # Dropping it keeps the last real price instead of poisoning every downstream
+        # Decimal with NaN.
+        closes: pd.Series = hist["Close"].dropna() if not hist.empty else hist
+        if closes.empty:
             raise ValueError(f"No price data for {t212_ticker} ({symbol})")
 
-        return to_decimal(float(hist["Close"].iloc[-1]))
+        return to_decimal(float(closes.iloc[-1]))
 
     @staticmethod
     def get_btc_price() -> Decimal:
