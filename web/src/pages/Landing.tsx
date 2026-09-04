@@ -1,18 +1,23 @@
-import { AlertTriangle, BarChart2, Globe, Network, Percent, RefreshCw, ShieldCheck, Smartphone, TrendingDown, Zap } from "lucide-react";
+import { AlertTriangle, BarChart2, Gift, Globe, Network, RefreshCw, ShieldCheck, Smartphone, TrendingDown, Zap } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import logo from "@/assets/logo.png";
-
-const APP_URL = "/app";
 
 // --- Typewriter hook ---
 const TYPEWRITER_OPTIONS = ["Effortlessly.", "Rationally.", "Stress-free.", "Automatically.", "Regularly."];
 
 function useTypewriter(options: string[], speed = 80, deleteSpeed = 45, pause = 2200) {
-    const [displayText, setDisplayText] = useState("");
+    const reduceMotion =
+        typeof window !== "undefined" &&
+        window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
+    const [displayText, setDisplayText] = useState(reduceMotion ? options[0] : "");
     const [optionIndex, setOptionIndex] = useState(0);
     const [isDeleting, setIsDeleting] = useState(false);
 
     useEffect(() => {
+        if (reduceMotion) return;
+
         const current = options[optionIndex];
         let timeout: ReturnType<typeof setTimeout>;
 
@@ -28,7 +33,7 @@ function useTypewriter(options: string[], speed = 80, deleteSpeed = 45, pause = 
         }
 
         return () => clearTimeout(timeout);
-    }, [displayText, isDeleting, optionIndex, options, speed, deleteSpeed, pause]);
+    }, [displayText, isDeleting, optionIndex, options, speed, deleteSpeed, pause, reduceMotion]);
 
     return displayText;
 }
@@ -40,17 +45,36 @@ function useFadeIn() {
     useEffect(() => {
         const el = ref.current;
         if (!el) return;
+
+        const reveal = () => el.classList.add("landing-visible");
+
+        if (typeof IntersectionObserver === "undefined") {
+            reveal();
+            return;
+        }
+
         const observer = new IntersectionObserver(
             ([entry]) => {
                 if (entry.isIntersecting) {
-                    el.classList.add("landing-visible");
+                    reveal();
                     observer.disconnect();
                 }
             },
             { threshold: 0.1 }
         );
         observer.observe(el);
-        return () => observer.disconnect();
+
+        // Safety net: never leave content stuck at opacity 0 if the observer
+        // doesn't fire (JS timing, off-screen sections, unsupported edge cases).
+        const fallback = setTimeout(() => {
+            reveal();
+            observer.disconnect();
+        }, 500);
+
+        return () => {
+            clearTimeout(fallback);
+            observer.disconnect();
+        };
     }, []);
 
     return ref;
@@ -64,10 +88,10 @@ function Navbar() {
         <nav className="sticky top-0 z-50 bg-white border-b border-slate-200">
             <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
                 {/* Logo */}
-                <a href="/" className="flex items-center gap-2">
+                <Link to="/" className="flex items-center gap-2">
                     <img src={logo} alt="auto-invest" className="h-8 w-auto" />
                     <span className="font-semibold text-blue-900 text-sm">auto-invest</span>
-                </a>
+                </Link>
 
                 {/* Desktop nav */}
                 <div className="hidden md:flex items-center gap-8">
@@ -79,24 +103,26 @@ function Navbar() {
 
                 {/* CTA + mobile menu button */}
                 <div className="flex items-center gap-3">
-                    <a
-                        href={APP_URL}
+                    <Link
+                        to="/login"
                         className="hidden sm:inline-flex text-sm text-slate-600 hover:text-blue-900 transition-colors font-medium"
                     >
                         Log in
-                    </a>
-                    <a
-                        href={APP_URL}
+                    </Link>
+                    <Link
+                        to="/signup"
                         className="hidden sm:inline-flex items-center gap-1 bg-blue-900 text-white text-sm font-medium px-4 py-2 rounded-md hover:bg-blue-800 transition-colors"
                     >
                         Start investing →
-                    </a>
+                    </Link>
                     <button
                         className="md:hidden p-2 text-slate-600"
                         onClick={() => setMenuOpen(!menuOpen)}
                         aria-label="Menu"
+                        aria-expanded={menuOpen}
+                        aria-controls="mobile-menu"
                     >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
                             {menuOpen
                                 ? <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                                 : <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
@@ -108,15 +134,15 @@ function Navbar() {
 
             {/* Mobile menu */}
             {menuOpen && (
-                <div className="md:hidden border-t border-slate-200 bg-white px-4 py-4 flex flex-col gap-4">
+                <div id="mobile-menu" className="md:hidden border-t border-slate-200 bg-white px-4 py-4 flex flex-col gap-4">
                     <a href="#how-it-works" className="text-sm text-slate-600" onClick={() => setMenuOpen(false)}>How it works</a>
                     <a href="#features" className="text-sm text-slate-600" onClick={() => setMenuOpen(false)}>Features</a>
                     <a href="#strategy" className="text-sm text-slate-600" onClick={() => setMenuOpen(false)}>Strategy</a>
                     <a href="#faq" className="text-sm text-slate-600" onClick={() => setMenuOpen(false)}>FAQ</a>
-                    <a href={APP_URL} className="text-sm text-slate-600">Log in</a>
-                    <a href={APP_URL} className="inline-flex items-center gap-1 bg-blue-900 text-white text-sm font-medium px-4 py-2 rounded-md w-fit">
+                    <Link to="/login" className="text-sm text-slate-600">Log in</Link>
+                    <Link to="/signup" className="inline-flex items-center gap-1 bg-blue-900 text-white text-sm font-medium px-4 py-2 rounded-md w-fit">
                         Start investing →
-                    </a>
+                    </Link>
                 </div>
             )}
         </nav>
@@ -132,23 +158,26 @@ function Hero() {
             <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16 md:py-24 flex flex-col lg:flex-row items-center gap-12">
                 {/* Left content */}
                 <div ref={ref} className="landing-fade flex-1 max-w-xl">
-                    <div className="inline-flex items-center gap-2 bg-blue-50 text-blue-900 text-xs font-medium px-3 py-1 rounded-full border border-blue-200 mb-6">
-                        <Zap className="w-3 h-3" /> Automated investing
-                    </div>
-                    <h1 className="text-4xl md:text-5xl font-bold text-slate-900 leading-tight mb-4">
-                        Start investing<br />
-                        <span className="text-blue-900">{typedText}</span><span className="typewriter-cursor text-blue-900">|</span>
+                    <h1
+                        className="text-4xl md:text-5xl font-bold text-slate-900 leading-tight mb-4"
+                        aria-label="Start investing effortlessly"
+                    >
+                        <span aria-hidden="true">
+                            Start investing<br />
+                            <span className="text-blue-900">{typedText}</span>
+                            <span className="typewriter-cursor text-blue-900">|</span>
+                        </span>
                     </h1>
                     <p className="text-slate-600 text-lg mb-8 leading-relaxed">
                         Connect your brokers, define your schedule, and auto-invest executes your strategy automatically — disciplined, consistent, and designed to take advantage of lower prices.
                     </p>
                     <div className="flex flex-col sm:flex-row gap-3 mb-8">
-                        <a
-                            href={APP_URL}
+                        <Link
+                            to="/signup"
                             className="inline-flex items-center justify-center gap-1 bg-blue-900 text-white font-medium px-6 py-3 rounded-md hover:bg-blue-800 transition-colors text-sm"
                         >
-                            Try for free →
-                        </a>
+                            Start investing →
+                        </Link>
                         <a
                             href="#how-it-works"
                             className="inline-flex items-center justify-center gap-1 border border-slate-300 text-slate-700 font-medium px-6 py-3 rounded-md hover:bg-slate-50 transition-colors text-sm"
@@ -161,12 +190,12 @@ function Hero() {
                         <span className="text-slate-300">·</span>
                         <span className="flex items-center gap-1.5"><Network className="w-3.5 h-3.5" /> Multi-broker</span>
                         <span className="text-slate-300">·</span>
-                        <span className="flex items-center gap-1.5"><Percent className="w-3.5 h-3.5" /> No fees</span>
+                        <span className="flex items-center gap-1.5"><Gift className="w-3.5 h-3.5" /> Free, no subscription</span>
                     </div>
                 </div>
 
                 {/* Right: dashboard mockup */}
-                <div className="flex-1 flex justify-center lg:justify-end w-full max-w-md">
+                <div className="flex-1 flex justify-center lg:justify-end w-full max-w-md" aria-hidden="true">
                     <div className="bg-white rounded-xl border border-slate-200 shadow-lg overflow-hidden w-full" style={{ borderTop: "3px solid #1e3a8a" }}>
                         <div className="px-5 pt-5 pb-4 border-b border-slate-100">
                             <p className="text-xs text-slate-500 mb-1">Next investment</p>
@@ -201,7 +230,7 @@ function Hero() {
                                         <td className="py-2.5 font-medium text-slate-800">BTC</td>
                                         <td className="py-2.5 text-right text-slate-600">480 Kč</td>
                                         <td className="py-2.5 text-right">
-                                            <span className="bg-red-100 text-red-700 text-xs font-medium px-2 py-0.5 rounded">FAILED</span>
+                                            <span className="bg-emerald-100 text-emerald-700 text-xs font-medium px-2 py-0.5 rounded">FILLED</span>
                                         </td>
                                     </tr>
                                 </tbody>
@@ -272,7 +301,7 @@ function HowItWorks() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                         {steps.map((s) => (
                             <div key={s.n} className="flex flex-col items-center text-center">
-                                <div className="text-7xl font-bold text-blue-900/10 mb-4 leading-none select-none">{s.n}</div>
+                                <div className="text-7xl font-bold text-blue-900/20 mb-4 leading-none select-none">{s.n}</div>
                                 <h3 className="font-semibold text-slate-900 text-lg mb-2">{s.title}</h3>
                                 <p className="text-sm text-slate-600 leading-relaxed">{s.desc}</p>
                             </div>
@@ -367,6 +396,7 @@ function Strategy() {
                             <p className="text-sm font-semibold text-slate-700">Allocation by drop from ATH</p>
                         </div>
                         <table className="w-full text-sm">
+                            <caption className="sr-only">Example allocation by drop from all-time high</caption>
                             <thead>
                                 <tr className="text-xs text-slate-400 uppercase border-b border-slate-100">
                                     <th className="text-left px-5 py-3 font-medium">Instrument</th>
@@ -431,7 +461,7 @@ function Stats() {
         { value: "10+", label: "portfolio instruments" },
         { value: "2", label: "supported brokers" },
         { value: "100%", label: "automatic" },
-        { value: "0 Kč", label: "fees" },
+        { value: "0 Kč", label: "to use" },
     ];
 
     return (
@@ -461,15 +491,15 @@ function FAQ() {
             a: "Auto-invest connects to platforms using API keys to execute trades on your behalf. Your funds always remain on your broker's account — auto-invest never holds custody of your assets. For Bitcoin, the system can optionally withdraw funds to your preconfigured hardware wallet once a balance threshold is reached.",
         },
         {
-            q: "How much does it cost?",
-            a: "Auto-invest is funded through a subscription model. The basic plan costs €4.99 per month. We do not receive any commissions from brokers or exchanges. You can try the service with a 30-day free trial."
+            q: "Is auto-invest free?",
+            a: "Yes. Auto-invest is completely free to use and takes no commissions from brokers or exchanges. The only fees you ever pay are your broker's own trading fees — and the supported brokers were specifically chosen for having the lowest fees possible."
         },
         {
             q: "Is my money held by auto-invest?",
             a: "No. auto-invest never holds funds. All assets remain on your broker or exchange accounts. The software only sends trading instructions through official APIs.",
         },
         {
-            q: "Why not just use the platform’s built-in recurring investment?",
+            q: "Why not just use the platform's built-in recurring investment?",
             a: "Auto-invest coordinates multiple platforms and asset classes under one strategy and applies the same logic across all of them — removing the need to manually manage investments across different platforms.",
         },
         {
@@ -478,7 +508,7 @@ function FAQ() {
         },
         {
             q: "How often does it invest?",
-            a: "You choose the schedule. The most frequent option is: Everyday"
+            a: "You choose the schedule. The most frequent option is daily."
         }
     ];
 
@@ -493,19 +523,27 @@ function FAQ() {
                     {items.map((item, i) => (
                         <div key={i} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
                             <button
+                                id={`faq-trigger-${i}`}
                                 className="w-full text-left px-5 py-4 flex items-center justify-between gap-4"
                                 onClick={() => setOpen(open === i ? null : i)}
+                                aria-expanded={open === i}
+                                aria-controls={`faq-panel-${i}`}
                             >
                                 <span className="font-medium text-slate-800 text-sm">{item.q}</span>
                                 <svg
                                     className={`w-4 h-4 text-slate-400 flex-shrink-0 transition-transform ${open === i ? "rotate-180" : ""}`}
-                                    fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true"
                                 >
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                                 </svg>
                             </button>
                             {open === i && (
-                                <div className="px-5 pb-4 text-sm text-slate-600 leading-relaxed border-t border-slate-100 pt-3">
+                                <div
+                                    id={`faq-panel-${i}`}
+                                    role="region"
+                                    aria-labelledby={`faq-trigger-${i}`}
+                                    className="px-5 pb-4 text-sm text-slate-600 leading-relaxed border-t border-slate-100 pt-3"
+                                >
                                     {item.a}
                                 </div>
                             )}
@@ -528,16 +566,16 @@ function FinalCTA() {
                         Start investing automatically today.
                     </h2>
                     <p className="text-blue-200 mb-8 text-lg">
-                        Create an account with a 30-day free trial.
+                        Create your account in a couple of minutes.
                     </p>
-                    <a
-                        href={APP_URL}
+                    <Link
+                        to="/signup"
                         className="inline-flex items-center gap-1 bg-white text-blue-900 font-semibold px-8 py-3.5 rounded-md hover:bg-blue-50 transition-colors text-sm"
                     >
-                        Start your free trial →
-                    </a>
+                        Start investing →
+                    </Link>
                     <p className="text-blue-300 text-xs mt-4">
-                        30-day free trial · Cancel anytime
+                        Free · No credit card required
                     </p>
                 </div>
             </div>
@@ -558,7 +596,6 @@ function Footer() {
 
 // --- Landing page styles injected via a style tag in the component ---
 const landingStyles = `
-  html { scroll-behavior: smooth; }
   .landing-fade {
     opacity: 0;
     transform: translateY(20px);
@@ -577,10 +614,33 @@ const landingStyles = `
     0%, 100% { opacity: 1; }
     50% { opacity: 0; }
   }
+  @media (prefers-reduced-motion: reduce) {
+    .landing-fade {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
+    .typewriter-cursor {
+      animation: none;
+    }
+  }
 `;
 
 // --- Main Landing export ---
 export function Landing() {
+    useEffect(() => {
+        const root = document.documentElement;
+        const previousBehavior = root.style.scrollBehavior;
+        const previousPadding = root.style.scrollPaddingTop;
+        root.style.scrollBehavior = "smooth";
+        // Keep anchor targets clear of the sticky navbar (h-16).
+        root.style.scrollPaddingTop = "4.5rem";
+        return () => {
+            root.style.scrollBehavior = previousBehavior;
+            root.style.scrollPaddingTop = previousPadding;
+        };
+    }, []);
+
     return (
         <>
             <style>{landingStyles}</style>
