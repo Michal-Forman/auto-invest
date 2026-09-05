@@ -20,7 +20,9 @@ from core.settings import PortfolioSettings, settings
 
 RUN_EXPIRY_DAYS = 14
 
-Status = Literal["CREATED", "FINISHED", "FILLED", "FAILED", "UNKNOWN"]
+Status = Literal[
+    "CREATED", "PENDING", "FINISHED", "FILLED", "FAILED", "CANCELLED", "UNKNOWN"
+]
 InvestmentType = Literal["dca", "one_time"]
 
 
@@ -226,6 +228,28 @@ class Run(BaseDBModel):
 
         return [Run.model_validate(row) for row in response.data]
 
+    @staticmethod
+    def get_pending_runs(user_id: Optional[str] = None) -> List[Run]:
+        """Fetch all runs with status PENDING, ordered by most recent first.
+
+        Called with no `user_id` by the background retry sweep (system-wide across
+        every user), and with a `user_id` by the API for a single user's pending check.
+        """
+        query: Any = (
+            supabase.table(Run.TABLE)
+            .select("*")
+            .eq("status", "PENDING")
+            .order("started_at", desc=True)
+        )
+        if user_id:
+            query = query.eq("user_id", user_id)
+        response: Any = query.execute()
+
+        if not response.data:
+            return []
+
+        return [Run.model_validate(row) for row in response.data]
+
     @classmethod
     def update_runs(cls, user_id: Optional[str] = None) -> None:
         """Process all FINISHED runs: mark expired ones as FAILED, mark fully-filled ones as FILLED."""
@@ -396,7 +420,12 @@ class Run(BaseDBModel):
 
     @staticmethod
     def run_exists_today(user_id: Optional[str] = None) -> bool:
-        """Check if a run was already created today (UTC). Always returns False in non-prod."""
+        """Check if a scheduled DCA run was already created today (UTC).
+
+        Only ``investment_type='dca'`` rows count: a manual one-time invest (or a
+        still-pending / cancelled one) must never suppress that day's scheduled run.
+        Always returns False in non-prod.
+        """
         now: datetime = datetime.now(timezone.utc)
 
         start_of_day: datetime = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -405,6 +434,7 @@ class Run(BaseDBModel):
         query: Any = (
             supabase.table(Run.TABLE)
             .select("id")
+            .eq("investment_type", "dca")
             .gte("started_at", start_of_day.isoformat())
             .lt("started_at", end_of_day.isoformat())
             .limit(1)
@@ -416,4 +446,24 @@ class Run(BaseDBModel):
         if settings.env != "prod":
             return False
 
+        return bool(response.data)
+
+    @staticmethod
+    def recent_one_time_run_exists(user_id: str, within: timedelta) -> bool:
+        """True if the user started a one-time run within the last `within`.
+
+        A lightweight dedup guard for `POST /invest` so a double-submit can't create
+        two runs of real orders. Not a substitute for a DB constraint against truly
+        concurrent requests.
+        """
+        cutoff: datetime = datetime.now(timezone.utc) - within
+        response: Any = (
+            supabase.table(Run.TABLE)
+            .select("id")
+            .eq("user_id", user_id)
+            .eq("investment_type", "one_time")
+            .gte("started_at", cutoff.isoformat())
+            .limit(1)
+            .execute()
+        )
         return bool(response.data)

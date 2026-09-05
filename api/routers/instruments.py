@@ -1,5 +1,6 @@
 # Standard library
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from decimal import Decimal
 from typing import Any, Dict, List, Tuple
 
 # Third-party
@@ -23,6 +24,7 @@ from core.instrument_data import (
     T212_TO_YF,
 )
 from core.instruments import Instruments
+from core.precision import to_decimal
 from core.settings import UserSettings
 from core.trading212 import Trading212
 
@@ -30,6 +32,22 @@ router = APIRouter()
 
 _SOFT_CAP = 75
 _HARD_CAP_RESET = 90
+_DROP_THRESHOLD = 12.5
+_MIN_ORDER = 25.0
+
+
+def distribute_for_amount(
+    amount: float, adj_weights: Dict[str, float]
+) -> Dict[str, Decimal]:
+    """Split `amount` CZK across `adj_weights`, dropping sub-12.5 CZK allocations and
+    bumping 12.5-25 CZK allocations up to the 25 CZK minimum order size."""
+    distribution: Dict[str, Decimal] = {}
+    for ticker, weight in adj_weights.items():
+        raw_czk = amount * weight
+        if raw_czk < _DROP_THRESHOLD:
+            continue
+        distribution[ticker] = to_decimal(max(raw_czk, _MIN_ORDER))
+    return distribution
 
 
 def _apply_cap(drop: float, cap_type: str) -> float:

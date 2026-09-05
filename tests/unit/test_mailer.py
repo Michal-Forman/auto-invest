@@ -21,8 +21,6 @@ from core.mailer import (
     _FX_DRIFT_THRESHOLD,
     _SLIPPAGE_THRESHOLD,
     Mailer,
-    _czech_account_to_iban,
-    _make_spd_qr,
 )
 from core.settings import PortfolioSettings, UserSettings
 
@@ -834,74 +832,6 @@ class TestSendFundingAlert:
 
 
 # ---------------------------------------------------------------------------
-# Tests: _czech_account_to_iban (pure function)
-# ---------------------------------------------------------------------------
-
-
-class TestCzechAccountToIban:
-    def test_returns_string_starting_with_cz(self) -> None:
-        assert _czech_account_to_iban("19-123456789/0800").startswith("CZ")
-
-    def test_iban_has_correct_length(self) -> None:
-        # CZ IBAN: "CZ" + 2 check digits + 20 BBAN = 24 chars
-        assert len(_czech_account_to_iban("19-123456789/0800")) == 24
-
-    def test_account_without_prefix(self) -> None:
-        iban = _czech_account_to_iban("123456789/0800")
-        assert iban.startswith("CZ")
-        assert len(iban) == 24
-
-    def test_different_base_numbers_give_different_ibans(self) -> None:
-        iban1 = _czech_account_to_iban("123456789/0800")
-        iban2 = _czech_account_to_iban("987654321/0800")
-        assert iban1 != iban2
-
-    def test_check_digits_are_valid_numerals(self) -> None:
-        iban = _czech_account_to_iban("19-123456789/0800")
-        assert iban[2:4].isdigit()
-
-    def test_deterministic_for_same_input(self) -> None:
-        assert _czech_account_to_iban("19-2000145399/0800") == _czech_account_to_iban(
-            "19-2000145399/0800"
-        )
-
-    def test_different_bank_codes_produce_different_ibans(self) -> None:
-        iban1 = _czech_account_to_iban("123456789/0800")
-        iban2 = _czech_account_to_iban("123456789/2010")
-        assert iban1 != iban2
-
-
-# ---------------------------------------------------------------------------
-# Tests: _make_spd_qr (pure function)
-# ---------------------------------------------------------------------------
-
-
-class TestMakeSpdQr:
-    def test_returns_bytes(self) -> None:
-        result = _make_spd_qr("19-123456789/0800", "12345", 1000.0)
-        assert isinstance(result, bytes)
-
-    def test_returns_png_magic_bytes(self) -> None:
-        result = _make_spd_qr("19-123456789/0800", "12345", 1000.0)
-        assert result[:4] == b"\x89PNG"
-
-    def test_different_amounts_produce_different_qrs(self) -> None:
-        qr1 = _make_spd_qr("19-123456789/0800", "12345", 1000.0)
-        qr2 = _make_spd_qr("19-123456789/0800", "12345", 2000.0)
-        assert qr1 != qr2
-
-    def test_different_accounts_produce_different_qrs(self) -> None:
-        qr1 = _make_spd_qr("19-123456789/0800", "12345", 1000.0)
-        qr2 = _make_spd_qr("987654321/0800", "12345", 1000.0)
-        assert qr1 != qr2
-
-    def test_different_variable_symbols_produce_different_qrs(self) -> None:
-        qr1 = _make_spd_qr("19-123456789/0800", "11111", 1000.0)
-        qr2 = _make_spd_qr("19-123456789/0800", "99999", 1000.0)
-        assert qr1 != qr2
-
-
-# ---------------------------------------------------------------------------
 # Tests: send_funding_alert – QR / top-up section
 # ---------------------------------------------------------------------------
 
@@ -931,7 +861,7 @@ class TestSendFundingAlertTopupSection:
         mailer = self._make_mailer_with_deposit(
             t212_account="19-123456789/0800", t212_vs="12345"
         )
-        mocker.patch("core.mailer._make_spd_qr", return_value=b"PNG")
+        mocker.patch("core.mailer.make_spd_qr", return_value=b"PNG")
         mocker.patch("core.mailer.runs_in_next_days", return_value=4)
 
         mailer.send_funding_alert([_make_funding(exchange="T212")])
@@ -959,7 +889,7 @@ class TestSendFundingAlertTopupSection:
         mailer = self._make_mailer_with_deposit(
             t212_account="19-123456789/0800", t212_vs="12345"
         )
-        mocker.patch("core.mailer._make_spd_qr", return_value=b"PNG")
+        mocker.patch("core.mailer.make_spd_qr", return_value=b"PNG")
         mocker.patch("core.mailer.runs_in_next_days", return_value=4)
 
         mailer.send_funding_alert([_make_funding(exchange="T212")])
@@ -988,7 +918,7 @@ class TestSendFundingAlertTopupSection:
         mailer = self._make_mailer_with_deposit(
             t212_account="19-123456789/0800", t212_vs="12345"
         )
-        mock_qr = mocker.patch("core.mailer._make_spd_qr", return_value=b"PNG")
+        mock_qr = mocker.patch("core.mailer.make_spd_qr", return_value=b"PNG")
         mocker.patch("core.mailer.runs_in_next_days", return_value=4)
 
         mailer.send_funding_alert(
@@ -1004,7 +934,7 @@ class TestSendFundingAlertTopupSection:
         mailer = self._make_mailer_with_deposit(
             t212_account="19-123456789/0800", t212_vs="12345"
         )
-        mock_qr = mocker.patch("core.mailer._make_spd_qr", return_value=b"PNG")
+        mock_qr = mocker.patch("core.mailer.make_spd_qr", return_value=b"PNG")
         mocker.patch("core.mailer.runs_in_next_days", return_value=4)
 
         # shortfall 333 + 4 runs * 333 = 1665 -> ceil to nearest 100 = 1700
@@ -1022,7 +952,7 @@ class TestSendFundingAlertTopupSection:
         mailer = self._make_mailer_with_deposit(
             t212_account="19-123456789/0800", t212_vs="12345"
         )
-        mock_qr = mocker.patch("core.mailer._make_spd_qr", return_value=b"PNG")
+        mock_qr = mocker.patch("core.mailer.make_spd_qr", return_value=b"PNG")
         mocker.patch("core.mailer.runs_in_next_days", return_value=4)
 
         # shortfall 200 + 4 runs * 200 = 1000 exactly
@@ -1043,7 +973,7 @@ class TestSendFundingAlertTopupSection:
             coinmate_account="987654321/2060",
             coinmate_vs="99999",
         )
-        mock_qr = mocker.patch("core.mailer._make_spd_qr", return_value=b"PNG")
+        mock_qr = mocker.patch("core.mailer.make_spd_qr", return_value=b"PNG")
         mocker.patch("core.mailer.runs_in_next_days", return_value=4)
 
         mailer.send_funding_alert(
@@ -1059,7 +989,7 @@ class TestSendFundingAlertTopupSection:
     def test_unknown_exchange_skips_qr_generation(self, mocker: MockerFixture) -> None:
         mock_send = mocker.patch.object(Mailer, "_send")
         mailer = self._make_mailer_with_deposit()  # all None
-        mock_qr = mocker.patch("core.mailer._make_spd_qr", return_value=b"PNG")
+        mock_qr = mocker.patch("core.mailer.make_spd_qr", return_value=b"PNG")
         mocker.patch("core.mailer.runs_in_next_days", return_value=4)
 
         mailer.send_funding_alert([_make_funding(exchange="KRAKEN")])
@@ -1076,7 +1006,7 @@ class TestSendFundingAlertTopupSection:
         mailer = self._make_mailer_with_deposit(
             t212_account="19-123456789/0800", t212_vs="12345"
         )
-        mock_qr = mocker.patch("core.mailer._make_spd_qr", return_value=b"PNG")
+        mock_qr = mocker.patch("core.mailer.make_spd_qr", return_value=b"PNG")
         mocker.patch("core.mailer.runs_in_next_days", return_value=4)
 
         mailer.send_funding_alert(

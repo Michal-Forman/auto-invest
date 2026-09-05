@@ -1,5 +1,14 @@
 BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 
+.PHONY: api api-prod sort format typecheck test test-unit test-integration deploy
+
+api:
+	@ENV=dev python3 -m uvicorn api.main:app --port 8000 --reload
+
+api-prod:
+	@echo ">> Running API against PROD (real Supabase + live exchanges)..."
+	@ENV=prod python3 -m uvicorn api.main:app --port 8000 --reload
+
 sort:
 	@echo ">> Sorting imports..."
 	@python3 scripts/sort_imports.py

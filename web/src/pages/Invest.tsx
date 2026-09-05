@@ -2,8 +2,10 @@ import { useState } from "react";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useConfig } from "@/hooks/use-config";
 import { usePreview } from "@/hooks/use-preview";
+import { usePendingInvestment } from "@/hooks/use-pending-investment";
 import { formatNumber } from "@/lib/utils";
 import { api } from "@/lib/api";
+import type { ExchangeFundingItem, FundingCheckResponse } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -12,6 +14,47 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Info } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
+
+function FundingExchangeCards({ exchanges }: { exchanges: ExchangeFundingItem[] }) {
+  return (
+    <div className="flex flex-col gap-4">
+      {exchanges.filter((e) => e.is_short).map((e) => (
+        <div key={e.exchange} className="flex gap-4 rounded-md border bg-primary/5 p-4">
+          {e.qr_data_uri && (
+            <img src={e.qr_data_uri} alt={`QR code for ${e.exchange}`} className="h-28 w-28 shrink-0" />
+          )}
+          <div className="flex flex-col gap-1 text-sm">
+            <div className="font-semibold text-primary">{e.exchange}</div>
+            <div className="text-muted-foreground">
+              Available: {formatNumber(e.available_czk)} CZK · Needed: {formatNumber(e.needed_czk)} CZK
+            </div>
+            <div className="text-muted-foreground">
+              Includes {formatNumber(e.dca_reserve_czk)} CZK reserved for the next DCA run
+            </div>
+            {e.account ? (
+              <>
+                <div><span className="text-muted-foreground">Account:</span> {e.account}</div>
+                <div><span className="text-muted-foreground">Variable symbol:</span> {e.vs}</div>
+                <div className="font-medium">
+                  Suggested top-up: {formatNumber(e.suggested_topup_czk ?? 0)} CZK
+                </div>
+              </>
+            ) : (
+              <div className="text-amber-600">
+                No deposit account configured for {e.exchange} in your profile.
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function daysUntil(iso: string): number {
+  const ms = new Date(iso).getTime() - Date.now();
+  return Math.max(0, Math.ceil(ms / (1000 * 60 * 60 * 24)));
+}
 
 export function Invest() {
   usePageTitle("Invest");
@@ -23,11 +66,72 @@ export function Invest() {
   const { data: preview, loading, error } = usePreview(effectiveAmount);
 
   const total = preview?.reduce((s, i) => s + i.czk_amount, 0) ?? 0;
+  const droppedCount = preview?.filter((i) => i.note === "dropped").length ?? 0;
+  const amountTooSmall = preview != null && total === 0;
+  const showSkippedNote = droppedCount > 0 && Math.round(total) !== Math.round(effectiveAmount);
+
+  const {
+    data: pending,
+    loading: pendingLoading,
+    registerPending,
+    registering,
+    cancelPending,
+    cancelling,
+  } = usePendingInvestment();
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [placing, setPlacing] = useState(false);
   const [investResult, setInvestResult] = useState<{ run_id: string; total_czk: number } | null>(null);
   const [investError, setInvestError] = useState<string | null>(null);
+
+  const [checkingFunding, setCheckingFunding] = useState(false);
+  const [fundingResult, setFundingResult] = useState<FundingCheckResponse | null>(null);
+  const [topUpOpen, setTopUpOpen] = useState(false);
+
+  async function runFundingCheck(): Promise<FundingCheckResponse | null> {
+    setCheckingFunding(true);
+    setInvestError(null);
+    try {
+      const result = await api.checkFunding(effectiveAmount);
+      setFundingResult(result);
+      return result;
+    } catch {
+      setInvestError("Failed to check exchange balances. Please try again.");
+      return null;
+    } finally {
+      setCheckingFunding(false);
+    }
+  }
+
+  async function handlePlaceInvestmentClick() {
+    if (amountTooSmall) {
+      setInvestError(
+        "Amount too small — increase it so at least one instrument reaches the 25 CZK minimum order.",
+      );
+      return;
+    }
+    const result = await runFundingCheck();
+    if (!result) return;
+    if (result.sufficient) {
+      setConfirmOpen(true);
+    } else {
+      setTopUpOpen(true);
+    }
+  }
+
+  async function handleSentTheMoney() {
+    setInvestError(null);
+    try {
+      const result = await registerPending(effectiveAmount);
+      setTopUpOpen(false);
+      if (result.placed && result.invest) {
+        setInvestResult(result.invest);
+      }
+      // When not placed yet, the pending panel below takes over automatically.
+    } catch {
+      setInvestError("Failed to register the pending investment. Please try again.");
+    }
+  }
 
   async function handlePlaceInvestment() {
     setPlacing(true);
@@ -47,50 +151,119 @@ export function Invest() {
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold text-primary">Invest</h1>
 
-      <Card>
-        <CardHeader className="-mt-4 border-b bg-primary/5 pt-4">
-          <CardTitle className="text-base text-primary">Invest Amount</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          <div className="flex items-center gap-3">
-            <Input
-              type="number"
-              value={inputValue === "" ? "" : inputValue}
-              placeholder={String(defaultAmount)}
-              onChange={(e) => setInputValue(e.target.value)}
-              className="max-w-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              min={0}
-            />
-            <span className="text-muted-foreground text-sm">CZK</span>
-            <Button onClick={() => setConfirmOpen(true)} disabled={placing || effectiveAmount <= 0} className="ml-4">
-              {placing ? "Placing..." : "Place Investment"}
-            </Button>
-          </div>
-          <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-            <DialogContent showCloseButton={false}>
-              <DialogHeader>
-                <DialogTitle>Confirm Investment</DialogTitle>
-                <DialogDescription>
-                  Place a one-time investment of <strong>{formatNumber(effectiveAmount)} CZK</strong>?
-                  This will place real orders immediately.
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter>
-                <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
-                <Button onClick={() => { setConfirmOpen(false); handlePlaceInvestment(); }}>
-                  Confirm
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-          {investResult && (
-            <p className="text-sm text-green-700">
-              Investment placed! {formatNumber(investResult.total_czk)} CZK
+      {pending && (
+        <Card>
+          <CardHeader className="-mt-4 border-b bg-primary/5 pt-4">
+            <CardTitle className="text-base text-primary">Investment Pending</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <p className="text-sm text-muted-foreground">
+              Waiting for <strong>{formatNumber(pending.amount_czk)} CZK</strong> to clear. We'll place the
+              investment automatically and email you once the funds arrive — expires in{" "}
+              {daysUntil(pending.expires_at)} day{daysUntil(pending.expires_at) === 1 ? "" : "s"} if not funded.
             </p>
-          )}
-          {investError && <p className="text-sm text-red-600">{investError}</p>}
-        </CardContent>
-      </Card>
+            <FundingExchangeCards exchanges={pending.funding.exchanges} />
+            <div>
+              <Button variant="outline" onClick={() => cancelPending()} disabled={cancelling}>
+                {cancelling ? "Cancelling..." : "Cancel"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {!pending && !pendingLoading && (
+        <Card>
+          <CardHeader className="-mt-4 border-b bg-primary/5 pt-4">
+            <CardTitle className="text-base text-primary">Invest Amount</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <Input
+                type="number"
+                value={inputValue === "" ? "" : inputValue}
+                placeholder={String(defaultAmount)}
+                onChange={(e) => setInputValue(e.target.value)}
+                className="max-w-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                min={0}
+              />
+              <span className="text-muted-foreground text-sm">CZK</span>
+              <Button
+                onClick={handlePlaceInvestmentClick}
+                disabled={placing || checkingFunding || effectiveAmount <= 0 || amountTooSmall}
+                className="ml-4"
+              >
+                {checkingFunding ? "Checking balances..." : placing ? "Placing..." : "Place Investment"}
+              </Button>
+            </div>
+            {amountTooSmall && (
+              <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
+                Amount too small — increase it so at least one instrument reaches the 25 CZK minimum order.
+              </p>
+            )}
+            <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+              <DialogContent showCloseButton={false}>
+                <DialogHeader>
+                  <DialogTitle>Confirm Investment</DialogTitle>
+                  <DialogDescription>
+                    Place a one-time investment of <strong>{formatNumber(total)} CZK</strong>?
+                    This will place real orders immediately.
+                  </DialogDescription>
+                </DialogHeader>
+                {showSkippedNote && (
+                  <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                    <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
+                    {droppedCount} instrument{droppedCount === 1 ? "" : "s"} below the 25 CZK minimum
+                    order {droppedCount === 1 ? "was" : "were"} skipped —{" "}
+                    <strong>{formatNumber(total)} CZK</strong> of your {formatNumber(effectiveAmount)} CZK
+                    will be invested.
+                  </p>
+                )}
+                <DialogFooter>
+                  <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
+                  <Button onClick={() => { setConfirmOpen(false); handlePlaceInvestment(); }}>
+                    Confirm
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            <Dialog open={topUpOpen} onOpenChange={setTopUpOpen}>
+              <DialogContent showCloseButton={false} className="sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Top Up Required</DialogTitle>
+                  <DialogDescription>
+                    One or more exchanges don't hold enough cash for this investment plus a
+                    reserve for your next scheduled DCA run. Top up the amounts below, then let us know.
+                  </DialogDescription>
+                </DialogHeader>
+                {fundingResult && <FundingExchangeCards exchanges={fundingResult.exchanges} />}
+                <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                  <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
+                  <span>
+                    After you send the transfer, click <strong>I've sent the money</strong>. If the
+                    funds have already landed, we place the investment right away. Otherwise we save
+                    the plan and retry automatically every hour for up to 3 days — you'll get an email
+                    when it goes through, or if it expires unfunded.
+                  </span>
+                </div>
+                <DialogFooter>
+                  <DialogClose render={<Button variant="outline" />}>Close</DialogClose>
+                  <Button onClick={handleSentTheMoney} disabled={registering}>
+                    {registering ? "Checking..." : "I've sent the money"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            {investResult && (
+              <p className="text-sm text-green-700">
+                Investment placed! {formatNumber(investResult.total_czk)} CZK
+              </p>
+            )}
+            {investError && <p className="text-sm text-red-600">{investError}</p>}
+          </CardContent>
+        </Card>
+      )}
 
       {loading && !preview && (
         <Card className="pb-0">

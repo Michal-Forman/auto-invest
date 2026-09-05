@@ -1,5 +1,6 @@
 # Standard library
 import os
+from typing import Optional
 
 # Third-party
 from cachetools import TTLCache
@@ -11,6 +12,7 @@ from jwt import PyJWKClient
 # Local
 from core.coinmate import Coinmate
 from core.db.users import UserRecord
+from core.mailer import Mailer
 from core.settings import UserSettings, settings
 from core.trading212 import Trading212
 
@@ -65,6 +67,14 @@ def get_coinmate_for_user(user_id: str) -> Coinmate:
 def get_user_settings_for_user(user_id: str) -> UserSettings:
     """Return UserSettings for the given user_id."""
     return UserSettings.from_user(get_user_record(user_id))
+
+
+def get_mailer_for_user(user_id: str) -> Optional[Mailer]:
+    """Return a Mailer for the user, or None when they've disabled notifications."""
+    user = get_user_record(user_id)
+    if not user.notifications_enabled:
+        return None
+    return Mailer(UserSettings.from_user(user))
 
 
 def invalidate_user_record(user_id: str) -> None:

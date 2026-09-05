@@ -143,6 +143,39 @@ class InvestResponse(BaseModel):
     total_czk: float
 
 
+class ExchangeFundingItem(BaseModel):
+    exchange: str
+    available_czk: float
+    one_time_czk: float
+    dca_reserve_czk: float
+    needed_czk: float
+    shortfall_czk: float
+    is_short: bool
+    account: Optional[str] = None
+    vs: Optional[str] = None
+    suggested_topup_czk: Optional[float] = None
+    qr_data_uri: Optional[str] = None
+
+
+class FundingCheckResponse(BaseModel):
+    sufficient: bool
+    exchanges: List[ExchangeFundingItem]
+
+
+class PendingInvestmentResponse(BaseModel):
+    run_id: str
+    amount_czk: float
+    created_at: str
+    expires_at: str
+    funding: FundingCheckResponse
+
+
+class InvestOrPendingResponse(BaseModel):
+    placed: bool
+    invest: Optional[InvestResponse] = None
+    pending: Optional[PendingInvestmentResponse] = None
+
+
 class ProfitLossResponse(BaseModel):
     filled_run_count: int
     total_invested_czk: float

@@ -58,6 +58,33 @@ class ExchangeFunding:
         return self.shortfall_czk > Decimal("0")
 
 
+@dataclass(frozen=True)
+class OneTimeFundingCheck:
+    """How much cash a single exchange needs to cover a one-time invest plus a
+    reserve for the next regular DCA run, versus what it holds right now."""
+
+    exchange: str
+    available_czk: Decimal
+    one_time_czk: Decimal
+    dca_reserve_czk: Decimal
+    margin: Decimal = EXECUTION_MARGIN
+
+    @property
+    def needed_czk(self) -> Decimal:
+        """Cash required to cover both legs, including the margin."""
+        return quantize_czk((self.one_time_czk + self.dca_reserve_czk) * self.margin)
+
+    @property
+    def shortfall_czk(self) -> Decimal:
+        """How much cash is missing. Zero when the exchange can cover both legs."""
+        return max(Decimal("0"), quantize_czk(self.needed_czk - self.available_czk))
+
+    @property
+    def is_short(self) -> bool:
+        """True when this exchange cannot cover the one-time invest plus DCA reserve."""
+        return self.shortfall_czk > Decimal("0")
+
+
 class InsufficientFundsError(RuntimeError):
     """Raised before any order is placed when an exchange cannot cover the run."""
 
@@ -116,6 +143,43 @@ def funding_status(
                 available_czk=get_balance(),
                 runs=max(1, runs),
                 margin=margin,
+            )
+        )
+
+    return statuses
+
+
+def one_time_funding_status(
+    one_time_distribution: Dict[str, Decimal],
+    dca_reserve_distribution: Dict[str, Decimal],
+    t212: Trading212,
+    coinmate: Coinmate,
+) -> List[OneTimeFundingCheck]:
+    """Compare each exchange's live free cash against a one-time invest plus a
+    reserve for the next regular DCA run.
+
+    Exchanges with nothing needed on either leg are left out entirely, so a
+    portfolio without BTC never touches Coinmate.
+    """
+    one_time_required = split_by_exchange(one_time_distribution)
+    dca_required = split_by_exchange(dca_reserve_distribution)
+    balance_getters = {
+        T212_EXCHANGE: t212.balance,
+        COINMATE_EXCHANGE: coinmate.balance,
+    }
+
+    statuses: List[OneTimeFundingCheck] = []
+    for exchange, get_balance in balance_getters.items():
+        one_time_czk = one_time_required[exchange]
+        dca_czk = dca_required[exchange]
+        if one_time_czk <= Decimal("0") and dca_czk <= Decimal("0"):
+            continue
+        statuses.append(
+            OneTimeFundingCheck(
+                exchange=exchange,
+                available_czk=get_balance(),
+                one_time_czk=quantize_czk(one_time_czk),
+                dca_reserve_czk=quantize_czk(dca_czk),
             )
         )
 

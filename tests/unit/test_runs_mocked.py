@@ -312,6 +312,37 @@ class TestGetFinishedRuns:
         assert result == []
 
 
+class TestGetPendingRuns:
+    def test_returns_list_of_pending_runs(
+        self, make_run: Callable[..., Run], mocker: MockerFixture
+    ) -> None:
+        run = make_run(status="PENDING", investment_type="one_time")
+        _, mock_chain = _build_supabase_mock(mocker)
+        mock_chain.execute.return_value = MagicMock(data=[_run_row(run)])
+
+        result = Run.get_pending_runs()
+
+        assert len(result) == 1
+        assert isinstance(result[0], Run)
+        assert result[0].status == "PENDING"
+
+    def test_returns_empty_list_when_no_runs(self, mocker: MockerFixture) -> None:
+        _, mock_chain = _build_supabase_mock(mocker)
+        mock_chain.execute.return_value = MagicMock(data=[])
+
+        result = Run.get_pending_runs()
+        assert result == []
+
+    def test_filters_by_user_id_when_given(self, mocker: MockerFixture) -> None:
+        _, mock_chain = _build_supabase_mock(mocker)
+        mock_chain.execute.return_value = MagicMock(data=[])
+
+        Run.get_pending_runs(user_id="user-1")
+
+        mock_chain.eq.assert_any_call("status", "PENDING")
+        mock_chain.eq.assert_any_call("user_id", "user-1")
+
+
 class TestUpdateRuns:
     def test_checks_every_run(self, mocker: MockerFixture) -> None:
         mock_run1 = MagicMock()
@@ -383,3 +414,36 @@ class TestRunExistsToday:
         result = Run.run_exists_today()
 
         assert result is True
+
+    def test_only_counts_scheduled_dca_runs(self, mocker: MockerFixture) -> None:
+        # A one-time invest must never suppress that day's scheduled DCA run.
+        _, mock_chain = _build_supabase_mock(mocker)
+        mock_chain.execute.return_value = MagicMock(data=[])
+
+        Run.run_exists_today(user_id="u1")
+
+        eq_calls = [c.args for c in mock_chain.eq.call_args_list]
+        assert ("investment_type", "dca") in eq_calls
+
+
+class TestRecentOneTimeRunExists:
+    def test_true_when_a_recent_one_time_run_is_returned(
+        self, mocker: MockerFixture
+    ) -> None:
+        from datetime import timedelta
+
+        _, mock_chain = _build_supabase_mock(mocker)
+        mock_chain.execute.return_value = MagicMock(data=[{"id": "r1"}])
+
+        assert Run.recent_one_time_run_exists("u1", timedelta(minutes=2)) is True
+        eq_calls = [c.args for c in mock_chain.eq.call_args_list]
+        assert ("investment_type", "one_time") in eq_calls
+        assert ("user_id", "u1") in eq_calls
+
+    def test_false_when_nothing_returned(self, mocker: MockerFixture) -> None:
+        from datetime import timedelta
+
+        _, mock_chain = _build_supabase_mock(mocker)
+        mock_chain.execute.return_value = MagicMock(data=[])
+
+        assert Run.recent_one_time_run_exists("u1", timedelta(minutes=2)) is False
