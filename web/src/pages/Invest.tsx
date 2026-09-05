@@ -66,6 +66,9 @@ export function Invest() {
   const { data: preview, loading, error } = usePreview(effectiveAmount);
 
   const total = preview?.reduce((s, i) => s + i.czk_amount, 0) ?? 0;
+  const droppedCount = preview?.filter((i) => i.note === "dropped").length ?? 0;
+  const amountTooSmall = preview != null && total === 0;
+  const showSkippedNote = droppedCount > 0 && Math.round(total) !== Math.round(effectiveAmount);
 
   const {
     data: pending,
@@ -101,6 +104,12 @@ export function Invest() {
   }
 
   async function handlePlaceInvestmentClick() {
+    if (amountTooSmall) {
+      setInvestError(
+        "Amount too small — increase it so at least one instrument reaches the 25 CZK minimum order.",
+      );
+      return;
+    }
     const result = await runFundingCheck();
     if (!result) return;
     if (result.sufficient) {
@@ -181,21 +190,36 @@ export function Invest() {
               <span className="text-muted-foreground text-sm">CZK</span>
               <Button
                 onClick={handlePlaceInvestmentClick}
-                disabled={placing || checkingFunding || effectiveAmount <= 0}
+                disabled={placing || checkingFunding || effectiveAmount <= 0 || amountTooSmall}
                 className="ml-4"
               >
                 {checkingFunding ? "Checking balances..." : placing ? "Placing..." : "Place Investment"}
               </Button>
             </div>
+            {amountTooSmall && (
+              <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
+                Amount too small — increase it so at least one instrument reaches the 25 CZK minimum order.
+              </p>
+            )}
             <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
               <DialogContent showCloseButton={false}>
                 <DialogHeader>
                   <DialogTitle>Confirm Investment</DialogTitle>
                   <DialogDescription>
-                    Place a one-time investment of <strong>{formatNumber(effectiveAmount)} CZK</strong>?
+                    Place a one-time investment of <strong>{formatNumber(total)} CZK</strong>?
                     This will place real orders immediately.
                   </DialogDescription>
                 </DialogHeader>
+                {showSkippedNote && (
+                  <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                    <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
+                    {droppedCount} instrument{droppedCount === 1 ? "" : "s"} below the 25 CZK minimum
+                    order {droppedCount === 1 ? "was" : "were"} skipped —{" "}
+                    <strong>{formatNumber(total)} CZK</strong> of your {formatNumber(effectiveAmount)} CZK
+                    will be invested.
+                  </p>
+                )}
                 <DialogFooter>
                   <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
                   <Button onClick={() => { setConfirmOpen(false); handlePlaceInvestment(); }}>
@@ -214,6 +238,15 @@ export function Invest() {
                   </DialogDescription>
                 </DialogHeader>
                 {fundingResult && <FundingExchangeCards exchanges={fundingResult.exchanges} />}
+                <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                  <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
+                  <span>
+                    After you send the transfer, click <strong>I've sent the money</strong>. If the
+                    funds have already landed, we place the investment right away. Otherwise we save
+                    the plan and retry automatically every hour for up to 3 days — you'll get an email
+                    when it goes through, or if it expires unfunded.
+                  </span>
+                </div>
                 <DialogFooter>
                   <DialogClose render={<Button variant="outline" />}>Close</DialogClose>
                   <Button onClick={handleSentTheMoney} disabled={registering}>
