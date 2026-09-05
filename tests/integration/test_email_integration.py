@@ -480,7 +480,7 @@ class TestFundingAlertIntegration:
         self, mocker: MockerFixture
     ) -> None:
         mock_send = _patch_mailer_send(mocker)
-        mocker.patch("core.mailer._make_spd_qr", return_value=b"PNG")
+        mocker.patch("core.mailer.make_spd_qr", return_value=b"PNG")
         mocker.patch("core.mailer.runs_in_next_days", return_value=4)
         mailer = make_mailer(
             t212_deposit_account="19-123456789/0800", t212_deposit_vs="12345"

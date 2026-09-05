@@ -9,7 +9,9 @@ from core.funding import (
     EXECUTION_MARGIN,
     ExchangeFunding,
     InsufficientFundsError,
+    OneTimeFundingCheck,
     funding_status,
+    one_time_funding_status,
     should_send_alert,
     should_send_recovery,
     split_by_exchange,
@@ -207,3 +209,105 @@ def test_default_margin_is_the_execution_margin() -> None:
     )
     assert funding.margin == EXECUTION_MARGIN
     assert funding.needed_czk == Decimal("1015.00")
+
+
+# ---------------------------------------------------------------------------
+# Tests: one_time_funding_status / OneTimeFundingCheck
+# ---------------------------------------------------------------------------
+
+# T212 side: 500 one-time + 500 reserve; Coinmate side: 100 one-time + 150 reserve
+_ONE_TIME: Dict[str, Decimal] = {
+    "VWCEd_EQ": Decimal("500"),
+    "BTC": Decimal("100"),
+}
+_DCA_RESERVE: Dict[str, Decimal] = {
+    "VWCEd_EQ": Decimal("250"),
+    "KKR_US_EQ": Decimal("250"),
+    "BTC": Decimal("150"),
+}
+
+
+def _by_exchange_one_time(
+    statuses: List[OneTimeFundingCheck],
+) -> Dict[str, OneTimeFundingCheck]:
+    return {s.exchange: s for s in statuses}
+
+
+def test_combines_one_time_and_dca_reserve_per_exchange() -> None:
+    t212, coinmate = _clients("5000", "5000")
+    statuses = _by_exchange_one_time(
+        one_time_funding_status(_ONE_TIME, _DCA_RESERVE, t212, coinmate)
+    )
+
+    assert statuses["T212"].one_time_czk == Decimal("500")
+    assert statuses["T212"].dca_reserve_czk == Decimal("500")
+    assert statuses["COINMATE"].one_time_czk == Decimal("100")
+    assert statuses["COINMATE"].dca_reserve_czk == Decimal("150")
+
+
+def test_needed_includes_margin_over_both_legs() -> None:
+    """(500 + 500) * 1.015 = 1015.00"""
+    t212, coinmate = _clients("5000", "5000")
+    status = _by_exchange_one_time(
+        one_time_funding_status(_ONE_TIME, _DCA_RESERVE, t212, coinmate)
+    )["T212"]
+
+    assert status.needed_czk == Decimal("1015.00")
+
+
+def test_shortfall_when_balance_covers_one_time_but_not_reserve() -> None:
+    t212, coinmate = _clients("500", "5000")
+    status = _by_exchange_one_time(
+        one_time_funding_status(_ONE_TIME, _DCA_RESERVE, t212, coinmate)
+    )["T212"]
+
+    assert status.is_short
+    assert status.shortfall_czk == Decimal("515.00")
+
+
+def test_ample_cash_covers_both_legs() -> None:
+    t212, coinmate = _clients("2000", "500")
+    statuses = one_time_funding_status(_ONE_TIME, _DCA_RESERVE, t212, coinmate)
+
+    assert all(not s.is_short for s in statuses)
+
+
+def test_exchange_with_nothing_on_either_leg_is_skipped() -> None:
+    t212, coinmate = _clients("5000", "5000")
+    statuses = one_time_funding_status(
+        {"VWCEd_EQ": Decimal("1000")}, {"VWCEd_EQ": Decimal("500")}, t212, coinmate
+    )
+
+    assert [s.exchange for s in statuses] == ["T212"]
+    coinmate.balance.assert_not_called()
+
+
+def test_exchange_needed_only_for_dca_reserve_is_included() -> None:
+    """A one-time invest that skips BTC still reserves Coinmate cash for the next DCA run."""
+    t212, coinmate = _clients("5000", "5000")
+    statuses = one_time_funding_status(
+        {"VWCEd_EQ": Decimal("1000")}, {"BTC": Decimal("250")}, t212, coinmate
+    )
+
+    exchanges = {s.exchange for s in statuses}
+    assert exchanges == {"T212", "COINMATE"}
+    coinmate.balance.assert_called_once()
+
+
+def test_balance_is_fetched_once_per_exchange_not_per_leg() -> None:
+    t212, coinmate = _clients("5000", "5000")
+    one_time_funding_status(_ONE_TIME, _DCA_RESERVE, t212, coinmate)
+
+    t212.balance.assert_called_once()
+    coinmate.balance.assert_called_once()
+
+
+def test_one_time_default_margin_is_the_execution_margin() -> None:
+    check = OneTimeFundingCheck(
+        exchange="T212",
+        available_czk=Decimal("0"),
+        one_time_czk=Decimal("500"),
+        dca_reserve_czk=Decimal("500"),
+    )
+    assert check.margin == EXECUTION_MARGIN
+    assert check.needed_czk == Decimal("1015.00")

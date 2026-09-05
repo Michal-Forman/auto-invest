@@ -1,5 +1,8 @@
 # Standard library
+import asyncio
+from contextlib import asynccontextmanager
 import os
+from typing import AsyncIterator
 
 # Third-party
 from fastapi import FastAPI
@@ -17,8 +20,32 @@ from api.routers import (
     profile,
     runs,
 )
+from core.log import log
+from core.pending_investments import retry_pending_investments
 
-app = FastAPI(title="auto-invest API", version="1.0.0")
+PENDING_CHECK_INTERVAL_SECONDS = 3600
+
+
+async def _pending_investment_loop() -> None:
+    """Retry pending one-time investments on a timer for the life of the process."""
+    while True:
+        try:
+            await asyncio.to_thread(retry_pending_investments)
+        except Exception as e:
+            log.error(f"Pending investment sweep failed: {e}")
+        await asyncio.sleep(PENDING_CHECK_INTERVAL_SECONDS)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    task = asyncio.create_task(_pending_investment_loop())
+    try:
+        yield
+    finally:
+        task.cancel()
+
+
+app = FastAPI(title="auto-invest API", version="1.0.0", lifespan=lifespan)
 
 origins = os.environ.get(
     "CORS_ORIGINS",

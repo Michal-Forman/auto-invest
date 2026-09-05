@@ -312,6 +312,37 @@ class TestGetFinishedRuns:
         assert result == []
 
 
+class TestGetPendingRuns:
+    def test_returns_list_of_pending_runs(
+        self, make_run: Callable[..., Run], mocker: MockerFixture
+    ) -> None:
+        run = make_run(status="PENDING", investment_type="one_time")
+        _, mock_chain = _build_supabase_mock(mocker)
+        mock_chain.execute.return_value = MagicMock(data=[_run_row(run)])
+
+        result = Run.get_pending_runs()
+
+        assert len(result) == 1
+        assert isinstance(result[0], Run)
+        assert result[0].status == "PENDING"
+
+    def test_returns_empty_list_when_no_runs(self, mocker: MockerFixture) -> None:
+        _, mock_chain = _build_supabase_mock(mocker)
+        mock_chain.execute.return_value = MagicMock(data=[])
+
+        result = Run.get_pending_runs()
+        assert result == []
+
+    def test_filters_by_user_id_when_given(self, mocker: MockerFixture) -> None:
+        _, mock_chain = _build_supabase_mock(mocker)
+        mock_chain.execute.return_value = MagicMock(data=[])
+
+        Run.get_pending_runs(user_id="user-1")
+
+        mock_chain.eq.assert_any_call("status", "PENDING")
+        mock_chain.eq.assert_any_call("user_id", "user-1")
+
+
 class TestUpdateRuns:
     def test_checks_every_run(self, mocker: MockerFixture) -> None:
         mock_run1 = MagicMock()

@@ -20,7 +20,9 @@ from core.settings import PortfolioSettings, settings
 
 RUN_EXPIRY_DAYS = 14
 
-Status = Literal["CREATED", "FINISHED", "FILLED", "FAILED", "UNKNOWN"]
+Status = Literal[
+    "CREATED", "PENDING", "FINISHED", "FILLED", "FAILED", "CANCELLED", "UNKNOWN"
+]
 InvestmentType = Literal["dca", "one_time"]
 
 
@@ -215,6 +217,28 @@ class Run(BaseDBModel):
             supabase.table("runs")
             .select("*")
             .eq("status", "FINISHED")
+            .order("started_at", desc=True)
+        )
+        if user_id:
+            query = query.eq("user_id", user_id)
+        response: Any = query.execute()
+
+        if not response.data:
+            return []
+
+        return [Run.model_validate(row) for row in response.data]
+
+    @staticmethod
+    def get_pending_runs(user_id: Optional[str] = None) -> List[Run]:
+        """Fetch all runs with status PENDING, ordered by most recent first.
+
+        Called with no `user_id` by the background retry sweep (system-wide across
+        every user), and with a `user_id` by the API for a single user's pending check.
+        """
+        query: Any = (
+            supabase.table(Run.TABLE)
+            .select("*")
+            .eq("status", "PENDING")
             .order("started_at", desc=True)
         )
         if user_id:

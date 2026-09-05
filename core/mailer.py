@@ -4,7 +4,6 @@ from decimal import Decimal
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-import io
 import math
 import os
 import smtplib
@@ -15,16 +14,15 @@ from typing import Any, Dict, List, Literal, Optional
 
 # Third-party
 from croniter import croniter
-import qrcode  # type: ignore[import-untyped]
-import qrcode.constants  # type: ignore[import-untyped]
 
 # Local
 from core.db.btc_withdrawals import BtcWithdrawal
 from core.db.mails import Mail
 from core.db.orders import Order
 from core.db.runs import Run
-from core.funding import ExchangeFunding
+from core.funding import ExchangeFunding, OneTimeFundingCheck
 from core.log import log
+from core.qr import make_spd_qr
 from core.settings import UserSettings, settings
 from core.utils import runs_in_next_days
 from core.warnings import (
@@ -40,30 +38,6 @@ _TEMPLATE_DIR = os.path.join(os.path.dirname(__file__), "templates", "emails")
 _ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")
 
 FundingEvent = Literal["skipped", "low", "recovered"]
-
-
-def _czech_account_to_iban(account: str) -> str:
-    """Convert a Czech account number (e.g. '19-123456789/0800') to IBAN (e.g. 'CZ...')."""
-    number_part, bank_code = account.split("/")
-    if "-" in number_part:
-        prefix, base = number_part.split("-")
-    else:
-        prefix, base = "0", number_part
-    bban = f"{bank_code:0>4}{int(prefix):06d}{int(base):010d}"
-    # IBAN check digits: rearrange as BBAN + "CZ00", replace letters, mod-97
-    numeric = int(bban + "123500")  # C=12, Z=35, 00
-    check = 98 - (numeric % 97)
-    return f"CZ{check:02d}{bban}"
-
-
-def _make_spd_qr(account: str, vs: str, amount: float) -> bytes:
-    """Return PNG bytes of a Czech SPD QR code for the given account, variable symbol, and amount."""
-    iban = _czech_account_to_iban(account)
-    spd = f"SPD*1.0*ACC:{iban}*AM:{amount:.2f}*CC:CZK*X-VS:{vs}*PT:IP"
-    img = qrcode.make(spd, error_correction=qrcode.constants.ERROR_CORRECT_M)
-    buf = io.BytesIO()
-    img.save(buf, format="PNG")  # type: ignore[call-arg]
-    return buf.getvalue()
 
 
 class Mailer:
@@ -596,7 +570,7 @@ class Mailer:
             target = f.shortfall_czk + runs_30 * f.per_run_czk
             suggested = math.ceil(target / 100) * 100
             cid = f"qr_{exchange}"
-            extra_images[cid] = _make_spd_qr(account, vs, float(suggested))
+            extra_images[cid] = make_spd_qr(account, vs, float(suggested))
             suggested_str = f"{suggested:_.0f}".replace("_", "\u00a0")
             topup_cards.append(
                 f'<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;background-color:#f8faff;border:1px solid #bfdbfe;border-radius:6px;">'
@@ -642,6 +616,67 @@ class Mailer:
                 now, [f.exchange for f in statuses if f.is_short]
             ),
             extra_images=extra_images or None,
+        )
+
+    def send_pending_investment_expired(
+        self, run: Run, statuses: List[OneTimeFundingCheck]
+    ) -> None:
+        """Send an email when a pending one-time investment gave up waiting on funds."""
+        now = datetime.now(timezone.utc)
+        date_label = now.strftime("%B %-d, %Y")
+
+        subject = "⚠️ [auto-invest] Pending investment expired"
+        heading = "Pending Investment Expired"
+        banner_title = (
+            "Your one-time investment was never fully funded, so it was cancelled."
+        )
+        banner_body = (
+            "No orders were placed. Place the investment again once you've topped up "
+            "the accounts below."
+        )
+
+        plain_lines = [
+            banner_title,
+            "",
+            f"{'Exchange':<12} {'Balance (CZK)':>14} {'Needed':>12} {'Short By':>12}",
+            f"{'-' * 52}",
+        ]
+        for f in statuses:
+            plain_lines.append(
+                f"{f.exchange:<12} {f.available_czk:>14.2f} {f.needed_czk:>12.2f}"
+                f" {f.shortfall_czk:>12.2f}"
+            )
+
+        row_html = []
+        for i, f in enumerate(statuses):
+            bg = "#f8faff" if i % 2 == 0 else "#ffffff"
+            bal_str = f"{float(f.available_czk):_.2f}".replace("_", " ")
+            needed_str = f"{float(f.needed_czk):_.2f}".replace("_", " ")
+            short_str = f"{float(f.shortfall_czk):_.2f}".replace("_", " ")
+            row_html.append(
+                f'<tr style="background-color:{bg};">'
+                f'<td style="padding:10px 14px;font-size:13px;color:#1e293b;font-weight:600;">{f.exchange}</td>'
+                f'<td style="padding:10px 14px;font-size:13px;color:#1e293b;text-align:right;">{bal_str}</td>'
+                f'<td style="padding:10px 14px;font-size:13px;color:#1e293b;text-align:right;">{needed_str}</td>'
+                f'<td style="padding:10px 14px;font-size:13px;color:#dc2626;text-align:right;font-weight:700;">{short_str}</td>'
+                f"</tr>"
+            )
+
+        html = self._load_template("balance_alert.html").substitute(
+            date_label=date_label,
+            heading=heading,
+            banner_title=banner_title,
+            banner_body=banner_body,
+            alert_rows="\n".join(row_html),
+            topup_section="",
+        )
+
+        self._send(
+            subject,
+            "\n".join(plain_lines),
+            html,
+            mail_type="pending_investment_expired",
+            period=str(run.id),
         )
 
 

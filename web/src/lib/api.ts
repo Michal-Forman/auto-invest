@@ -6,8 +6,11 @@ import type {
   Instrument,
   AnalyticsRunItem,
   AnalyticsStatusItem,
+  FundingCheckResponse,
   HoldingItem,
   HoldingRatioItem,
+  InvestOrPendingResponse,
+  PendingInvestmentResponse,
   PortfolioHistoryItem,
   PortfolioValueItem,
   ProfitLossResponse,
@@ -139,6 +142,24 @@ export const api = {
 
   placeInvestment(amount: number): Promise<{ run_id: string; total_czk: number }> {
     return apiPost("/invest", { amount: String(amount) });
+  },
+
+  checkFunding(amount: number): Promise<FundingCheckResponse> {
+    return apiFetch<FundingCheckResponse>("/invest/funding-check", {
+      amount: String(amount),
+    });
+  },
+
+  registerPendingInvestment(amount: number): Promise<InvestOrPendingResponse> {
+    return apiPost<InvestOrPendingResponse>("/invest/pending", { amount: String(amount) });
+  },
+
+  getPendingInvestment(): Promise<PendingInvestmentResponse | null> {
+    return apiFetch<PendingInvestmentResponse | null>("/invest/pending");
+  },
+
+  cancelPendingInvestment(): Promise<PendingInvestmentResponse> {
+    return apiPost<PendingInvestmentResponse>("/invest/pending/cancel");
   },
 
   getProfitLoss(): Promise<ProfitLossResponse> {

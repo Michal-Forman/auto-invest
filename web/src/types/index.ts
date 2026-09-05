@@ -1,4 +1,4 @@
-export type RunStatus = "CREATED" | "FINISHED" | "FILLED" | "FAILED";
+export type RunStatus = "CREATED" | "PENDING" | "FINISHED" | "FILLED" | "FAILED" | "CANCELLED";
 export type OrderStatus = "SUBMITTED" | "FILLED" | "FAILED" | "CANCELLED";
 export type Exchange = "T212" | "Coinmate";
 export type CapType = "none" | "soft" | "hard";
@@ -70,6 +70,39 @@ export interface PreviewItem {
   adjusted_weight: number;
   czk_amount: number;
   note: string;
+}
+
+export interface ExchangeFundingItem {
+  exchange: string;
+  available_czk: number;
+  one_time_czk: number;
+  dca_reserve_czk: number;
+  needed_czk: number;
+  shortfall_czk: number;
+  is_short: boolean;
+  account: string | null;
+  vs: string | null;
+  suggested_topup_czk: number | null;
+  qr_data_uri: string | null;
+}
+
+export interface FundingCheckResponse {
+  sufficient: boolean;
+  exchanges: ExchangeFundingItem[];
+}
+
+export interface PendingInvestmentResponse {
+  run_id: string;
+  amount_czk: number;
+  created_at: string;
+  expires_at: string;
+  funding: FundingCheckResponse;
+}
+
+export interface InvestOrPendingResponse {
+  placed: boolean;
+  invest: { run_id: string; total_czk: number } | null;
+  pending: PendingInvestmentResponse | null;
 }
 
 export interface AnalyticsRunItem {
