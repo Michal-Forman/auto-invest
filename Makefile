@@ -1,5 +1,7 @@
 BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 
+.PHONY: api api-prod sort format typecheck test test-unit test-integration deploy
+
 api:
 	@ENV=dev python3 -m uvicorn api.main:app --port 8000 --reload
 

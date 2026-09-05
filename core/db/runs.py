@@ -420,7 +420,12 @@ class Run(BaseDBModel):
 
     @staticmethod
     def run_exists_today(user_id: Optional[str] = None) -> bool:
-        """Check if a run was already created today (UTC). Always returns False in non-prod."""
+        """Check if a scheduled DCA run was already created today (UTC).
+
+        Only ``investment_type='dca'`` rows count: a manual one-time invest (or a
+        still-pending / cancelled one) must never suppress that day's scheduled run.
+        Always returns False in non-prod.
+        """
         now: datetime = datetime.now(timezone.utc)
 
         start_of_day: datetime = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -429,6 +434,7 @@ class Run(BaseDBModel):
         query: Any = (
             supabase.table(Run.TABLE)
             .select("id")
+            .eq("investment_type", "dca")
             .gte("started_at", start_of_day.isoformat())
             .lt("started_at", end_of_day.isoformat())
             .limit(1)
@@ -440,4 +446,24 @@ class Run(BaseDBModel):
         if settings.env != "prod":
             return False
 
+        return bool(response.data)
+
+    @staticmethod
+    def recent_one_time_run_exists(user_id: str, within: timedelta) -> bool:
+        """True if the user started a one-time run within the last `within`.
+
+        A lightweight dedup guard for `POST /invest` so a double-submit can't create
+        two runs of real orders. Not a substitute for a DB constraint against truly
+        concurrent requests.
+        """
+        cutoff: datetime = datetime.now(timezone.utc) - within
+        response: Any = (
+            supabase.table(Run.TABLE)
+            .select("id")
+            .eq("user_id", user_id)
+            .eq("investment_type", "one_time")
+            .gte("started_at", cutoff.isoformat())
+            .limit(1)
+            .execute()
+        )
         return bool(response.data)

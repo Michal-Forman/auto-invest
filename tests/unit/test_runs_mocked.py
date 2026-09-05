@@ -414,3 +414,36 @@ class TestRunExistsToday:
         result = Run.run_exists_today()
 
         assert result is True
+
+    def test_only_counts_scheduled_dca_runs(self, mocker: MockerFixture) -> None:
+        # A one-time invest must never suppress that day's scheduled DCA run.
+        _, mock_chain = _build_supabase_mock(mocker)
+        mock_chain.execute.return_value = MagicMock(data=[])
+
+        Run.run_exists_today(user_id="u1")
+
+        eq_calls = [c.args for c in mock_chain.eq.call_args_list]
+        assert ("investment_type", "dca") in eq_calls
+
+
+class TestRecentOneTimeRunExists:
+    def test_true_when_a_recent_one_time_run_is_returned(
+        self, mocker: MockerFixture
+    ) -> None:
+        from datetime import timedelta
+
+        _, mock_chain = _build_supabase_mock(mocker)
+        mock_chain.execute.return_value = MagicMock(data=[{"id": "r1"}])
+
+        assert Run.recent_one_time_run_exists("u1", timedelta(minutes=2)) is True
+        eq_calls = [c.args for c in mock_chain.eq.call_args_list]
+        assert ("investment_type", "one_time") in eq_calls
+        assert ("user_id", "u1") in eq_calls
+
+    def test_false_when_nothing_returned(self, mocker: MockerFixture) -> None:
+        from datetime import timedelta
+
+        _, mock_chain = _build_supabase_mock(mocker)
+        mock_chain.execute.return_value = MagicMock(data=[])
+
+        assert Run.recent_one_time_run_exists("u1", timedelta(minutes=2)) is False

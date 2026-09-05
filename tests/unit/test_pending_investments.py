@@ -59,6 +59,9 @@ def _patch_common(mocker: MockerFixture, user: UserRecord = _USER_RECORD) -> Non
         "distribute_cash",
         return_value={"cash_distribution": {"VWCEd_EQ": Decimal("500")}},
     )
+    # No orders recorded against the run yet — the common case. Tests that exercise
+    # the idempotency / partial-placement paths override this.
+    mocker.patch("core.pending_investments.Order.get_orders_for_runs", return_value=[])
 
 
 class TestRetryOnePending:
@@ -238,6 +241,81 @@ class TestRetryOnePending:
         _retry_one(run)
 
         mock_mailer_class.assert_not_called()
+
+    def test_finalizes_without_replacing_when_orders_already_exist(
+        self, make_run: Callable[..., Run], make_order, mocker: MockerFixture
+    ) -> None:
+        _patch_common(mocker)
+        order = make_order(total_czk=Decimal("500"))
+        mocker.patch(
+            "core.pending_investments.Order.get_orders_for_runs",
+            return_value=[order],
+        )
+        mock_place = mocker.patch.object(Executor, "place_orders")
+        mock_confirmation = mocker.patch.object(Mailer, "send_investment_confirmation")
+        mock_funding = mocker.patch("core.pending_investments.one_time_funding_status")
+        run = make_run(
+            status="PENDING",
+            investment_type="one_time",
+            user_id="test-user-id",
+            started_at=datetime.now(timezone.utc),
+            distribution={"VWCEd_EQ": 500.0},
+            multipliers={"VWCEd_EQ": 1.0},
+        )
+        mock_update = mocker.patch.object(Run, "update_in_db")
+
+        _retry_one(run)
+
+        mock_place.assert_not_called()
+        mock_funding.assert_not_called()
+        update_arg: RunUpdate = mock_update.call_args[0][0]
+        assert update_arg.status == "FINISHED"
+        mock_confirmation.assert_called_once()
+
+    def test_partial_placement_marks_finished_not_failed(
+        self, make_run: Callable[..., Run], make_order, mocker: MockerFixture
+    ) -> None:
+        _patch_common(mocker)
+        mocker.patch(
+            "core.pending_investments.one_time_funding_status",
+            return_value=[
+                OneTimeFundingCheck(
+                    exchange="T212",
+                    available_czk=Decimal("5000"),
+                    one_time_czk=Decimal("500"),
+                    dca_reserve_czk=Decimal("500"),
+                )
+            ],
+        )
+        mocker.patch.object(
+            Executor,
+            "place_orders",
+            side_effect=RuntimeError("DB write failed after exchange order"),
+        )
+        order = make_order(total_czk=Decimal("500"))
+        # First call (idempotency guard) sees nothing; the post-failure call sees the
+        # order that did reach the exchange.
+        mocker.patch(
+            "core.pending_investments.Order.get_orders_for_runs",
+            side_effect=[[], [order]],
+        )
+        mock_error_alert = mocker.patch.object(Mailer, "send_error_alert")
+        run = make_run(
+            status="PENDING",
+            investment_type="one_time",
+            user_id="test-user-id",
+            started_at=datetime.now(timezone.utc),
+            distribution={"VWCEd_EQ": 500.0},
+            multipliers={"VWCEd_EQ": 1.0},
+        )
+        mock_update = mocker.patch.object(Run, "update_in_db")
+
+        _retry_one(run)
+
+        update_arg: RunUpdate = mock_update.call_args[0][0]
+        assert update_arg.status == "FINISHED"
+        mock_error_alert.assert_called_once()
+        assert "partially placed" in mock_error_alert.call_args.kwargs["banner_message"]
 
 
 class TestRetryPendingInvestments:

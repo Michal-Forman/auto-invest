@@ -9,7 +9,8 @@ import qrcode.constants  # type: ignore[import-untyped]
 
 def czech_account_to_iban(account: str) -> str:
     """Convert a Czech account number (e.g. '19-123456789/0800') to IBAN (e.g. 'CZ...')."""
-    number_part, bank_code = account.split("/")
+    number_part, bank_code = account.strip().split("/")
+    number_part, bank_code = number_part.strip(), bank_code.strip()
     if "-" in number_part:
         prefix, base_num = number_part.split("-")
     else:

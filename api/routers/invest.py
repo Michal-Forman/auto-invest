@@ -5,12 +5,13 @@ import math
 from typing import Dict, List, Optional, Tuple
 
 # Third-party
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
 # Local
 from api.dependencies import (
     get_coinmate_for_user,
     get_current_user_id,
+    get_mailer_for_user,
     get_t212_for_user,
     get_user_settings_for_user,
 )
@@ -27,6 +28,8 @@ from core.db.orders import Order
 from core.db.runs import Run, RunUpdate
 from core.executor import Executor
 from core.funding import OneTimeFundingCheck, one_time_funding_status
+from core.log import log
+from core.mailer import Mailer
 from core.pending_investments import PENDING_EXPIRY_DAYS
 from core.precision import quantize_czk, to_decimal
 from core.qr import qr_data_uri
@@ -34,6 +37,25 @@ from core.settings import UserSettings
 from core.trading212 import Trading212
 
 router = APIRouter()
+
+# A double-submitted POST /invest lands two runs of real orders; the client-side
+# disabled button is not enough. Reject a second one-time invest inside this window.
+_RECENT_INVEST_WINDOW = timedelta(minutes=2)
+
+
+def _safe_send_confirmation(
+    mailer: Mailer,
+    run: Run,
+    orders: List[Order],
+    cash_distribution: Dict[str, Decimal],
+    multipliers: Dict[str, Decimal],
+) -> None:
+    """Send the investment confirmation, swallowing any SMTP/DB failure so a mail
+    problem never surfaces on the request that already placed the orders."""
+    try:
+        mailer.send_investment_confirmation(run, orders, cash_distribution, multipliers)
+    except Exception as e:  # noqa: BLE001 - best-effort notification
+        log.warning(f"Failed to send investment confirmation for run {run.id}: {e}")
 
 
 def _resolve_distribution(
@@ -118,6 +140,7 @@ def _place_immediately(
     cash_distribution: Dict[str, Decimal],
     multipliers: Dict[str, Decimal],
     run: Optional[Run] = None,
+    background_tasks: Optional[BackgroundTasks] = None,
 ) -> InvestResponse:
     """Create (unless `run` is already a pending one) and fill a run right now."""
     if run is None:
@@ -136,6 +159,19 @@ def _place_immediately(
 
     run_update: RunUpdate = Run.process_new_run_data(orders)
     run.update_in_db(run_update)
+
+    # Send the completion email off the request path — SMTP can block for seconds.
+    if background_tasks is not None:
+        mailer: Optional[Mailer] = get_mailer_for_user(user_id)
+        if mailer is not None:
+            background_tasks.add_task(
+                _safe_send_confirmation,
+                mailer,
+                run,
+                orders,
+                cash_distribution,
+                multipliers,
+            )
 
     return InvestResponse(
         run_id=str(run.id), total_czk=float(sum(o.total_czk for o in orders))
@@ -179,14 +215,25 @@ def check_funding(
 
 @router.post("/invest", response_model=InvestResponse)
 def place_investment(
+    background_tasks: BackgroundTasks,
     amount: float = 0,
     user_id: str = Depends(get_current_user_id),
 ) -> InvestResponse:
     """Place a one-time manual investment using ATH-adjusted distribution.
 
     Blocked with a 402 (no run/orders created) if either exchange can't cover
-    this investment plus a reserve for the next regular DCA run.
+    this investment plus a reserve for the next regular DCA run. Blocked with a
+    409 if a one-time invest was just placed or is pending.
     """
+    if Run.get_pending_runs(user_id=user_id) or Run.recent_one_time_run_exists(
+        user_id, _RECENT_INVEST_WINDOW
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="A one-time investment was just placed or is pending. "
+            "Check the Runs page.",
+        )
+
     user_settings = get_user_settings_for_user(user_id)
     invest_amount = amount if amount > 0 else user_settings.portfolio.invest_amount
 
@@ -202,11 +249,19 @@ def place_investment(
     if not funding.sufficient:
         raise HTTPException(status_code=402, detail=funding.model_dump())
 
-    return _place_immediately(user_id, t212, coinmate, cash_distribution, multipliers)
+    return _place_immediately(
+        user_id,
+        t212,
+        coinmate,
+        cash_distribution,
+        multipliers,
+        background_tasks=background_tasks,
+    )
 
 
 @router.post("/invest/pending", response_model=InvestOrPendingResponse)
 def register_pending_investment(
+    background_tasks: BackgroundTasks,
     amount: float = 0,
     user_id: str = Depends(get_current_user_id),
 ) -> InvestOrPendingResponse:
@@ -235,7 +290,12 @@ def register_pending_investment(
     )
     if funding.sufficient:
         invest = _place_immediately(
-            user_id, t212, coinmate, cash_distribution, multipliers
+            user_id,
+            t212,
+            coinmate,
+            cash_distribution,
+            multipliers,
+            background_tasks=background_tasks,
         )
         return InvestOrPendingResponse(placed=True, invest=invest)
 

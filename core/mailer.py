@@ -126,9 +126,24 @@ class Mailer:
         total_czk = sum(cash_distribution.values(), Decimal("0"))
         exchange_map: Dict[str, str] = {o.t212_ticker: o.exchange for o in orders}
 
+        is_one_time = run.investment_type == "one_time"
+        heading = (
+            "One-Time Investment Complete" if is_one_time else "Investment Complete"
+        )
+        subject = (
+            "✅ [auto-invest] One-time investment complete"
+            if is_one_time
+            else "✅ [auto-invest] Investment complete"
+        )
+        first_line = (
+            "One-time investment complete."
+            if is_one_time
+            else "Investment run complete."
+        )
+
         # Plain text
         plain_lines = [
-            "Investment run complete.",
+            first_line,
             "",
             f"Run ID:    {run.id}",
             f"Timestamp: {run.started_at.strftime('%Y-%m-%d %H:%M UTC')}",
@@ -167,6 +182,7 @@ class Mailer:
 
         run_id_short = str(run.id)[:8] + "…" if run.id else "—"
         html = self._load_template("investment_confirmation.html").substitute(
+            heading=heading,
             run_id_short=run_id_short,
             timestamp=run.started_at.strftime("%Y-%m-%d %H:%M UTC"),
             date_label=run.started_at.strftime("%B %-d, %Y"),
@@ -175,7 +191,7 @@ class Mailer:
         )
 
         self._send(
-            "✅ [auto-invest] Investment complete",
+            subject,
             "\n".join(plain_lines),
             html,
             mail_type="investment_confirmation",
@@ -227,14 +243,24 @@ class Mailer:
             mail_type="btc_withdrawal_confirmation",
         )
 
-    def send_error_alert(self, error: Exception, run: Optional[Run] = None) -> None:
-        """Send error alert email when an investment run fails."""
+    def send_error_alert(
+        self,
+        error: Exception,
+        run: Optional[Run] = None,
+        banner_message: Optional[str] = None,
+    ) -> None:
+        """Send error alert email when an investment run fails.
+
+        `banner_message` overrides the default headline, e.g. to say a one-time
+        investment failed and will not be retried.
+        """
         traceback_str = tb.format_exc()
-        banner_message = (
-            "An error occurred during the investment run."
-            if run
-            else "An unexpected error occurred."
-        )
+        if banner_message is None:
+            banner_message = (
+                "An error occurred during the investment run."
+                if run
+                else "An unexpected error occurred."
+            )
 
         # Plain text
         plain_lines = [banner_message, ""]
@@ -625,8 +651,8 @@ class Mailer:
         now = datetime.now(timezone.utc)
         date_label = now.strftime("%B %-d, %Y")
 
-        subject = "⚠️ [auto-invest] Pending investment expired"
-        heading = "Pending Investment Expired"
+        subject = "⚠️ [auto-invest] One-time investment expired — never funded"
+        heading = "One-Time Investment Expired"
         banner_title = (
             "Your one-time investment was never fully funded, so it was cancelled."
         )

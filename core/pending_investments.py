@@ -63,6 +63,26 @@ def _retry_one(run: Run) -> None:
     multipliers: Dict[str, Decimal] = {
         ticker: to_decimal(mult) for ticker, mult in (run.multipliers or {}).items()
     }
+
+    # Idempotency guard: a prior attempt may have placed orders on the exchanges and
+    # then crashed before moving the run off PENDING. The order idempotency key depends
+    # on the live share quantity, so re-placing would NOT be deduped — it would spend
+    # real money twice. Finalize from what's already recorded instead.
+    existing: List[Order] = Order.get_orders_for_runs(
+        [str(run.id)], user_id=run.user_id
+    )
+    if existing:
+        log.warning(
+            f"Run {run.id} already has {len(existing)} orders; "
+            "finalizing without re-placing"
+        )
+        run.update_in_db(Run.process_new_run_data(existing))
+        if mailer:
+            mailer.send_investment_confirmation(
+                run, existing, cash_distribution, multipliers
+            )
+        return
+
     dca_reserve: Dict[str, Decimal] = Instruments(
         t212, coinmate, user_settings.portfolio
     ).distribute_cash()["cash_distribution"]
@@ -80,13 +100,32 @@ def _retry_one(run: Run) -> None:
         )
     except Exception as e:
         log.error(f"Failed to place pending investment for run {run.id}: {e}")
-        run.update_in_db(
-            RunUpdate(
-                status="FAILED", error=str(e), finished_at=datetime.now(timezone.utc)
-            )
+        placed: List[Order] = Order.get_orders_for_runs(
+            [str(run.id)], user_id=run.user_id
         )
+        if placed:
+            # Some orders reached the exchanges before the failure. Record them as a
+            # FINISHED run so reconciliation counts the money — burying them under
+            # FAILED hides real fills from every report.
+            run.update_in_db(Run.process_new_run_data(placed))
+            banner = (
+                "Your one-time investment was only partially placed. Some orders may "
+                "not have been recorded — check your exchange accounts."
+            )
+        else:
+            run.update_in_db(
+                RunUpdate(
+                    status="FAILED",
+                    error=str(e),
+                    finished_at=datetime.now(timezone.utc),
+                )
+            )
+            banner = (
+                "Your one-time investment could not be placed. It will not be "
+                "retried — place it again from the app when you're ready."
+            )
         if mailer:
-            mailer.send_error_alert(e, run)
+            mailer.send_error_alert(e, run, banner_message=banner)
         return
 
     run.update_in_db(Run.process_new_run_data(orders))

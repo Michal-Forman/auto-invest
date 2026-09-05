@@ -48,6 +48,13 @@ def _patch_common(
     mock_coinmate.balance.return_value = Decimal(coinmate_balance)
     mocker.patch("api.routers.invest.get_coinmate_for_user", return_value=mock_coinmate)
 
+    # Dedup guard + confirmation email: quiet by default, overridden per test.
+    mocker.patch(
+        "api.routers.invest.Run.recent_one_time_run_exists", return_value=False
+    )
+    mocker.patch("api.routers.invest.Run.get_pending_runs", return_value=[])
+    mocker.patch("api.routers.invest.get_mailer_for_user", return_value=None)
+
 
 def _patch_deposit_config(
     mocker: MockerFixture,
@@ -186,6 +193,40 @@ def test_place_investment_proceeds_when_sufficient(mocker: MockerFixture) -> Non
     assert resp.status_code == 200
     assert resp.json()["run_id"] == "run-1"
     mock_run.update_in_db.assert_called_once()
+
+
+def test_place_investment_409_when_one_time_run_just_placed(
+    mocker: MockerFixture,
+) -> None:
+    _patch_common(mocker, t212_balance="10000", coinmate_balance="2000")
+    mocker.patch("api.routers.invest.Run.recent_one_time_run_exists", return_value=True)
+    mock_create_run = mocker.patch("api.routers.invest.Run.create_run")
+
+    resp = client.post("/invest?amount=1000")
+
+    assert resp.status_code == 409
+    mock_create_run.assert_not_called()
+
+
+def test_place_investment_sends_confirmation_email_when_notifications_on(
+    mocker: MockerFixture,
+) -> None:
+    _patch_common(mocker, t212_balance="10000", coinmate_balance="2000")
+    mock_mailer = MagicMock()
+    mocker.patch("api.routers.invest.get_mailer_for_user", return_value=mock_mailer)
+
+    mock_run = MagicMock()
+    mock_run.id = "run-1"
+    mocker.patch("api.routers.invest.Run.create_run", return_value=mock_run)
+    mocker.patch("api.routers.invest.Run.process_new_run_data")
+    mock_order = MagicMock()
+    mock_order.total_czk = 1000
+    mocker.patch.object(Executor, "place_orders", return_value=[mock_order])
+
+    resp = client.post("/invest?amount=1000")
+
+    assert resp.status_code == 200
+    mock_mailer.send_investment_confirmation.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
