@@ -133,7 +133,7 @@ export function RunHistory() {
                     <TableRow
                       key={run.id}
                       className="cursor-pointer"
-                      onClick={() => navigate(`/runs/${run.id}`)}
+                      onClick={() => navigate(`/app/runs/${run.id}`)}
                     >
                       <TableCell>
                         {new Date(run.created_at).toLocaleDateString("en-GB", {

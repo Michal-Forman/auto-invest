@@ -36,8 +36,10 @@ export default function App() {
                 <Route path="invest" element={<Invest />} />
                 <Route path="analytics" element={<Analytics />} />
                 <Route path="profile" element={<Profile />} />
+                <Route path="*" element={<Navigate to="/app" replace />} />
               </Route>
             </Route>
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
       </AuthProvider>
