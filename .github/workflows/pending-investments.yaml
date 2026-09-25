@@ -1,0 +1,41 @@
+name: retry pending investments
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 * * * *' # hourly
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment: Main
+
+    steps:
+
+      - name: checkout repo content
+        uses: actions/checkout@v2 # checkout the repository content to github runner
+
+      - name: setup python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11' # install the python version needed
+
+      - name: install python packages
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: execute pending investments sweep
+        env:
+          # secrets
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
+
+          # environment variables
+          LOG_LEVEL: ${{ vars.LOG_LEVEL }}
+          ENV: ${{ vars.ENV }}
+          MY_MAIL: ${{ vars.MY_MAIL }}
+          MAIL_HOST: ${{ vars.MAIL_HOST }}
+          MAIL_PORT: ${{ vars.MAIL_PORT }}
+        run: python -m core.pending_investments
