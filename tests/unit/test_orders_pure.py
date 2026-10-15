@@ -1,7 +1,7 @@
 # Standard library
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, List
 from uuid import UUID
 
 # Third-party
@@ -94,7 +94,7 @@ class TestProcessNewT212Data:
         item: Dict[str, Any] = {
             "order": {"status": "CANCELLED", "filledQuantity": 0.0},
         }
-        update = Order._process_new_t212_data(item)
+        update = Order._process_new_t212_data([item])
         assert update.status == "CANCELLED"
 
     def test_filled_status_with_fill(self) -> None:
@@ -110,7 +110,7 @@ class TestProcessNewT212Data:
                 "price": 100.0,
             },
         }
-        update = Order._process_new_t212_data(item)
+        update = Order._process_new_t212_data([item])
         assert update.status == "FILLED"
         assert update.fill_fx_rate == Decimal("25")  # 1 / 0.04
         assert update.filled_total_czk == Decimal("250")
@@ -122,8 +122,67 @@ class TestProcessNewT212Data:
         item: Dict[str, Any] = {
             "order": {"status": "FILLED", "filledQuantity": 0.0},
         }
-        update = Order._process_new_t212_data(item)
+        update = Order._process_new_t212_data([item])
         assert update.status == "SUBMITTED"
         assert update.fill_fx_rate is None
         assert update.filled_total_czk is None
         assert update.filled_total is None
+
+    def test_split_fills_are_merged(self) -> None:
+        """Real live data: T212 filled one order as two fills, the small one without any fee."""
+        order: Dict[str, Any] = {
+            "id": 58419635792,
+            "status": "FILLED",
+            "filledQuantity": 0.013,
+        }
+        items: List[Dict[str, Any]] = [
+            {
+                "order": order,
+                "fill": {
+                    "quantity": 0.00047698,
+                    "price": 244.55,
+                    "filledAt": "2026-10-06T07:04:54.000Z",
+                    "walletImpact": {
+                        "netValue": 2.85,
+                        "fxRate": 0.04092823,
+                        "taxes": [],
+                    },
+                },
+            },
+            {
+                "order": order,
+                "fill": {
+                    "quantity": 0.01252302,
+                    "price": 244.55,
+                    "filledAt": "2026-10-06T07:04:54.000Z",
+                    "walletImpact": {
+                        "netValue": 75.0,
+                        "fxRate": 0.04089337,
+                        "taxes": [{"quantity": -0.11, "currency": "CZK"}],
+                    },
+                },
+            },
+        ]
+        update = Order._process_new_t212_data(items)
+        assert update.status == "FILLED"
+        assert update.filled_quantity == Decimal("0.013")
+        assert update.filled_total_czk == Decimal("77.85")
+        assert update.fee == Decimal("0.11")
+        assert update.fee_currency == "CZK"
+        assert update.fill_price == Decimal("244.55")
+        assert update.filled_total == pytest.approx(
+            Decimal("3.1836"), abs=Decimal("0.0001")
+        )
+
+    def test_fill_without_taxes_has_zero_fee(self) -> None:
+        item: Dict[str, Any] = {
+            "order": {"status": "FILLED", "filledQuantity": 1.0},
+            "fill": {
+                "walletImpact": {"fxRate": 0.04, "taxes": [], "netValue": 100.0},
+                "filledAt": "2026-03-03T09:00:00Z",
+                "price": 4.0,
+            },
+        }
+        update = Order._process_new_t212_data([item])
+        assert update.fee == Decimal("0")
+        assert update.fee_czk == Decimal("0")
