@@ -1,4 +1,5 @@
 # Standard library
+from dataclasses import replace
 from decimal import Decimal
 from unittest.mock import MagicMock
 from uuid import UUID
@@ -70,6 +71,49 @@ class TestMain:
                 raise RuntimeError("boom")
 
         mock_run = mocker.patch("core.cron.run_for_user", side_effect=_side_effect)
+
+        mocker.patch("core.cron.Mailer")
+
+        main()  # must not raise
+
+        assert mock_run.call_count == 2
+
+    def test_crash_sends_error_alert(self, mocker: MockerFixture) -> None:
+        """An exception escaping run_for_user is emailed to the user, not just logged."""
+        user = _make_user("user-1")
+        mocker.patch("core.cron.UserRecord.get_cron_users", return_value=[user])
+        error = IndexError("list index out of range")
+        mocker.patch("core.cron.run_for_user", side_effect=error)
+        mock_mailer_cls = mocker.patch("core.cron.Mailer")
+
+        main()
+
+        mock_mailer_cls.return_value.send_error_alert.assert_called_once_with(error)
+
+    def test_crash_alert_respects_disabled_notifications(
+        self, mocker: MockerFixture
+    ) -> None:
+        user = replace(_make_user("user-1"), notifications_enabled=False)
+        mocker.patch("core.cron.UserRecord.get_cron_users", return_value=[user])
+        mocker.patch("core.cron.run_for_user", side_effect=RuntimeError("boom"))
+        mock_mailer_cls = mocker.patch("core.cron.Mailer")
+
+        main()
+
+        mock_mailer_cls.assert_not_called()
+
+    def test_failed_crash_alert_does_not_stop_other_users(
+        self, mocker: MockerFixture
+    ) -> None:
+        """If sending the alert itself fails (e.g. SMTP down), the next user still runs."""
+        user1 = _make_user("user-1")
+        user2 = _make_user("user-2")
+        mocker.patch("core.cron.UserRecord.get_cron_users", return_value=[user1, user2])
+        mock_run = mocker.patch(
+            "core.cron.run_for_user", side_effect=RuntimeError("boom")
+        )
+        mock_mailer_cls = mocker.patch("core.cron.Mailer")
+        mock_mailer_cls.return_value.send_error_alert.side_effect = OSError("smtp")
 
         main()  # must not raise
 

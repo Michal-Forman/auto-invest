@@ -80,10 +80,16 @@ def run_for_user(user: UserRecord) -> None:
         log.info("No BTC Withdrawal should take place")
 
     # --- Update old investment data in db ---
+    # A failure here must not block today's investment, so it is reported and skipped.
     log.info("Start updating old Orders and Runs")
-    Order.update_orders(t212, coinmate, user_id=user_id)
-    Run.update_runs(user_id=user_id)
-    log.info("Finished updating old Orders and Runs")
+    try:
+        Order.update_orders(t212, coinmate, user_id=user_id)
+        Run.update_runs(user_id=user_id)
+        log.info("Finished updating old Orders and Runs")
+    except Exception as e:
+        log.error(f"Failed to update old Orders and Runs for {user_id}: {e}")
+        if mailer:
+            mailer.send_error_alert(e)
 
     investing_today: bool = is_now_cron_time(
         user_settings.portfolio.invest_interval
@@ -226,6 +232,20 @@ def run_for_user(user: UserRecord) -> None:
                 mailer.send_error_alert(e)
 
 
+def send_crash_alert(user: UserRecord, error: Exception) -> None:
+    """Email the user about a crash that escaped run_for_user's own guarded steps.
+
+    Must be called from inside the `except` block so the traceback is captured. Never
+    raises: a failure to alert must not stop the remaining users from running.
+    """
+    if not user.notifications_enabled:
+        return
+    try:
+        Mailer(UserSettings.from_user(user)).send_error_alert(error)
+    except Exception as mail_err:
+        log.error(f"Also failed to send crash alert for {user.id}: {mail_err}")
+
+
 def main() -> None:
     """Run investment cycle for all cron-enabled users."""
     log.info("Starting Main script")
@@ -237,6 +257,7 @@ def main() -> None:
             run_for_user(user)
         except Exception as e:
             log.error(f"Cron failed for user {user.id}: {e}")
+            send_crash_alert(user, e)
 
     log.info("Main script finished")
 

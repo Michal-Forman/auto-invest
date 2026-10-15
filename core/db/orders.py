@@ -308,17 +308,15 @@ class Order(BaseDBModel):
                     unresolved_orders.append(order)
 
             else:
-                items: List[Dict[str, Any]] = t212_history_data
-                matched_item: Optional[Dict[str, Any]] = next(
-                    (
-                        item
-                        for item in items
-                        if str(item["order"]["id"]) == str(order.external_order_id)
-                    ),
-                    None,
-                )
-                if matched_item:
-                    order_update = cls._process_new_t212_data(matched_item)
+                # T212 returns one history item per fill, so a split order appears
+                # several times and every fill must be merged.
+                matched_items: List[Dict[str, Any]] = [
+                    item
+                    for item in t212_history_data
+                    if str(item["order"]["id"]) == str(order.external_order_id)
+                ]
+                if matched_items:
+                    order_update = cls._process_new_t212_data(matched_items)
                 elif order.external_order_id:
                     equity_resp: Dict[str, Any] = t212.equity_order(
                         int(order.external_order_id)
@@ -356,35 +354,72 @@ class Order(BaseDBModel):
         )
 
     @staticmethod
-    def _process_new_t212_data(item: Dict[str, Any]) -> OrderUpdate:
-        """Parse a T212 order history item into an OrderUpdate with fill details, fees, and FX rate."""
-        order: Dict[str, Any] = item["order"]
-        fill: Optional[Dict[str, Any]] = item.get("fill")
+    def _process_new_t212_data(items: List[Dict[str, Any]]) -> OrderUpdate:
+        """Merge the T212 history items of one order (one per fill) into an OrderUpdate with fill details, fees, and FX rate."""
+        order: Dict[str, Any] = items[0]["order"]
+        fills: List[Dict[str, Any]] = [i["fill"] for i in items if i.get("fill")]
 
         status: Status
         if order["status"] == "CANCELLED":
             status = "CANCELLED"
-        elif fill is not None:
+        elif fills:
             status = "FILLED"
         else:
             status = "SUBMITTED"
 
-        filled_total = order.get("filledValue")
-        if filled_total is None:
-            filled_total = order.get("walletImpact", {}).get("netValue")
-
-        if fill is not None:
-            wallet_impact: Dict[str, Any] = fill["walletImpact"]
-            filled_at = fill.get("filledAt")
-            fill_fx_rate: Decimal = Decimal("1") / to_decimal(wallet_impact["fxRate"])
-            fee: Decimal = abs(to_decimal(wallet_impact["taxes"][0]["quantity"]))
-            fee_currency = wallet_impact["taxes"][0]["currency"]
-            fee_czk: Optional[Decimal] = fee if fee_currency == "CZK" else None
-            filled_total_czk: Decimal = to_decimal(wallet_impact["netValue"])
-            filled_total_d: Decimal = filled_total_czk / fill_fx_rate
-            fill_price: Optional[Decimal] = (
-                to_decimal(fill["price"]) if fill.get("price") is not None else None
+        if fills:
+            filled_at = max(f["filledAt"] for f in fills if f.get("filledAt"))
+            filled_total_czk: Decimal = sum(
+                (to_decimal(f["walletImpact"]["netValue"]) for f in fills),
+                Decimal("0"),
             )
+            # fxRate is instrument currency per CZK, so this sums the instrument-currency value
+            filled_total_d: Decimal = sum(
+                (
+                    to_decimal(f["walletImpact"]["netValue"])
+                    * to_decimal(f["walletImpact"]["fxRate"])
+                    for f in fills
+                ),
+                Decimal("0"),
+            )
+            fill_fx_rate: Decimal = (
+                filled_total_czk / filled_total_d
+                if filled_total_d
+                else Decimal("1") / to_decimal(fills[0]["walletImpact"]["fxRate"])
+            )
+
+            # Small fills can carry no conversion fee at all (empty taxes list)
+            taxes: List[Dict[str, Any]] = [
+                t for f in fills for t in f["walletImpact"].get("taxes") or []
+            ]
+            fee: Decimal = sum(
+                (abs(to_decimal(t["quantity"])) for t in taxes), Decimal("0")
+            )
+            fee_currency: Optional[Currency] = taxes[0]["currency"] if taxes else "CZK"
+            fee_czk: Optional[Decimal] = fee if fee_currency == "CZK" else None
+
+            priced: List[Dict[str, Any]] = [
+                f for f in fills if f.get("price") is not None and f.get("quantity")
+            ]
+            priced_qty: Decimal = sum(
+                (to_decimal(f["quantity"]) for f in priced), Decimal("0")
+            )
+            fill_price: Optional[Decimal]
+            if len(fills) == 1 and fills[0].get("price") is not None:
+                fill_price = to_decimal(fills[0]["price"])
+            elif priced_qty > 0:
+                fill_price = (
+                    sum(
+                        (
+                            to_decimal(f["price"]) * to_decimal(f["quantity"])
+                            for f in priced
+                        ),
+                        Decimal("0"),
+                    )
+                    / priced_qty
+                )
+            else:
+                fill_price = None
         else:
             filled_at = None
             fill_fx_rate = None  # type: ignore[assignment]
